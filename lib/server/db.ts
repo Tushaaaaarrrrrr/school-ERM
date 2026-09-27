@@ -92,12 +92,22 @@ function schoolDatabaseFields(school: Partial<School>) {
     ...(school.name !== undefined && { name: school.name }),
     ...(school.code !== undefined && { code: school.code.trim().toUpperCase() }),
     ...(school.email !== undefined && { email: school.email }),
+    ...(school.admin_email !== undefined && { admin_email: school.admin_email?.trim().toLowerCase() }),
+    ...(school.admin_name !== undefined && { admin_name: school.admin_name }),
+    ...(school.admin_pin !== undefined && { admin_pin: school.admin_pin }),
+    ...(school.admin_pin_failed_attempts !== undefined && { admin_pin_failed_attempts: school.admin_pin_failed_attempts }),
+    ...(school.is_admin_pin_locked !== undefined && { is_admin_pin_locked: school.is_admin_pin_locked }),
     ...(school.phone !== undefined && { phone: school.phone }),
+    ...(school.school_contact_phone !== undefined && { school_contact_phone: school.school_contact_phone }),
+    ...(school.school_contact_alternate !== undefined && { school_contact_alternate: school.school_contact_alternate }),
+    ...(school.website !== undefined && { website: school.website }),
     ...(school.address !== undefined && { address: school.address }),
     ...(school.logo_url !== undefined && { logo_url: school.logo_url }),
     ...(school.timezone !== undefined && { timezone: school.timezone }),
     ...(school.school_hours !== undefined && { school_hours: school.school_hours }),
     ...(school.enabled_features !== undefined && { enabled_features: school.enabled_features }),
+    ...(school.security_question !== undefined && { security_question: school.security_question }),
+    ...(school.security_answer !== undefined && { security_answer: school.security_answer }),
     ...(school.status !== undefined && ['active', 'suspended', 'inactive'].includes(school.status) && { status: school.status }),
     updated_at: new Date().toISOString(),
   };
@@ -374,6 +384,50 @@ export const serverDb = {
         attempts++;
         const { data, error } = await supabase.from('schools').insert(payload).select().single();
         if (!error && data) {
+          if (cleanSchool.admin_email) {
+            try {
+              const cleanAdminEmail = cleanSchool.admin_email.trim().toLowerCase();
+              let { data: adminProf } = await supabase
+                .from('profiles')
+                .select('id')
+                .ilike('email', cleanAdminEmail)
+                .maybeSingle();
+
+              if (!adminProf?.id) {
+                const { data: newProf } = await supabase
+                  .from('profiles')
+                  .insert({
+                    email: cleanAdminEmail,
+                    display_name: cleanSchool.admin_name || `${cleanSchool.name} Administrator`,
+                    role: 'school_admin',
+                    school_id: data.id,
+                    status: 'active',
+                  })
+                  .select('id')
+                  .maybeSingle();
+                adminProf = newProf;
+              }
+
+              if (adminProf?.id) {
+                await supabase.from('school_memberships').upsert({
+                  user_id: adminProf.id,
+                  school_id: data.id,
+                  role: 'school_admin',
+                  status: 'active',
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id,school_id' });
+
+                await supabase.from('profiles').update({
+                  role: 'school_admin',
+                  school_id: data.id,
+                  updated_at: new Date().toISOString(),
+                }).eq('id', adminProf.id);
+              }
+            } catch (linkErr) {
+              console.warn('Could not auto-link admin membership upon school creation:', linkErr);
+            }
+          }
+
           return {
             ...cleanSchool,
             ...data,
@@ -440,6 +494,50 @@ export const serverDb = {
         attempts++;
         const { data, error } = await supabase.from('schools').update(payload).eq('id', id).select().single();
         if (!error && data) {
+          if (updates.admin_email) {
+            try {
+              const cleanAdminEmail = updates.admin_email.trim().toLowerCase();
+              let { data: adminProf } = await supabase
+                .from('profiles')
+                .select('id')
+                .ilike('email', cleanAdminEmail)
+                .maybeSingle();
+
+              if (!adminProf?.id) {
+                const { data: newProf } = await supabase
+                  .from('profiles')
+                  .insert({
+                    email: cleanAdminEmail,
+                    display_name: fullUpdatedSchool.admin_name || `${fullUpdatedSchool.name} Administrator`,
+                    role: 'school_admin',
+                    school_id: id,
+                    status: 'active',
+                  })
+                  .select('id')
+                  .maybeSingle();
+                adminProf = newProf;
+              }
+
+              if (adminProf?.id) {
+                await supabase.from('school_memberships').upsert({
+                  user_id: adminProf.id,
+                  school_id: id,
+                  role: 'school_admin',
+                  status: 'active',
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id,school_id' });
+
+                await supabase.from('profiles').update({
+                  role: 'school_admin',
+                  school_id: id,
+                  updated_at: new Date().toISOString(),
+                }).eq('id', adminProf.id);
+              }
+            } catch (linkErr) {
+              console.warn('Could not auto-link admin membership upon school update:', linkErr);
+            }
+          }
+
           return {
             ...fullUpdatedSchool,
             ...data,

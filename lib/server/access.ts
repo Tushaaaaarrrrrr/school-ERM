@@ -16,10 +16,16 @@ export async function resolveAccessContext(supabase: any, user: any) {
   const name = String(user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0]);
   const adminClient = getServiceSupabase() || supabase;
 
+  const envSuperAdminEmails = (process.env.SUPER_ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
   const isSuperAdminEmail =
     email === 'pay.laxmikant@gmail.com' ||
     email === 'superadmin@platform.erp' ||
-    email === 'superadmin@schoolerp.com';
+    email === 'superadmin@schoolerp.com' ||
+    envSuperAdminEmails.includes(email);
 
   let profile: any = null;
   try {
@@ -113,6 +119,52 @@ export async function resolveAccessContext(supabase: any, user: any) {
       school,
       profile,
     };
+  }
+
+  // 1. Direct school admin lookup by email (instant auto-link for any school)
+  try {
+    const { data: matchedAdminSchools } = await adminClient
+      .from('schools')
+      .select('*')
+      .ilike('admin_email', email)
+      .eq('status', 'active');
+
+    if (matchedAdminSchools && matchedAdminSchools.length > 0) {
+      const s = matchedAdminSchools[0];
+      await adminClient.from('school_memberships').upsert({
+        user_id: profile.id,
+        school_id: s.id,
+        role: 'school_admin',
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,school_id' });
+
+      await adminClient.from('profiles').update({
+        role: 'school_admin',
+        school_id: s.id,
+        updated_at: new Date().toISOString(),
+      }).eq('id', profile.id);
+
+      const adminPersona: UserPersona = {
+        id: profile.id,
+        name: s.admin_name || `${s.name} Administrator`,
+        email: email,
+        role: 'school_admin',
+        school_id: s.id,
+        school_name: s.name,
+        school_code: s.code,
+        permissions: [],
+      };
+      return {
+        authenticated: true as const,
+        state: 'ACTIVE_SCHOOL_USER' as AccessState,
+        user: adminPersona,
+        school: s,
+        profile: { ...profile, role: 'school_admin', school_id: s.id },
+      };
+    }
+  } catch (directAdminErr) {
+    console.warn('Direct admin_email lookup notice:', directAdminErr);
   }
 
   // Pre-registration sync from centralized server database

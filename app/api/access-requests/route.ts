@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAccessContext } from '@/lib/server/access';
 import { requireIdentity, getServiceSupabase } from '@/lib/server/auth';
 import { validateGmailDomain } from '@/lib/server/email-registry';
+import { serverDb } from '@/lib/server/db';
 
 export async function GET() {
   try {
@@ -47,14 +48,70 @@ export async function POST(request: Request) {
     if (!domainCheck.valid) return NextResponse.json({ error: domainCheck.error }, { status: 400 });
 
     const { schoolCode, name, phone, notes } = await request.json();
+    const cleanCode = String(schoolCode || '').trim().toUpperCase();
     const { supabase } = await requireIdentity();
-    const { data, error } = await supabase.rpc('submit_school_access_request', { p_school_code: String(schoolCode || ''), p_name: name || context.profile.display_name, p_phone: phone || '', p_notes: notes || '' });
-    if (error?.message.includes('school_not_found')) return NextResponse.json({ error: "We couldn't find a school with that ID." }, { status: 404 });
-    if (error?.message.includes('request_already_pending')) return NextResponse.json({ error: 'Your request is already waiting for approval.' }, { status: 409 });
-    if (error) throw error;
-    return NextResponse.json({ success: true, data }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "We couldn't submit your request right now. Please try again." }, { status: 500 });
+
+    let rpcError: any = null;
+    let rpcData: any = null;
+
+    try {
+      const res = await supabase.rpc('submit_school_access_request', {
+        p_school_code: cleanCode,
+        p_name: name || context.profile.display_name,
+        p_phone: phone || '',
+        p_notes: notes || '',
+      });
+      rpcData = res.data;
+      rpcError = res.error;
+    } catch (e: any) {
+      rpcError = e;
+    }
+
+    if (!rpcError && rpcData) {
+      return NextResponse.json({ success: true, data: rpcData }, { status: 201 });
+    }
+
+    if (rpcError?.message?.includes('school_not_found')) {
+      return NextResponse.json({ error: `School code "${cleanCode}" does not exist. Please check with your school administrator.` }, { status: 404 });
+    }
+    if (rpcError?.message?.includes('request_already_pending')) {
+      return NextResponse.json({ error: 'Your request is already waiting for approval.' }, { status: 409 });
+    }
+
+    // Direct fallback if RPC is unavailable or encounters schema cache issues
+    const school = await serverDb.getSchoolByCode(cleanCode);
+    if (!school) {
+      return NextResponse.json({ error: `School code "${cleanCode}" does not exist. Please check with your school administrator.` }, { status: 404 });
+    }
+
+    const adminClient = getServiceSupabase() || supabase;
+    const { data: inserted, error: insertError } = await adminClient
+      .from('school_access_requests')
+      .insert({
+        user_id: context.profile.id,
+        school_id: school.id,
+        applicant_name: name || context.profile.display_name,
+        phone: phone || null,
+        applicant_notes: notes || null,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      if (
+        insertError.message?.includes('duplicate key') ||
+        insertError.message?.includes('unique constraint') ||
+        insertError.message?.includes('uq_one_pending_request_per_user')
+      ) {
+        return NextResponse.json({ error: 'Your request is already waiting for approval.' }, { status: 409 });
+      }
+      throw insertError;
+    }
+
+    return NextResponse.json({ success: true, data: inserted }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || "We couldn't submit your request right now. Please try again." }, { status: 500 });
   }
 }
 

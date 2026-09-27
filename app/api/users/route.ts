@@ -76,8 +76,26 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Only a Super Admin can directly assign a school.' }, { status: 403 });
     }
 
-    const allowed = ['school_admin', 'teacher', 'accountant', 'parent', 'student', 'staff', 'driver'];
+    const allowed = ['super_admin', 'school_admin', 'teacher', 'accountant', 'parent', 'student', 'staff', 'driver'];
     if (!allowed.includes(body.role)) return NextResponse.json({ error: 'Invalid school role' }, { status: 400 });
+
+    if (body.role === 'super_admin') {
+      await adminClient.from('profiles').update({
+        display_name: body.name || undefined,
+        phone: body.phone || undefined,
+        status: body.status === 'disabled' ? 'disabled' : 'active',
+        school_id: null,
+        role: 'super_admin',
+        updated_at: new Date().toISOString(),
+      }).eq('id', body.userId);
+
+      await adminClient.from('school_memberships').update({
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+      }).eq('user_id', body.userId);
+
+      return NextResponse.json({ success: true });
+    }
 
     // 1. Try RPC assignment
     try {

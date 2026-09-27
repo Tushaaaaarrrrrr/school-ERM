@@ -57,7 +57,7 @@ export default function UsersPage() {
     setEditing(user);
     setName(user.display_name || '');
     setSchoolId(membership?.school_id || (schools[0]?.id || ''));
-    setRole(membership?.role || user.role || 'school_admin');
+    setRole(user.role === 'super_admin' ? 'super_admin' : (membership?.role || user.role || 'school_admin'));
     setStatus(
       user.status === 'disabled'
         ? 'disabled'
@@ -160,13 +160,17 @@ export default function UsersPage() {
                         </span>
                       </td>
                       <td className="p-4 text-slate-700 font-medium">
-                        {m?.schools?.name || (
+                        {user.role === 'super_admin' ? (
+                          <span className="text-indigo-600 font-semibold">All Schools (Platform-wide)</span>
+                        ) : m?.schools?.name ? (
+                          m.schools.name
+                        ) : (
                           <span className="text-slate-400 italic">No School Assigned</span>
                         )}
                       </td>
                       <td className="p-4">
-                        <span className="capitalize font-semibold text-slate-800">
-                          {m?.role?.replace('_', ' ') || user.role?.replace('_', ' ') || 'None'}
+                        <span className={`capitalize font-semibold ${user.role === 'super_admin' ? 'text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-xs' : 'text-slate-800'}`}>
+                          {user.role === 'super_admin' ? 'Super Admin' : (m?.role?.replace('_', ' ') || user.role?.replace('_', ' ') || 'None')}
                         </span>
                       </td>
                       <td className="p-4 text-right">
@@ -207,24 +211,6 @@ export default function UsersPage() {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                School
-              </label>
-              <select
-                className="w-full text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-indigo-500"
-                value={schoolId}
-                onChange={(e) => setSchoolId(e.target.value)}
-              >
-                <option value="">Choose school</option>
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                 Role
               </label>
               <select
@@ -232,13 +218,37 @@ export default function UsersPage() {
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               >
-                {['school_admin', 'teacher', 'staff', 'accountant', 'driver', 'parent'].map((r) => (
+                {['super_admin', 'school_admin', 'teacher', 'staff', 'accountant', 'driver', 'parent'].map((r) => (
                   <option key={r} value={r}>
-                    {r.replace('_', ' ')}
+                    {r === 'super_admin' ? 'Super Admin (Global Platform Access)' : r.replace('_', ' ')}
                   </option>
                 ))}
               </select>
             </div>
+
+            {role !== 'super_admin' ? (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  School
+                </label>
+                <select
+                  className="w-full text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-indigo-500"
+                  value={schoolId}
+                  onChange={(e) => setSchoolId(e.target.value)}
+                >
+                  <option value="">Choose school</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-700">
+                Super Admins automatically have unrestricted global access across all schools.
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -275,7 +285,7 @@ export default function UsersPage() {
                 size="sm"
                 onClick={save}
                 isLoading={isSaving}
-                disabled={!schoolId}
+                disabled={role !== 'super_admin' && !schoolId}
               >
                 Save Access
               </Button>

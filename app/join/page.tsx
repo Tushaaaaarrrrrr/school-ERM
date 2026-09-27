@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Building2, Clock, LogOut, ShieldCheck, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
 
 export default function JoinSchoolPage() {
   const router = useRouter();
@@ -56,20 +57,15 @@ export default function JoinSchoolPage() {
       return;
     }
 
+    const formatValidation = validateSchoolCodeFormat(cleanCode);
+    if (!formatValidation.isValid) {
+      setError(formatValidation.error || 'Please enter a valid school code format.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      // 1. Verify school code exists via server API (not stale local cache)
-      const checkRes = await fetch(`/api/schools/check-code?code=${encodeURIComponent(cleanCode)}`);
-      const checkData = await checkRes.json();
-
-      // available=true means NO school with this code → code is wrong for joining
-      // available=false means school EXISTS → valid code to join
-      if (!checkRes.ok || !checkData.valid || checkData.available) {
-        setError(`School code "${cleanCode}" is wrong or does not exist. Please check with your school administrator.`);
-        setSubmitting(false);
-        return;
-      }
-
-      // 2. Submit access request to server
+      // Submit access request directly to server
       const response = await fetch('/api/access-requests', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
