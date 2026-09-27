@@ -1,0 +1,237 @@
+import '../models/user_model.dart';
+import '../models/student_model.dart';
+import '../models/fee_model.dart';
+import '../models/exam_model.dart';
+import '../models/transport_model.dart';
+import '../models/notice_model.dart';
+
+class MockData {
+  static const List<UserModel> demoUsers = [
+    UserModel(
+      id: 'usr_teacher_1',
+      name: 'Rajesh Sharma',
+      email: 'rajesh.sharma@school.edu',
+      role: UserRole.teacher,
+      schoolId: 'sch_1',
+      schoolName: 'Delhi Public Academy',
+      schoolCode: 'DPA-001',
+      loginId: 'TCH-1002',
+    ),
+    UserModel(
+      id: 'usr_student_1',
+      name: 'Rahul Verma',
+      email: 'rahul.verma@student.edu',
+      role: UserRole.student,
+      schoolId: 'sch_1',
+      schoolName: 'Delhi Public Academy',
+      schoolCode: 'DPA-001',
+      loginId: 'STU-8821',
+    ),
+    UserModel(
+      id: 'usr_parent_1',
+      name: 'Vikram Verma (Parent)',
+      email: 'vikram.verma@gmail.com',
+      role: UserRole.parent,
+      schoolId: 'sch_1',
+      schoolName: 'Delhi Public Academy',
+      schoolCode: 'DPA-001',
+      loginId: 'PAR-4402',
+    ),
+    UserModel(
+      id: 'usr_driver_1',
+      name: 'Gurmeet Singh (Driver)',
+      email: 'gurmeet.transport@school.edu',
+      role: UserRole.driver,
+      schoolId: 'sch_1',
+      schoolName: 'Delhi Public Academy',
+      schoolCode: 'DPA-001',
+      loginId: 'DRV-08',
+    ),
+    UserModel(
+      id: 'usr_admin_1',
+      name: 'Principal Anita Roy',
+      email: 'anita.principal@school.edu',
+      role: UserRole.schoolAdmin,
+      schoolId: 'sch_1',
+      schoolName: 'Delhi Public Academy',
+      schoolCode: 'DPA-001',
+      loginId: 'ADM-01',
+    ),
+  ];
+
+  static final List<StudentModel> studentsClass10A = [
+    const StudentModel(
+      id: 'stu_1',
+      fullName: 'Aarav Gupta',
+      admissionNumber: 'ADM-2024-001',
+      rollNumber: '101',
+      className: 'Class 10',
+      section: 'A',
+      gender: 'Male',
+      parentName: 'Sanjay Gupta',
+      parentPhone: '+91 98765 43210',
+      busRouteNumber: 'Route 4',
+      busStopName: 'Green Park Metro',
+      attendancePercentage: 96.0,
+    ),
+    const StudentModel(
+      id: 'stu_2',
+      fullName: 'Ananya Iyer',
+      admissionNumber: 'ADM-2024-002',
+      rollNumber: '102',
+      className: 'Class 10',
+      section: 'A',
+      gender: 'Female',
+      parentName: 'Raman Iyer',
+      parentPhone: '+91 98111 22334',
+      busRouteNumber: 'Route 4',
+      busStopName: 'Hauz Khas Market',
+      attendancePercentage: 98.5,
+    ),
+    const StudentModel(
+      id: 'stu_3',
+      fullName: 'Devansh Mehra',
+      admissionNumber: 'ADM-2024-003',
+      rollNumber: '103',
+      className: 'Class 10',
+      section: 'A',
+      gender: 'Male',
+      parentName: 'Sunil Mehra',
+      parentPhone: '+91 99887 66554',
+      busRouteNumber: 'Route 2',
+      busStopName: 'Saket City Center',
+      attendancePercentage: 88.0,
+    ),
+    const StudentModel(
+      id: 'stu_4',
+      fullName: 'Ishita Sharma',
+      admissionNumber: 'ADM-2024-004',
+      rollNumber: '104',
+      className: 'Class 10',
+      section: 'A',
+      gender: 'Female',
+      parentName: 'Alok Sharma',
+      parentPhone: '+91 97654 32109',
+      busRouteNumber: 'Route 4',
+      busStopName: 'South Ext Block C',
+      attendancePercentage: 94.0,
+    ),
+    const StudentModel(
+      id: 'stu_5',
+      fullName: 'Rahul Verma',
+      admissionNumber: 'ADM-2024-005',
+      rollNumber: '105',
+      className: 'Class 10',
+      section: 'A',
+      gender: 'Male',
+      parentName: 'Vikram Verma',
+      parentPhone: '+91 98712 34567',
+      busRouteNumber: 'Route 4',
+      busStopName: 'Lajpat Nagar Gate 2',
+      attendancePercentage: 95.2,
+    ),
+    const StudentModel(
+      id: 'stu_6',
+      fullName: 'Rhea Sen',
+      admissionNumber: 'ADM-2024-006',
+      rollNumber: '106',
+      className: 'Class 10',
+      section: 'A',
+      gender: 'Female',
+      parentName: 'Debjit Sen',
+      parentPhone: '+91 98223 34455',
+      busRouteNumber: 'Route 1',
+      busStopName: 'Defence Colony Main',
+      attendancePercentage: 91.0,
+    ),
+  ];
+
+  static final List<FeeInvoiceModel> studentInvoices = [
+    FeeInvoiceModel(
+      id: 'inv_101',
+      invoiceNumber: 'INV-2026-08',
+      month: 'August 2026',
+      amount: 4500,
+      paidAmount: 4500,
+      dueDate: DateTime(2026, 8, 10),
+      status: FeeInvoiceStatus.paid,
+    ),
+    FeeInvoiceModel(
+      id: 'inv_102',
+      invoiceNumber: 'INV-2026-09',
+      month: 'September 2026',
+      amount: 4500,
+      paidAmount: 2000,
+      dueDate: DateTime(2026, 9, 10),
+      status: FeeInvoiceStatus.partial,
+    ),
+    FeeInvoiceModel(
+      id: 'inv_103',
+      invoiceNumber: 'INV-2026-10',
+      month: 'October 2026',
+      amount: 4500,
+      paidAmount: 0,
+      dueDate: DateTime(2026, 10, 10),
+      status: FeeInvoiceStatus.pending,
+    ),
+  ];
+
+  static final List<ExamResultModel> studentExamResults = [
+    ExamResultModel(
+      id: 'res_1',
+      examTitle: 'Term 1 Mid-Year Examination',
+      term: 'Term 1 (2026-27)',
+      publishedDate: DateTime(2026, 7, 25),
+      subjects: const [
+        SubjectMark(subjectName: 'Mathematics', marksObtained: 92, maxMarks: 100, grade: 'A+'),
+        SubjectMark(subjectName: 'Science & Physics', marksObtained: 88, maxMarks: 100, grade: 'A'),
+        SubjectMark(subjectName: 'English Literature', marksObtained: 85, maxMarks: 100, grade: 'A'),
+        SubjectMark(subjectName: 'Social Studies', marksObtained: 90, maxMarks: 100, grade: 'A+'),
+        SubjectMark(subjectName: 'Computer Science', marksObtained: 96, maxMarks: 100, grade: 'A+'),
+      ],
+    ),
+  ];
+
+  static const TransportRouteModel sampleRoute = TransportRouteModel(
+    routeNumber: 'Bus 04 (South Delhi Line)',
+    vehicleNumber: 'DL 01 AB 8842',
+    driverName: 'Gurmeet Singh',
+    driverPhone: '+91 98765 00112',
+    currentStatus: 'On Time • En Route to Hauz Khas',
+    stops: [
+      RouteStop(name: 'School Campus Depot', scheduledTime: '07:15 AM', isPassed: true),
+      RouteStop(name: 'Green Park Metro', scheduledTime: '07:30 AM', isPassed: true),
+      RouteStop(name: 'Hauz Khas Market', scheduledTime: '07:42 AM', isCurrent: true),
+      RouteStop(name: 'Lajpat Nagar Gate 2', scheduledTime: '07:55 AM'),
+      RouteStop(name: 'Defence Colony Circle', scheduledTime: '08:05 AM'),
+      RouteStop(name: 'School Main Gate Arrival', scheduledTime: '08:20 AM'),
+    ],
+  );
+
+  static final List<NoticeModel> schoolNotices = [
+    NoticeModel(
+      id: 'not_1',
+      title: 'Annual Sports Meet 2026 Dates Announced',
+      content: 'The Inter-School Athletic Meet is scheduled from Oct 12-14. Track registration is open with PE teachers.',
+      category: 'Events',
+      date: DateTime(2026, 8, 20),
+      isUrgent: false,
+    ),
+    NoticeModel(
+      id: 'not_2',
+      title: 'Janmashtami School Holiday Notice',
+      content: 'The school will remain closed on Wednesday, 26th August on the auspicious occasion of Janmashtami.',
+      category: 'Holiday',
+      date: DateTime(2026, 8, 22),
+      isUrgent: true,
+    ),
+    NoticeModel(
+      id: 'not_3',
+      title: 'Fee Payment Reminders for Q2',
+      content: 'Parents are kindly requested to clear pending September installments before the 10th to avoid late fee penalties.',
+      category: 'Accounts',
+      date: DateTime(2026, 8, 18),
+      isUrgent: false,
+    ),
+  ];
+}
