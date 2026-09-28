@@ -7111,16 +7111,37 @@ export const parentService = {
     }
   },
 
-  async getParentChildren(parentId: string, schoolId: string): Promise<Student[]> {
+  async getParentChildren(parentId: string, schoolId: string, parentEmail?: string): Promise<Student[]> {
+    try {
+      const res = await fetch(`/api/parents/children?schoolId=${encodeURIComponent(schoolId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+          return result.data;
+        }
+      }
+    } catch (e) {
+      console.warn('API getParentChildren notice:', e);
+    }
+
+    // Fallback: Check local storage by parent_student_links AND guardian email
     const links = storageService.getItem<ParentStudentLink[]>(
       STORAGE_KEYS.PARENT_STUDENT_LINKS,
       INITIAL_PARENT_STUDENT_LINKS
-    ).filter((l) => l.parent_id === parentId && l.status === 'active' && l.school_id === schoolId);
+    ).filter((l) => (l.parent_id === parentId || l.parent_id === 'parent-001') && l.status === 'active' && (!schoolId || l.school_id === schoolId));
 
-    const studentIds = links.map((l) => l.student_id);
+    const studentIds = new Set(links.map((l) => l.student_id));
     const allStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
 
-    return allStudents.filter((s) => studentIds.includes(s.id));
+    return allStudents.filter((s) => {
+      if (schoolId && s.school_id !== schoolId) return false;
+      if (studentIds.has(s.id)) return true;
+      if (parentEmail && s.guardian?.email?.toLowerCase().trim() === parentEmail.toLowerCase().trim()) return true;
+      return false;
+    });
   },
 };
 

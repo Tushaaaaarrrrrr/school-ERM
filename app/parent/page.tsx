@@ -127,7 +127,7 @@ export default function ParentPortalPage() {
     const fetchChildren = async () => {
       setIsLoadingChildren(true);
       try {
-        const list = await parentService.getParentChildren(parentId, schoolId);
+        const list = await parentService.getParentChildren(parentId, schoolId, currentUser?.email);
         setChildren(list);
         if (list.length > 0) {
           // Persist or default to first child
@@ -142,7 +142,7 @@ export default function ParentPortalPage() {
       }
     };
     fetchChildren();
-  }, [parentId, schoolId]);
+  }, [parentId, schoolId, currentUser?.email]);
 
   const selectedChild = children.find((c) => c.id === selectedChildId) || children[0];
 
