@@ -39,6 +39,9 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+import { Suspense } from 'react';
+import { RouteLoadingIndicator } from '@/components/layout/route-loading-indicator';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -61,6 +64,9 @@ export default function RootLayout({
           <ToastProvider>
             <SafeAreaProvider />
             <AndroidBackButtonHandler />
+            <Suspense fallback={null}>
+              <RouteLoadingIndicator />
+            </Suspense>
             {children}
             <PwaRegister />
           </ToastProvider>
