@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils/cn';
+import { DateInput } from './date-input';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -11,7 +12,24 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, helperText, leftIcon, rightIcon, rightElement, id, ...props }, ref) => {
+  ({ className, label, error, helperText, leftIcon, rightIcon, rightElement, id, type, ...props }, ref) => {
+    if (type === 'date') {
+      return (
+        <DateInput
+          ref={ref}
+          id={id}
+          label={label}
+          error={error}
+          helperText={helperText}
+          leftIcon={leftIcon}
+          rightIcon={rightIcon}
+          rightElement={rightElement}
+          className={className}
+          {...props}
+        />
+      );
+    }
+
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
