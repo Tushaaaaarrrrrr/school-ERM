@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { GoogleEmailInput } from '@/components/ui/google-email-input';
+import { IdentityProofsInput, IdentityProof } from '@/components/ui/identity-proofs-input';
 import { useToast } from '@/components/ui/toast';
 import {
   ArrowLeft,
@@ -52,6 +53,7 @@ export default function CreateStudentPage() {
   const [isParentEmailAvailable, setIsParentEmailAvailable] = useState<boolean | null>(true);
   const [isParentEmailChecking, setIsParentEmailChecking] = useState(false);
   const [customJoiningCharges, setCustomJoiningCharges] = useState<{ definitionId: string; name: string; amount: number; selected: boolean }[]>([]);
+  const [identityProofs, setIdentityProofs] = useState<IdentityProof[]>([]);
 
   // Sibling State
   const [hasSibling, setHasSibling] = useState(false);
@@ -372,7 +374,8 @@ export default function CreateStudentPage() {
         keep_parents_same: (hasSibling && selectedSibling) ? keepParentsSame : undefined,
         enable_login: formData.enableLogin,
         temporary_password: formData.temporaryPassword,
-      });
+        identity_proofs: identityProofs.length > 0 ? identityProofs : undefined,
+      } as any);
 
       // If school transport requested, assign route and stop
       if (formData.needsTransport && formData.transportRouteId && formData.transportStopId) {
@@ -411,7 +414,7 @@ export default function CreateStudentPage() {
   const currentClassSections = sections.filter((s) => s.class_id === formData.classId);
 
   return (
-    <div className="space-y-6 text-left max-w-4xl">
+    <div className="space-y-6 text-left">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
@@ -422,9 +425,6 @@ export default function CreateStudentPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Register New Student</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Create student profile, assign enrollment class/roll, guardian contacts, and login account
-          </p>
         </div>
       </div>
 
@@ -512,9 +512,17 @@ export default function CreateStudentPage() {
               label="Student Photo (Optional)"
               currentPhotoUrl={formData.photoUrl}
               onPhotoChange={(url) => setFormData((prev) => ({ ...prev, photoUrl: url || '' }))}
-              helperText="Recommended: 1:1 square photo (interactive cropper auto-opens)"
             />
           </div>
+        </div>
+
+        {/* Section: Government Identity Proofs */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+          <IdentityProofsInput
+            proofs={identityProofs}
+            onChange={setIdentityProofs}
+            title="Student Identity Proofs (Optional)"
+          />
         </div>
 
         {/* Section 2: Academic Enrollment */}
@@ -803,7 +811,6 @@ export default function CreateStudentPage() {
               onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
             />
           </div>
-          <p className="text-xs text-slate-500">Enter at least one: father, mother, or guardian name.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
@@ -816,7 +823,6 @@ export default function CreateStudentPage() {
               value={formData.primaryPhone}
               onChange={(e) => setFormData({ ...formData, primaryPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
               placeholder="9876543210"
-              helperText="Digits only (10–15 digits)"
             />
             <Input
               label="Secondary Phone"
@@ -840,7 +846,6 @@ export default function CreateStudentPage() {
                 setIsParentEmailChecking(checking);
               }}
               placeholder="parent.name@gmail.com"
-              helperText="Creates or links a parent account. Signs in with this Google account."
               id="parent-google-email-input"
             />
           </div>
@@ -860,7 +865,6 @@ export default function CreateStudentPage() {
             <Users2 className="w-5 h-5 text-rose-600" />
             <h3 className="text-sm font-bold text-slate-900">5. Emergency / Medical Details</h3>
           </div>
-          <p className="text-xs text-slate-500">Record only information provided by the student or guardian. Leave unknown details blank.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select label="Blood Group" value={formData.bloodGroup} onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}>
@@ -879,7 +883,7 @@ export default function CreateStudentPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input label="Emergency Contact Name" value={formData.emergencyContactName} onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })} />
             <Input label="Relationship" value={formData.emergencyContactRelationship} onChange={(e) => setFormData({ ...formData, emergencyContactRelationship: e.target.value })} placeholder="Mother, father, uncle…" />
-            <Input label="Emergency Contact Phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength={15} value={formData.emergencyContactPhone} onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })} placeholder="9876543210" helperText="Digits only (10–15 digits)" />
+            <Input label="Emergency Contact Phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength={15} value={formData.emergencyContactPhone} onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })} placeholder="9876543210" />
           </div>
 
           <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">

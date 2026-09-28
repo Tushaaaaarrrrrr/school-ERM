@@ -395,14 +395,15 @@ export default function AdminStaffPage() {
             <span>+ Assign Coverage</span>
           </Button>
 
-          <Button
-            variant="primary"
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Employee</span>
-          </Button>
+          <Link href="/admin/staff/new">
+            <Button
+              variant="primary"
+              className="flex items-center gap-2 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Employee</span>
+            </Button>
+          </Link>
         </div>
       </div>
 

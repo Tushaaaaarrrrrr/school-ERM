@@ -928,8 +928,22 @@ export const serverDb = {
       const payload: any = { ...data };
       const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
       if (payload.id && !isUuid(payload.id)) delete payload.id;
-      const { data: inserted, error } = await supabase.from('teachers').insert(payload).select().single();
-      if (!error && inserted) data = inserted as Teacher;
+      const validCols = [
+        'id', 'school_id', 'auth_user_id', 'employee_number', 'first_name', 'last_name',
+        'phone', 'email', 'joining_date', 'status', 'photo_url', 'designation', 'subjects',
+        'salary', 'security_pin', 'pin_failed_attempts', 'is_pin_locked'
+      ];
+      const filtered: any = {};
+      for (const c of validCols) {
+        if (payload[c] !== undefined) filtered[c] = payload[c];
+      }
+      try {
+        const { data: inserted, error } = await supabase.from('teachers').insert(filtered).select().single();
+        if (!error && inserted) data = { ...data, ...inserted };
+        else if (error) console.warn('Supabase teacher insert warning:', error);
+      } catch (err) {
+        console.warn('Supabase teacher insert exception:', err);
+      }
     }
     const db = initServerDb();
     if (!db.teachers) db.teachers = [];
@@ -998,14 +1012,23 @@ export const serverDb = {
       if (payload.id && !isUuid(payload.id)) {
         delete payload.id;
       }
-      if (payload.school_id && !isUuid(payload.school_id)) {
-        // preserve school_id if valid
+      const validCols = [
+        'id', 'school_id', 'auth_user_id', 'first_name', 'last_name', 'email', 'phone',
+        'staff_type', 'employee_number', 'joining_date', 'photo_url', 'status', 'permissions'
+      ];
+      const filtered: any = {};
+      for (const c of validCols) {
+        if (payload[c] !== undefined) filtered[c] = payload[c];
       }
-      const { data: inserted, error } = await supabase.from('staff').insert(payload).select().single();
-      if (!error && inserted) {
-        data = inserted as Staff;
-      } else if (error) {
-        console.warn('Supabase staff insert warning:', error);
+      try {
+        const { data: inserted, error } = await supabase.from('staff').insert(filtered).select().single();
+        if (!error && inserted) {
+          data = { ...data, ...inserted };
+        } else if (error) {
+          console.warn('Supabase staff insert warning:', error);
+        }
+      } catch (err) {
+        console.warn('Supabase staff insert exception:', err);
       }
     }
     const db = initServerDb();
@@ -1071,8 +1094,21 @@ export const serverDb = {
       const payload: any = { ...student };
       const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
       if (payload.id && !isUuid(payload.id)) delete payload.id;
-      const { data: inserted, error } = await supabase.from('students').insert(payload).select().single();
-      if (!error && inserted) student = inserted as Student;
+      const validCols = [
+        'id', 'school_id', 'auth_user_id', 'registration_number', 'first_name', 'last_name',
+        'date_of_birth', 'gender', 'joining_date', 'status', 'created_at', 'updated_at'
+      ];
+      const filtered: any = {};
+      for (const c of validCols) {
+        if (payload[c] !== undefined) filtered[c] = payload[c];
+      }
+      try {
+        const { data: inserted, error } = await supabase.from('students').insert(filtered).select().single();
+        if (!error && inserted) student = { ...student, ...inserted };
+        else if (error) console.warn('Supabase student insert warning:', error);
+      } catch (err) {
+        console.warn('Supabase student insert exception:', err);
+      }
     }
     const db = initServerDb();
     db.students.unshift(student);

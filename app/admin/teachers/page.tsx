@@ -102,6 +102,7 @@ export default function TeachersPage() {
   const [isEditEmailAvailable, setIsEditEmailAvailable] = useState<boolean | null>(true);
   const [isEditEmailChecking, setIsEditEmailChecking] = useState(false);
   const [editOriginalEmail, setEditOriginalEmail] = useState('');
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
 
   // Assignment Form
   const [assignmentData, setAssignmentData] = useState({
@@ -168,6 +169,7 @@ export default function TeachersPage() {
       monthlySalary: teacher.monthly_salary || 30000,
     });
     setEditOriginalEmail(teacher.email || '');
+    setIsEditingEmail(false);
     setIsEditEmailValid(true);
     setIsEditEmailAvailable(true);
     setIsEditEmailChecking(false);
@@ -187,7 +189,7 @@ export default function TeachersPage() {
       return;
     }
 
-    if (isEditEmailAvailable === false) {
+    if (isEditingEmail && isEditEmailAvailable === false) {
       toastError('This Google email is not available or registered to a conflicting account.');
       return;
     }
@@ -419,14 +421,15 @@ export default function TeachersPage() {
             + Assign Coverage
           </Button>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsAddModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            + Add Teacher
-          </Button>
+          <Link href="/admin/teachers/new">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              + Add Teacher
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -468,9 +471,11 @@ export default function TeachersPage() {
         <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
           <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-sm text-slate-500 mb-4">No teachers found matching criteria.</p>
-          <Button variant="primary" size="sm" onClick={() => setIsAddModalOpen(true)}>
-            Add First Teacher
-          </Button>
+          <Link href="/admin/teachers/new">
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+              Add First Teacher
+            </Button>
+          </Link>
         </div>
       ) : (
         <>
@@ -762,23 +767,64 @@ export default function TeachersPage() {
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <GoogleEmailInput
-                label="Teacher Google Email (For Sign-In)"
-                required
-                value={editForm.email}
-                onChange={(val) => setEditForm({ ...editForm, email: val })}
-                targetSchoolId={schoolId}
-                targetRole="teacher"
-                excludeEmail={editOriginalEmail}
-                onValidationChange={(valid, available, checking) => {
-                  setIsEditEmailValid(valid);
-                  setIsEditEmailAvailable(available);
-                  setIsEditEmailChecking(checking);
-                }}
-                placeholder="teacher.name@gmail.com"
-                helperText="Valid @gmail.com required for Google Sign-In"
-                id="teacher-edit-email-input"
-              />
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                  Teacher Google Email (For Sign-In) *
+                </label>
+                {!isEditingEmail && editForm.email ? (
+                  <div className="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-xs font-mono font-medium text-slate-800 truncate" title={editForm.email}>
+                        {editForm.email}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingEmail(true);
+                        setIsEditEmailAvailable(null);
+                      }}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 shrink-0 px-2 py-0.5 rounded hover:bg-indigo-50 transition-colors cursor-pointer"
+                    >
+                      Change Email
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <GoogleEmailInput
+                      label=""
+                      required
+                      value={editForm.email}
+                      onChange={(val) => setEditForm({ ...editForm, email: val })}
+                      targetSchoolId={schoolId}
+                      targetRole="teacher"
+                      excludeEmail={editOriginalEmail}
+                      onValidationChange={(valid, available, checking) => {
+                        setIsEditEmailValid(valid);
+                        setIsEditEmailAvailable(available);
+                        setIsEditEmailChecking(checking);
+                      }}
+                      placeholder="teacher.name@gmail.com"
+                      id="teacher-edit-email-input"
+                    />
+                    {isEditingEmail && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditForm({ ...editForm, email: editOriginalEmail });
+                          setIsEditingEmail(false);
+                          setIsEditEmailValid(true);
+                          setIsEditEmailAvailable(true);
+                        }}
+                        className="text-[10px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                      >
+                        Keep original email
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <Input
                 label="Phone Number"
                 required
@@ -802,7 +848,7 @@ export default function TeachersPage() {
                 type="submit"
                 variant="primary"
                 size="sm"
-                disabled={isEditEmailChecking || isEditEmailAvailable === false}
+                disabled={isEditEmailChecking || (isEditingEmail && isEditEmailAvailable === false)}
               >
                 Save Teacher Details
               </Button>
