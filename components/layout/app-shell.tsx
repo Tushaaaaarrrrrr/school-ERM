@@ -87,16 +87,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="h-screen h-[100dvh] w-full overflow-hidden flex bg-slate-50 text-slate-900 antialiased font-sans">
+    <div className="h-screen h-[100dvh] w-full overflow-hidden flex bg-slate-900 text-slate-900 antialiased font-sans">
       {/* Desktop / Tablet Sidebar (Fixed & Independently Scrollable) */}
       <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
       {/* Main Content Area: Fixed Header + Independently Scrollable Viewport */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-slate-50">
         <TopHeader onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         <div className="flex-1 min-w-0 h-full overflow-y-auto overscroll-y-contain pb-app-nav lg:pb-0">
-          <main className="p-4 sm:p-6 lg:p-8 w-full max-w-[1600px] mx-auto">
+          <main className="p-4 sm:p-6 lg:p-8 xl:p-10 w-full max-w-[1600px] mx-auto">
             {children}
           </main>
         </div>
