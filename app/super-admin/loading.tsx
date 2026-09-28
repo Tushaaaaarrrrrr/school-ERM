@@ -1,42 +1,13 @@
 import React from 'react';
-import { CardSkeleton, Skeleton } from '@/components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
 
-export default function SuperAdminLoading() {
+export default function Loading() {
   return (
-    <div className="space-y-6 text-left w-full animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Skeleton className="h-7 w-48 rounded" />
-          <Skeleton className="h-4 w-64 rounded" />
-        </div>
-        <Skeleton className="h-9 w-32 rounded-lg" />
+    <div className="min-h-[70vh] w-full flex flex-col items-center justify-center gap-3 p-6 text-slate-600">
+      <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 shadow-xl flex items-center justify-center">
+        <Loader2 className="w-7 h-7 text-indigo-600 animate-spin" />
       </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <CardSkeleton />
-        <CardSkeleton />
-        <CardSkeleton />
-        <CardSkeleton />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4">
-          <Skeleton className="h-5 w-40 rounded" />
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-          </div>
-        </div>
-        <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4">
-          <Skeleton className="h-5 w-40 rounded" />
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-          </div>
-        </div>
-      </div>
+      <p className="text-xs font-semibold text-slate-700 tracking-wide">Loading...</p>
     </div>
   );
 }

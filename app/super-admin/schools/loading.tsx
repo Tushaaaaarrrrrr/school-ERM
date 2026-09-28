@@ -1,29 +1,13 @@
 import React from 'react';
-import { TableSkeleton, Skeleton } from '@/components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
 
-export default function SchoolsDirectoryLoading() {
+export default function Loading() {
   return (
-    <div className="space-y-6 text-left w-full animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Skeleton className="h-7 w-48 rounded" />
-          <Skeleton className="h-4 w-72 rounded" />
-        </div>
-        <Skeleton className="h-9 w-36 rounded-lg" />
+    <div className="min-h-[70vh] w-full flex flex-col items-center justify-center gap-3 p-6 text-slate-600">
+      <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 shadow-xl flex items-center justify-center">
+        <Loader2 className="w-7 h-7 text-indigo-600 animate-spin" />
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-7 w-16" />
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <TableSkeleton rows={6} cols={5} />
-      </div>
+      <p className="text-xs font-semibold text-slate-700 tracking-wide">Loading...</p>
     </div>
   );
 }
