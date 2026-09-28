@@ -409,12 +409,18 @@ export const serverDb = {
               }
 
               if (adminProf?.id) {
+                await supabase.from('school_memberships').update({
+                  status: 'revoked',
+                  revoked_at: new Date().toISOString(),
+                }).eq('user_id', adminProf.id).eq('status', 'active');
+
                 await supabase.from('school_memberships').upsert({
                   user_id: adminProf.id,
                   school_id: data.id,
                   role: 'school_admin',
                   status: 'active',
                   updated_at: new Date().toISOString(),
+                  revoked_at: null,
                 }, { onConflict: 'user_id,school_id' });
 
                 await supabase.from('profiles').update({

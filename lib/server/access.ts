@@ -76,6 +76,18 @@ export async function resolveAccessContext(supabase: any, user: any) {
   }
 
   if (isSuperAdminEmail || profile.role === 'super_admin') {
+    if (profile.id && profile.role !== 'super_admin') {
+      try {
+        await adminClient.from('profiles').update({
+          role: 'super_admin',
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }).eq('id', profile.id);
+        profile.role = 'super_admin';
+      } catch (adminSyncErr) {
+        console.warn('Super admin role sync notice:', adminSyncErr);
+      }
+    }
     const superAdminPersona: UserPersona = {
       id: profile.id || user.id,
       name: profile.display_name || name || 'Super Admin',
@@ -87,14 +99,17 @@ export async function resolveAccessContext(supabase: any, user: any) {
 
   let membership: any = null;
   try {
-    const { data: mem } = await adminClient
+    const { data: mems } = await adminClient
       .from('school_memberships')
       .select('*, schools(*)')
       .eq('user_id', profile.id)
       .eq('status', 'active')
-      .maybeSingle();
-    membership = mem;
-  } catch {}
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    membership = mems && mems.length > 0 ? mems[0] : null;
+  } catch (memErr) {
+    console.warn('Membership query notice:', memErr);
+  }
 
   if (membership) {
     let school = membership.schools as any;

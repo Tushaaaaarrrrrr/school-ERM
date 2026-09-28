@@ -4,23 +4,35 @@
 // GI Campus - Join School & Request Access Portal
 // ============================================================================
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/context/auth-context';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Building2, Clock, LogOut, ShieldCheck, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import { Building2, Clock, LogOut, ShieldCheck, CheckCircle2, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
 
-export default function JoinSchoolPage() {
+function JoinSchoolContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialCode = searchParams.get('code') || '';
+  const initialRole = searchParams.get('role') || '';
+
   const { currentUser, accessState, pendingAccessRequest, isLoading, refreshAccess, logout } = useAuth();
-  const [schoolCode, setSchoolCode] = useState('');
+  const [schoolCode, setSchoolCode] = useState(initialCode);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isSuccessSubmitted, setIsSuccessSubmitted] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
+  // If role is present with code, redirect to specialized invite acceptance
+  useEffect(() => {
+    if (initialCode && initialRole) {
+      router.replace(`/invite?code=${encodeURIComponent(initialCode)}&role=${encodeURIComponent(initialRole)}`);
+    }
+  }, [initialCode, initialRole, router]);
+
+  // Main access state router
   useEffect(() => {
     if (isLoading) return;
     if (!currentUser) router.replace('/login');
@@ -45,6 +57,27 @@ export default function JoinSchoolPage() {
     }
   }, [accessState, currentUser, isLoading, router]);
 
+  // Auto-polling: Check for access updates every 4 seconds while sitting on /join
+  useEffect(() => {
+    if (isLoading || !currentUser) return;
+    if (accessState === 'ACTIVE_SCHOOL_USER' || accessState === 'SUPER_ADMIN') return;
+
+    const interval = setInterval(() => {
+      refreshAccess();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [accessState, currentUser, isLoading, refreshAccess]);
+
+  const handleManualRefresh = async () => {
+    setIsCheckingStatus(true);
+    try {
+      await refreshAccess();
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitting(true);
@@ -65,7 +98,6 @@ export default function JoinSchoolPage() {
     }
 
     try {
-      // Submit access request directly to server
       const response = await fetch('/api/access-requests', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -124,7 +156,7 @@ export default function JoinSchoolPage() {
             <div>
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">Access Request Pending</h1>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Your request has been submitted. Please wait until your school administrator reviews and accepts your profile.
+                Your request has been submitted. Please wait while your school administrator or super admin verifies and approves your access.
               </p>
             </div>
 
@@ -145,11 +177,28 @@ export default function JoinSchoolPage() {
               </p>
             </div>
 
+            <p className="text-[11px] text-slate-400">
+              ⚡ This page automatically refreshes every few seconds as soon as access is granted.
+            </p>
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
-              <Button onClick={refreshAccess} variant="primary" size="sm" className="w-full sm:w-auto">
+              <Button
+                onClick={handleManualRefresh}
+                variant="primary"
+                size="sm"
+                className="w-full sm:w-auto"
+                isLoading={isCheckingStatus}
+                leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+              >
                 Refresh Status
               </Button>
-              <Button variant="outline" size="sm" onClick={logout} className="w-full sm:w-auto" leftIcon={<LogOut className="w-3.5 h-3.5" />}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={logout}
+                className="w-full sm:w-auto"
+                leftIcon={<LogOut className="w-3.5 h-3.5" />}
+              >
                 Logout
               </Button>
             </div>
@@ -190,7 +239,7 @@ export default function JoinSchoolPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Obtain this code from your school office or teacher.
+                  Obtain this code from your school office, teacher, or invitation.
                 </p>
               </div>
 
@@ -220,8 +269,24 @@ export default function JoinSchoolPage() {
               </div>
             </form>
 
-            <div className="pt-2 flex justify-center">
-              <Button variant="ghost" size="sm" onClick={logout} leftIcon={<LogOut className="w-3.5 h-3.5 text-slate-400" />}>
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleManualRefresh}
+                isLoading={isCheckingStatus}
+                leftIcon={<RefreshCw className="w-3.5 h-3.5 text-slate-500" />}
+                className="text-xs text-slate-600"
+              >
+                Check Status
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                leftIcon={<LogOut className="w-3.5 h-3.5 text-slate-400" />}
+                className="text-xs text-slate-500"
+              >
                 Sign out
               </Button>
             </div>
@@ -229,5 +294,22 @@ export default function JoinSchoolPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function JoinSchoolPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen grid place-items-center text-xs text-slate-600 bg-slate-50">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <span>Loading GI Campus portal...</span>
+          </div>
+        </main>
+      }
+    >
+      <JoinSchoolContent />
+    </Suspense>
   );
 }

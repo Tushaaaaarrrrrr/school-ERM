@@ -60,84 +60,125 @@ export async function PUT(request: Request) {
     const { supabase } = await requireIdentity();
     const adminClient = getServiceSupabase() || supabase;
 
-    if (body.status === 'revoked' && context.state !== 'SUPER_ADMIN') {
-      const { error } = await supabase.rpc('revoke_school_membership', { p_user_id: body.userId, p_school_id: body.schoolId });
-      if (error) {
-        await adminClient.from('school_memberships').update({
-          status: 'revoked',
-          revoked_at: new Date().toISOString(),
-          revoked_by: context.profile.id,
-        }).eq('user_id', body.userId).eq('school_id', body.schoolId);
-      }
-      return NextResponse.json({ success: true });
+    if (context.state !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Only a Super Admin can directly manage user access.' }, { status: 403 });
     }
 
-    if (context.state !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Only a Super Admin can directly assign a school.' }, { status: 403 });
+    if (!body.userId) {
+      return NextResponse.json({ error: 'User ID is required.' }, { status: 400 });
+    }
+
+    // Handle Revocation
+    if (body.status === 'revoked') {
+      await adminClient.from('school_memberships').update({
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+        revoked_by: context.profile?.id || null,
+      }).eq('user_id', body.userId).eq('status', 'active');
+
+      await adminClient.from('profiles').update({
+        status: 'revoked',
+        school_id: null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', body.userId);
+
+      return NextResponse.json({ success: true, message: 'User access revoked' });
+    }
+
+    // Handle Disabled
+    if (body.status === 'disabled') {
+      await adminClient.from('school_memberships').update({
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+        revoked_by: context.profile?.id || null,
+      }).eq('user_id', body.userId).eq('status', 'active');
+
+      await adminClient.from('profiles').update({
+        status: 'disabled',
+        updated_at: new Date().toISOString(),
+      }).eq('id', body.userId);
+
+      return NextResponse.json({ success: true, message: 'User disabled' });
     }
 
     const allowed = ['super_admin', 'school_admin', 'teacher', 'accountant', 'parent', 'student', 'staff', 'driver'];
-    if (!allowed.includes(body.role)) return NextResponse.json({ error: 'Invalid school role' }, { status: 400 });
+    if (!allowed.includes(body.role)) {
+      return NextResponse.json({ error: 'Invalid school role.' }, { status: 400 });
+    }
 
+    // Handle Super Admin Promotion
     if (body.role === 'super_admin') {
+      await adminClient.from('school_memberships').update({
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+        revoked_by: context.profile?.id || null,
+      }).eq('user_id', body.userId);
+
       await adminClient.from('profiles').update({
         display_name: body.name || undefined,
         phone: body.phone || undefined,
-        status: body.status === 'disabled' ? 'disabled' : 'active',
+        status: 'active',
         school_id: null,
         role: 'super_admin',
         updated_at: new Date().toISOString(),
       }).eq('id', body.userId);
 
-      await adminClient.from('school_memberships').update({
-        status: 'revoked',
-        revoked_at: new Date().toISOString(),
-      }).eq('user_id', body.userId);
-
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, message: 'User promoted to Super Admin' });
     }
 
-    // 1. Try RPC assignment
-    try {
-      await supabase.rpc('assign_user_school_access', {
-        p_user_id: body.userId,
-        p_school_id: body.schoolId,
-        p_role: body.role,
-        p_name: body.name || '',
-        p_phone: body.phone || '',
-        p_status: body.status || 'active',
-      });
-    } catch {}
+    if (!body.schoolId) {
+      return NextResponse.json({ error: 'School selection is required for this role.' }, { status: 400 });
+    }
 
-    // 2. Direct atomic guarantee with adminClient
+    // 1. Atomic Revoke of prior active memberships across ANY school
+    // This strictly prevents PostgreSQL unique constraint violation on uq_one_active_school_per_user
+    await adminClient.from('school_memberships').update({
+      status: 'revoked',
+      revoked_at: new Date().toISOString(),
+      revoked_by: context.profile?.id || null,
+    }).eq('user_id', body.userId).eq('status', 'active');
+
+    // 2. Update platform profile
     await adminClient.from('profiles').update({
       display_name: body.name || undefined,
       phone: body.phone || undefined,
-      status: body.status === 'disabled' ? 'disabled' : 'active',
-      school_id: body.status === 'active' ? body.schoolId : null,
-      role: body.status === 'active' ? body.role : undefined,
+      status: 'active',
+      school_id: body.schoolId,
+      role: body.role,
       updated_at: new Date().toISOString(),
     }).eq('id', body.userId);
 
-    if (body.status === 'active' && body.schoolId) {
-      await adminClient.from('school_memberships').upsert({
+    // 3. Upsert active membership for the target school
+    const { error: upsertErr } = await adminClient.from('school_memberships').upsert({
+      user_id: body.userId,
+      school_id: body.schoolId,
+      role: body.role,
+      status: 'active',
+      updated_at: new Date().toISOString(),
+      revoked_at: null,
+      revoked_by: null,
+    }, { onConflict: 'user_id,school_id' });
+
+    if (upsertErr) {
+      console.error('Membership upsert failed, retrying with raw insert:', upsertErr);
+      await adminClient.from('school_memberships').insert({
         user_id: body.userId,
         school_id: body.schoolId,
         role: body.role,
         status: 'active',
         updated_at: new Date().toISOString(),
-        revoked_at: null,
-      }, { onConflict: 'user_id,school_id' });
-
-      await adminClient.from('school_access_requests').update({
-        status: 'approved',
-        assigned_role: body.role,
-        reviewed_by: context.profile.id,
-        reviewed_at: new Date().toISOString(),
-      }).eq('user_id', body.userId).eq('school_id', body.schoolId).eq('status', 'pending');
+      });
     }
 
-    return NextResponse.json({ success: true });
+    // 4. Mark any pending access requests for this user as approved
+    await adminClient.from('school_access_requests').update({
+      status: 'approved',
+      assigned_role: body.role,
+      reviewed_by: context.profile?.id || null,
+      reviewed_at: new Date().toISOString(),
+    }).eq('user_id', body.userId).eq('status', 'pending');
+
+    return NextResponse.json({ success: true, message: 'User access successfully updated' });
   } catch (err: any) {
     console.error('Users PUT error:', err);
     return NextResponse.json({ error: err?.message || 'Unable to save user access' }, { status: 409 });

@@ -89,6 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         school_id: context.profile.school_id,
       } : null);
       setCurrentUser(personaUser);
+      if (personaUser && typeof window !== 'undefined') {
+        storageService.setItem(AUTH_STORAGE_KEY, personaUser);
+      }
 
       let activeSchool = context.school || null;
       if (activeSchool && typeof window !== 'undefined') {
