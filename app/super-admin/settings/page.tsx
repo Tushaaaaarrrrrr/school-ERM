@@ -27,7 +27,7 @@ export default function SuperAdminSettingsPage() {
   };
 
   return (
-    <div className="space-y-6 text-left max-w-4xl">
+    <div className="space-y-6 text-left">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Settings</h1>
       </div>
@@ -35,31 +35,39 @@ export default function SuperAdminSettingsPage() {
       {/* Account Password & Direct Login Security */}
       <UserPasswordCard />
 
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-            <Shield className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-sm font-bold text-slate-900">General Platform Parameters</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <form onSubmit={handleSave} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <Shield className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-sm font-bold text-slate-900">General Platform Parameters</h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Platform Brand Name"
+                value={platformName}
+                onChange={(e) => setPlatformName(e.target.value)}
+                required
+              />
+              <Input
+                label="Platform Support Email"
+                type="email"
+                value={supportEmail}
+                onChange={(e) => setSupportEmail(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Platform Brand Name"
-              value={platformName}
-              onChange={(e) => setPlatformName(e.target.value)}
-              required
-            />
-            <Input
-              label="Platform Support Email"
-              type="email"
-              value={supportEmail}
-              onChange={(e) => setSupportEmail(e.target.value)}
-              required
-            />
+          <div className="flex justify-end pt-2">
+            <Button type="submit" variant="primary" size="sm" isLoading={isSaving}>
+              Save Platform Settings
+            </Button>
           </div>
-        </div>
+        </form>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <Database className="w-5 h-5 text-emerald-600" />
             <h3 className="text-sm font-bold text-slate-900">Database & Security Isolation</h3>
@@ -75,13 +83,7 @@ export default function SuperAdminSettingsPage() {
             </p>
           </div>
         </div>
-
-        <div className="flex justify-end">
-          <Button type="submit" variant="primary" size="sm" isLoading={isSaving}>
-            Save Platform Settings
-          </Button>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

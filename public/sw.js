@@ -84,7 +84,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
           }
           return networkResponse;
-        }).catch(() => null as any);
+        }).catch(() => null);
       })
     );
     return;

@@ -217,9 +217,6 @@ export default function SchoolsManagementPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Schools Directory</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Create and manage school instances, codes, and administrators
-          </p>
         </div>
 
         <Button

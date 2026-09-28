@@ -109,9 +109,6 @@ export default function SuperAdminOverview() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Overview</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Multi-school tenants, identity distribution, and institutional capacity analytics
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -133,32 +130,24 @@ export default function SuperAdminOverview() {
         <StatsCard
           title="Total Schools"
           value={totalSchools}
-          subtitle={`${activeSchools} active, ${totalSchools - activeSchools} inactive`}
           icon={Building2}
           accentColor="indigo"
         />
         <StatsCard
           title="Total Students"
           value={totalStudents}
-          subtitle="Enrolled institutional learners"
           icon={GraduationCap}
           accentColor="emerald"
         />
         <StatsCard
           title="Active Teachers"
           value={totalTeachers}
-          subtitle="Verified faculty across schools"
           icon={Users}
           accentColor="amber"
         />
         <StatsCard
           title="Total Platform Users"
           value={totalUsers}
-          subtitle={
-            roleBreakdown.find((r) => r.name === 'Unassigned')?.count
-              ? `${roleBreakdown.find((r) => r.name === 'Unassigned')?.count} need school assignment`
-              : 'All identities assigned'
-          }
           icon={UserCheck}
           accentColor="slate"
         />
@@ -175,7 +164,6 @@ export default function SuperAdminOverview() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 tracking-tight">Institutional Enrollment & Faculty</h3>
-                <p className="text-xs text-slate-500">Student and teacher distribution by school instance</p>
               </div>
             </div>
             <Link href="/super-admin/schools" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
@@ -239,7 +227,6 @@ export default function SuperAdminOverview() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 tracking-tight">Identity Role Distribution</h3>
-                <p className="text-xs text-slate-500">Live breakdown of all platform accounts</p>
               </div>
             </div>
             <Link href="/super-admin/users" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
@@ -308,7 +295,6 @@ export default function SuperAdminOverview() {
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900">Schools on Platform</h3>
-            <p className="text-xs text-slate-500">Live directory of provisioned multi-tenant instances</p>
           </div>
           <Link href="/super-admin/schools" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
             View All Schools <ArrowRight className="w-3.5 h-3.5" />

@@ -141,9 +141,6 @@ export default function SuperAdminAccessRequestsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Access Requests</h1>
-          <p className="text-sm text-slate-500">
-            Platform-wide history of school access applications. Approve, reject, or assign roles directly.
-          </p>
         </div>
         <Button variant="outline" size="sm" onClick={load} leftIcon={<RefreshCw className="w-4 h-4" />}>
           Refresh
