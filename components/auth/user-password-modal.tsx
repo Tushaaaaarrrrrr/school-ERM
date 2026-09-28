@@ -198,7 +198,6 @@ export function UserPasswordCard({ onFinished, isModal = false }: { onFinished?:
             </div>
             <div>
               <h4 className="text-xs font-bold text-slate-900">Passkeys &amp; Biometric Sign-In</h4>
-              <p className="text-[11px] text-slate-500">Sign in with Touch ID, Face ID, or Windows Hello</p>
             </div>
           </div>
 
@@ -215,7 +214,7 @@ export function UserPasswordCard({ onFinished, isModal = false }: { onFinished?:
           </Button>
         </div>
 
-        {passkeys.length > 0 ? (
+        {passkeys.length > 0 && (
           <div className="divide-y divide-slate-200 border-t border-slate-200/80 pt-2 space-y-1">
             {passkeys.map((pk) => (
               <div key={pk.id} className="pt-2 flex items-center justify-between text-xs">
@@ -239,10 +238,6 @@ export function UserPasswordCard({ onFinished, isModal = false }: { onFinished?:
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-[11px] text-slate-500 pt-1">
-            No passkeys registered yet. Click &quot;Add Passkey&quot; to enable one-touch biometric login on this device.
-          </p>
         )}
       </div>
 
@@ -250,21 +245,11 @@ export function UserPasswordCard({ onFinished, isModal = false }: { onFinished?:
       {/* 2. PASSWORD FORM SECTION                                       */}
       {/* ============================================================== */}
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
-        {/* Informative Banner */}
-        <div className="bg-indigo-50/60 p-3.5 rounded-xl border border-indigo-100 flex items-start gap-3">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div className="text-xs">
-            <p className="font-bold text-indigo-950">
-              {hasPassword ? 'Change Your Account Password' : 'Create Account Password'}
-            </p>
-            <p className="text-indigo-700/90 mt-0.5 leading-relaxed">
-              {hasPassword
-                ? 'Enter your current password to verify your identity, then set a new password.'
-                : 'You have not set a password yet (e.g. you signed up with Google). Create a password below to enable direct sign-in with your email or registration number.'}
-            </p>
-          </div>
+        <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+          <KeyRound className="w-4 h-4 text-indigo-600" />
+          <h4 className="text-xs font-bold text-slate-900">
+            {hasPassword ? 'Change Password' : 'Create Password'}
+          </h4>
         </div>
 
         {formError && (
@@ -384,8 +369,7 @@ export function UserPasswordCard({ onFinished, isModal = false }: { onFinished?:
             <Lock className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Security, Passkeys &amp; Password</h3>
-            <p className="text-xs text-slate-500">Manage credentials and Touch/Face ID for direct sign-in</p>
+            <h3 className="text-sm font-bold text-slate-900">Security &amp; Password</h3>
           </div>
         </div>
       </div>

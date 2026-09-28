@@ -184,3 +184,49 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: err?.message || 'Unable to save user access' }, { status: 409 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const context = await getAccessContext();
+    if (!context.authenticated || !context.profile?.id) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    const body = await request.json();
+    const { supabase } = await requireIdentity();
+    const adminClient = getServiceSupabase() || supabase;
+
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (body.name !== undefined && typeof body.name === 'string') {
+      updates.display_name = body.name.trim();
+    }
+    if (body.phone !== undefined && typeof body.phone === 'string') {
+      updates.phone = body.phone.trim();
+    }
+
+    const { data, error } = await adminClient
+      .from('profiles')
+      .update(updates)
+      .eq('id', context.profile.id)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Profile update error in DB:', error);
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: context.profile.id,
+        name: updates.display_name || context.profile.display_name,
+        phone: updates.phone !== undefined ? updates.phone : context.profile.phone,
+      },
+    });
+  } catch (err: any) {
+    console.error('Profile PATCH error:', err);
+    return NextResponse.json({ error: err?.message || 'Failed to update profile' }, { status: 500 });
+  }
+}
+

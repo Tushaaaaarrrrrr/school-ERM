@@ -2,9 +2,10 @@
 
 // ============================================================================
 // Top Header with Real Profile Info, Academic Year Selector & Responsive Controls
+// Features: Click-outside auto-close, User Profile Editing & Security Modals
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
 import { useRouter } from 'next/navigation';
 import {
@@ -15,11 +16,15 @@ import {
   Building,
   User,
   Shield,
-  Clock3,
   KeyRound,
+  Edit2,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import { UserPasswordModal } from '@/components/auth/user-password-modal';
-import type { SchoolDayKey } from '@/lib/types';
+import { Modal } from '@/components/ui/modal';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import { calculateSchoolStatus } from '@/lib/utils/school-timing';
 
 interface TopHeaderProps {
@@ -35,12 +40,31 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
     academicYears,
     setCurrentYear,
     logout,
+    refreshAccess,
   } = useAuth();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showYearMenu, setShowYearMenu] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const yearMenuRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close menus
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+      if (yearMenuRef.current && !yearMenuRef.current.contains(e.target as Node)) {
+        setShowYearMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -60,7 +84,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleMobileMenu}
-          className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
           aria-label="Toggle menu"
         >
           <Menu className="w-5 h-5" />
@@ -112,9 +136,10 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
             <span className="border-l border-slate-300 pl-2 font-semibold text-indigo-700">Now {status.currentTimeStr}</span>
           </div>
         )}
+
         {/* Academic Year Selector (for School Admin / Teacher / Staff) */}
         {currentUser?.role !== 'super_admin' && academicYears.length > 0 && (
-          <div className="relative">
+          <div className="relative" ref={yearMenuRef}>
             <button
               onClick={() => {
                 setShowYearMenu(!showYearMenu);
@@ -155,8 +180,8 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
           </div>
         )}
 
-        {/* Logged In User Profile & Logout */}
-        <div className="relative">
+        {/* Logged In User Profile & Logout (Auto-closes on outside click) */}
+        <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => {
               setShowUserMenu(!showUserMenu);
@@ -180,7 +205,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-50 text-left animate-in fade-in">
+            <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-50 text-left animate-in fade-in">
               <div className="px-3.5 py-2 border-b border-slate-100">
                 <p className="font-semibold text-xs text-slate-900 truncate">
                   {currentUser?.name || 'Logged In User'}
@@ -192,7 +217,21 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
               </div>
 
               <div className="py-1 border-b border-slate-100">
+                {/* Edit Profile Option */}
                 <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditProfileOpen(true);
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium cursor-pointer transition-colors"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Edit Profile</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setIsPasswordModalOpen(true);
                     setShowUserMenu(false);
@@ -206,6 +245,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
 
               <div className="pt-1">
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="w-full px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-medium cursor-pointer transition-colors"
                 >
@@ -223,6 +263,144 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
       />
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        currentUser={currentUser}
+        onSuccess={() => {
+          refreshAccess();
+        }}
+      />
     </header>
+  );
+}
+
+// ============================================================================
+// Edit Profile Modal
+// ============================================================================
+function EditProfileModal({
+  isOpen,
+  onClose,
+  currentUser,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentUser: any;
+  onSuccess: () => void;
+}) {
+  const { success, error: toastError } = useToast();
+  const [name, setName] = useState(currentUser?.name || '');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (currentUser && isOpen) {
+      setName(currentUser.name || '');
+      setPhone(currentUser.phone || '');
+    }
+  }, [currentUser, isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toastError('Display name cannot be empty');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), phone: phone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update profile');
+      }
+
+      // Update active user in localStorage so changes reflect instantly
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('school_erp_active_user');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.name = name.trim();
+            if (phone.trim()) parsed.phone = phone.trim();
+            localStorage.setItem('school_erp_active_user', JSON.stringify(parsed));
+          }
+        } catch {}
+      }
+
+      success('Profile updated successfully!');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Edit Profile"
+      description="Update your personal account details"
+      maxWidth="sm"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4 text-left">
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
+            Display Name <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="e.g. Laxmikant"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
+            Phone Number
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="+91 98765 43210"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">
+            Registered Email
+          </label>
+          <input
+            type="email"
+            disabled
+            value={currentUser?.email || ''}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-500 cursor-not-allowed font-mono"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" size="sm" isLoading={isSaving}>
+            Save Changes
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

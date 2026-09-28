@@ -30,9 +30,6 @@ export default function SuperAdminSettingsPage() {
     <div className="space-y-6 text-left max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Settings</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Global multi-tenant platform configurations and security parameters
-        </p>
       </div>
 
       {/* Account Password & Direct Login Security */}
