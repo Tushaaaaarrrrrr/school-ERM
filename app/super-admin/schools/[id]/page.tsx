@@ -2,10 +2,10 @@
 
 // ============================================================================
 // Super Admin School Detail, Profile Editing & Status Governance
-// Modern, Clean, Multi-Column Executive Layout (Utilizes Full Screen Width)
+// Clean, Minimal, Modern Multi-Column Executive Layout
 // ============================================================================
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { School } from '@/lib/types';
@@ -23,6 +23,7 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { ThreeStepConfirmModal } from '@/components/ui/three-step-confirm-modal';
 import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils/formatters';
+import { cn } from '@/lib/utils/cn';
 import {
   ArrowLeft,
   Building2,
@@ -38,7 +39,6 @@ import {
   RotateCcw,
   AlertTriangle,
   Edit,
-  Sparkles,
   KeyRound,
   Eye,
   EyeOff,
@@ -46,12 +46,13 @@ import {
   CheckCircle2,
   XCircle,
   Download,
-  Database,
   Copy,
   Briefcase,
   ChevronRight,
+  ChevronDown,
   Shield,
   Clock,
+  MoreVertical,
 } from 'lucide-react';
 import { CardSkeleton, Skeleton } from '@/components/ui/skeleton';
 import {
@@ -70,6 +71,25 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
   const { success, error: toastError } = useToast();
   const [school, setSchool] = useState<School | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Actions Dropdown Menu State
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  // Close actions dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setIsActionsOpen(false);
+      }
+    };
+    if (isActionsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isActionsOpen]);
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -380,7 +400,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6 text-left w-full animate-in fade-in duration-200">
-      {/* 1. Breadcrumbs & Top Navigation */}
+      {/* 1. Breadcrumbs */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-slate-500 font-medium">
         <Link href="/super-admin" className="hover:text-indigo-600 transition-colors">
           Super Admin
@@ -393,23 +413,23 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
         <span className="text-slate-900 font-semibold truncate">{school.name}</span>
       </nav>
 
-      {/* 2. Hero Header Banner (Organized, Modern, Clean) */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-        <div className="flex items-start sm:items-center gap-4 min-w-0">
+      {/* 2. Hero Header Banner (Packed Actions Dropdown Menu) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <div className="flex items-center gap-4 min-w-0">
           <Link
             href="/super-admin/schools"
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all shrink-0 mt-0.5 sm:mt-0"
+            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all shrink-0"
             title="Back to Schools"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
 
-          {/* School Avatar / Icon */}
-          <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-indigo-50 to-indigo-100/80 border border-indigo-200/70 flex items-center justify-center shrink-0 shadow-2xs">
+          {/* School Avatar */}
+          <div className="w-13 h-13 rounded-2xl bg-linear-to-br from-indigo-50 to-indigo-100 border border-indigo-200/80 flex items-center justify-center shrink-0 shadow-2xs">
             {school.logo_url ? (
               <img src={school.logo_url} alt={school.name} className="w-full h-full object-contain p-1 rounded-2xl" />
             ) : (
-              <span className="text-lg font-black text-indigo-700 tracking-tight">
+              <span className="text-base font-black text-indigo-700 tracking-tight">
                 {school.code.slice(0, 3)}
               </span>
             )}
@@ -417,18 +437,18 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight truncate">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight truncate">
                 {school.name}
               </h1>
               <StatusBadge status={school.status} />
             </div>
 
             {/* Quick Metadata Chips */}
-            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
               <button
                 type="button"
                 onClick={() => handleCopy(school.code, 'School Code')}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-mono text-[11px] font-semibold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-mono text-[11px] font-semibold transition-colors cursor-pointer"
                 title="Click to copy School Code"
               >
                 <span>Code: <strong className="text-indigo-600 font-bold">{school.code}</strong></span>
@@ -438,14 +458,14 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
               <button
                 type="button"
                 onClick={() => handleCopy(school.id, 'School ID')}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-mono text-[11px] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-mono text-[11px] transition-colors cursor-pointer"
                 title="Click to copy School ID"
               >
                 <span>ID: {school.id.slice(0, 8)}...</span>
                 <Copy className="w-3 h-3 text-slate-400" />
               </button>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-slate-500 text-[11px]">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-slate-500 text-[11px]">
                 <Clock className="w-3 h-3 text-slate-400" />
                 Joined {formatDate(school.created_at)}
               </span>
@@ -453,19 +473,8 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        {/* Unified Action Toolbar (Clean, No Random Wrapping) */}
-        <div className="flex items-center flex-wrap gap-2.5 shrink-0 pt-2 xl:pt-0 border-t xl:border-t-0 border-slate-100">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadFullBackup}
-            isLoading={isExporting}
-            leftIcon={<Download className="w-4 h-4 text-indigo-600" />}
-            className="border-slate-200 hover:bg-slate-50 font-medium text-xs"
-          >
-            Download Backup
-          </Button>
-
+        {/* Consolidated Header Action Toolbar */}
+        <div className="flex items-center gap-2.5 shrink-0">
           <Button
             variant="primary"
             size="sm"
@@ -476,66 +485,141 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
             Edit Details
           </Button>
 
-          {/* Conditional Governance Actions */}
-          {school.status === 'active' ? (
+          {/* Clean Dropdown for Download Backup & All Important Actions */}
+          <div className="relative" ref={actionsRef}>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsSuspendModalOpen(true)}
-              leftIcon={<ShieldAlert className="w-4 h-4 text-amber-600" />}
-              className="border-amber-200 text-amber-800 hover:bg-amber-50 text-xs font-medium"
+              onClick={() => setIsActionsOpen(!isActionsOpen)}
+              rightIcon={<ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isActionsOpen && "rotate-180")} />}
+              className="border-slate-300 hover:bg-slate-50 font-medium text-xs shadow-2xs"
             >
-              Suspend School
+              Actions
             </Button>
-          ) : school.status === 'suspended' ? (
-            <Button
-              variant="success"
-              size="sm"
-              onClick={handleReactivate}
-              leftIcon={<ShieldCheck className="w-4 h-4" />}
-              className="text-xs font-semibold"
-            >
-              Reactivate School
-            </Button>
-          ) : null}
 
-          {school.status !== 'pending_deletion' ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsDeleteModalOpen(true)}
-              leftIcon={<Trash2 className="w-4 h-4 text-rose-500" />}
-              className="text-rose-600 hover:bg-rose-50 text-xs font-medium"
-            >
-              Recycle Bin
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCancelDeletion}
-              leftIcon={<RotateCcw className="w-4 h-4 text-emerald-600" />}
-              className="border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-semibold"
-            >
-              Restore School
-            </Button>
-          )}
+            {isActionsOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                {/* Download Backup */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsOpen(false);
+                    handleDownloadFullBackup();
+                  }}
+                  disabled={isExporting}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                >
+                  <Download className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 leading-tight">
+                      {isExporting ? 'Exporting Backup...' : 'Download Full Backup'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Export database records as JSON</p>
+                  </div>
+                </button>
+
+                {/* Reset Security PIN */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsOpen(false);
+                    setNewPinInput(school.admin_pin || '12345');
+                    setIsPinModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                >
+                  <KeyRound className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 leading-tight">Reset 5-Digit PIN</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Change administrator security PIN</p>
+                  </div>
+                </button>
+
+                <div className="my-1 border-t border-slate-100" />
+
+                {/* Suspend or Reactivate */}
+                {school.status === 'active' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      setIsSuspendModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-amber-800 hover:bg-amber-50/70 transition-colors cursor-pointer text-left"
+                  >
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-amber-950 leading-tight">Suspend School</p>
+                      <p className="text-[10px] text-amber-700/80 mt-0.5">Temporarily pauses logins</p>
+                    </div>
+                  </button>
+                ) : school.status === 'suspended' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      handleReactivate();
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-emerald-800 hover:bg-emerald-50/70 transition-colors cursor-pointer text-left"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-emerald-950 leading-tight">Reactivate School</p>
+                      <p className="text-[10px] text-emerald-700/80 mt-0.5">Reinstate access immediately</p>
+                    </div>
+                  </button>
+                ) : null}
+
+                {/* Recycle Bin or Restore */}
+                {school.status !== 'pending_deletion' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-rose-700 hover:bg-rose-50/70 transition-colors cursor-pointer text-left"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-rose-950 leading-tight">Move to Recycle Bin</p>
+                      <p className="text-[10px] text-rose-600/80 mt-0.5">30-day grace period before purge</p>
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      handleCancelDeletion();
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-emerald-800 hover:bg-emerald-50/70 transition-colors cursor-pointer text-left"
+                  >
+                    <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-emerald-950 leading-tight">Restore from Recycle Bin</p>
+                      <p className="text-[10px] text-emerald-700/80 mt-0.5">Cancel scheduled deletion</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* 3. Pending Deletion Grace Period Banner (if applicable) */}
       {school.status === 'pending_deletion' && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div>
               <strong className="block text-sm font-bold text-rose-900">
-                School In 30-Day Recycle Bin (Grace Period Active)
+                School in 30-Day Recycle Bin
               </strong>
               <p className="text-xs text-rose-800 mt-0.5">
-                All records will be permanently purged on{' '}
+                Scheduled for permanent purge on{' '}
                 <strong>{formatDate(school.pending_deletion_until || new Date().toISOString())}</strong>.
-                You can restore this tenant anytime during this window.
               </p>
             </div>
           </div>
@@ -547,65 +631,55 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
             leftIcon={<RotateCcw className="w-3.5 h-3.5 text-emerald-600" />}
             className="bg-white hover:bg-slate-50 border-rose-300 text-rose-900 shrink-0 font-semibold text-xs"
           >
-            Cancel Deletion & Restore
+            Restore School
           </Button>
         </div>
       )}
 
-      {/* 4. Key Performance & Capacity Stat Cards (Full Width 4-Columns) */}
+      {/* 4. Stat Cards (Clean, Bold, No Redundant Subtitles) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Enrolled Students"
           value={school.student_count || 0}
-          subtitle="Registered active students"
           icon={GraduationCap}
           accentColor="indigo"
         />
         <StatsCard
           title="Teaching Faculty"
           value={school.teacher_count || 0}
-          subtitle="Active faculty members"
           icon={Users}
           accentColor="emerald"
         />
         <StatsCard
           title="Staff & Support"
           value={school.staff_count || 0}
-          subtitle="Non-teaching personnel"
           icon={Briefcase}
           accentColor="slate"
         />
         <StatsCard
           title="Academic Session"
           value="2026-27"
-          subtitle="Current active session"
           icon={Calendar}
           accentColor="indigo"
         />
       </div>
 
-      {/* 5. Main Multi-Column Balanced Layout (Fully Utilizing Right Side Space) */}
+      {/* 5. Main Multi-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ================================================================= */}
-        {/* LEFT COLUMN: Modular Features & Data Backup (8 of 12 Cols = ~67%) */}
+        {/* LEFT COLUMN: Modular Features & Controls (8 of 12 Cols = ~67%)     */}
         {/* ================================================================= */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Modular Feature & Plan Controls */}
           <section aria-labelledby="features-heading" className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 id="features-heading" className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-indigo-600" />
-                    <span>Feature Modules & Plan Controls</span>
-                  </h2>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    {currentFeatures.length} / {DEFAULT_SCHOOL_FEATURES.length} Modules Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Super Admin can grant or revoke modules for this school at any time.
-                </p>
+              <div className="flex items-center gap-2.5">
+                <h2 id="features-heading" className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-indigo-600" />
+                  <span>Feature Modules & Plan Controls</span>
+                </h2>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  {currentFeatures.length} / {DEFAULT_SCHOOL_FEATURES.length} Active
+                </span>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -632,19 +706,8 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
 
-            {/* Non-Destructive Feature Safety Notice */}
-            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-3">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <strong className="font-semibold block text-emerald-900">Non-Destructive Feature Governance</strong>
-                <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  Disabling a feature simply hides its navigation menu and pages from this school's users. <strong>No data is deleted</strong>. When you turn a feature back on, all previous data, records, and settings reappear intact immediately.
-                </p>
-              </div>
-            </div>
-
             {/* Feature Categories & Modular Toggles Grid */}
-            <div className="space-y-6 pt-1">
+            <div className="space-y-6">
               {FEATURE_CATEGORIES.map((cat) => {
                 const features = SCHOOL_FEATURE_CATALOG.filter((f) => f.category === cat.id);
                 if (features.length === 0) return null;
@@ -656,7 +719,6 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                         <span className="w-2 h-2 rounded-full bg-indigo-500" />
                         {cat.label}
                       </h3>
-                      <span className="text-[11px] text-slate-400">{cat.description}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -716,61 +778,10 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
               })}
             </div>
           </section>
-
-          {/* Full Institutional Data Archive & Backup Card */}
-          <section aria-labelledby="backup-heading" className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 id="backup-heading" className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Database className="w-4 h-4 text-indigo-600" />
-                    <span>Full Institutional Data Backup & Export</span>
-                  </h2>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <ShieldCheck className="w-3 h-3" /> Zero Data Loss Guarantee
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Download the complete, portable database backup for <strong>{school.name}</strong> ({school.code}). Includes all students, teachers, staff, fees, attendance registers, and academic configuration.
-                </p>
-              </div>
-
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleDownloadFullBackup}
-                isLoading={isExporting}
-                leftIcon={<Download className="w-4 h-4" />}
-                className="shrink-0 font-semibold text-xs"
-              >
-                Download Full Backup (.JSON)
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Students & Guardians</span>
-                <span className="text-sm font-bold text-slate-900 mt-0.5 block">{school.student_count || 0} Records</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Faculty & Teachers</span>
-                <span className="text-sm font-bold text-slate-900 mt-0.5 block">{school.teacher_count || 0} Records</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Active Modules</span>
-                <span className="text-sm font-bold text-indigo-600 mt-0.5 block">{currentFeatures.length} Active Modules</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Format Standard</span>
-                <span className="text-sm font-bold text-slate-900 mt-0.5 block">2.0-Enterprise JSON</span>
-              </div>
-            </div>
-          </section>
         </div>
 
         {/* =================================================================== */}
-        {/* RIGHT COLUMN: Campus Details, Admin Credentials & Governance (4 of 12 Cols = ~33%) */}
-        {/* This completely utilizes the right side of the screen!             */}
+        {/* RIGHT COLUMN: Campus Profile, Admin Access & Data Overview (4/12)   */}
         {/* =================================================================== */}
         <div className="lg:col-span-4 space-y-6">
           {/* Card 1: School Campus & Contact Profile */}
@@ -783,7 +794,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
               <button
                 type="button"
                 onClick={() => setIsEditModalOpen(true)}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Edit className="w-3 h-3" />
                 <span>Edit</span>
@@ -807,7 +818,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                     <button
                       type="button"
                       onClick={() => handleCopy(school.email, 'Email')}
-                      className="text-slate-400 hover:text-slate-600 p-0.5"
+                      className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                       title="Copy email"
                     >
                       <Copy className="w-3 h-3" />
@@ -831,7 +842,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                     <button
                       type="button"
                       onClick={() => handleCopy(school.phone, 'Phone')}
-                      className="text-slate-400 hover:text-slate-600 p-0.5"
+                      className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                       title="Copy phone"
                     >
                       <Copy className="w-3 h-3" />
@@ -842,7 +853,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
 
               <div className="pt-2 flex items-start justify-between gap-3">
                 <span className="text-slate-500 flex items-center gap-2 shrink-0">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" /> Address:
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" /> Campus Address:
                 </span>
                 <span className="font-semibold text-slate-800 text-right leading-relaxed">
                   {school.address || 'Not specified'}
@@ -851,30 +862,19 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
 
               <div className="pt-2 flex items-center justify-between">
                 <span className="text-slate-500 flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" /> Onboarded:
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" /> Onboarded Date:
                 </span>
                 <span className="font-semibold text-slate-900">{formatDate(school.created_at)}</span>
               </div>
             </div>
           </section>
 
-          {/* Card 2: Administrator Access & Security Credentials */}
+          {/* Card 2: Administrator Access & Security Credentials (Clean, No Verbose Blue Box) */}
           <section aria-labelledby="admin-access-heading" className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
             <h2 id="admin-access-heading" className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>School Administrator Access</span>
             </h2>
-
-            {/* Google Authentication Status */}
-            <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-950 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-indigo-900">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Passwordless Google Authentication</span>
-              </div>
-              <p className="text-[11px] text-indigo-700 leading-relaxed">
-                The principal and administrators log in using <strong>Sign In with Google</strong> using their registered email.
-              </p>
-            </div>
 
             <div className="space-y-3.5 text-xs divide-y divide-slate-100">
               <div className="pt-2 flex items-center justify-between gap-2">
@@ -939,82 +939,39 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </section>
 
-          {/* Card 3: Institutional Governance & Lifecycle Operations */}
-          <section aria-labelledby="governance-heading" className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
-            <h2 id="governance-heading" className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-4 h-4 text-slate-700" />
-              <span>Institutional Governance</span>
-            </h2>
-
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Super Admin administrative controls to suspend access or manage the institutional lifecycle.
-            </p>
-
-            <div className="space-y-2.5 pt-1">
-              {school.status === 'active' ? (
-                <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-amber-900 block">Suspend Institution</span>
-                    <span className="text-[10px] text-amber-700 block">Temporarily pauses all school logins</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => setIsSuspendModalOpen(true)}
-                    className="border-amber-300 text-amber-900 hover:bg-amber-100 font-semibold shrink-0"
-                  >
-                    Suspend
-                  </Button>
-                </div>
-              ) : school.status === 'suspended' ? (
-                <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-emerald-900 block">School is Suspended</span>
-                    <span className="text-[10px] text-emerald-700 block">Reinstate user access</span>
-                  </div>
-                  <Button
-                    variant="success"
-                    size="xs"
-                    onClick={handleReactivate}
-                    className="font-semibold shrink-0"
-                  >
-                    Reactivate
-                  </Button>
-                </div>
-              ) : null}
-
-              {school.status !== 'pending_deletion' ? (
-                <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200/80 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-rose-900 block">30-Day Recycle Bin</span>
-                    <span className="text-[10px] text-rose-700 block">Enforces safe 30-day grace period</span>
-                  </div>
-                  <Button
-                    variant="danger"
-                    size="xs"
-                    onClick={() => setIsDeleteModalOpen(true)}
-                    className="shrink-0 font-semibold"
-                  >
-                    Recycle Bin
-                  </Button>
-                </div>
-              ) : (
-                <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-emerald-900 block">In Recycle Bin</span>
-                    <span className="text-[10px] text-emerald-700 block">Restore before grace period ends</span>
-                  </div>
-                  <Button
-                    variant="success"
-                    size="xs"
-                    onClick={handleCancelDeletion}
-                    className="font-semibold shrink-0"
-                  >
-                    Restore
-                  </Button>
-                </div>
-              )}
+          {/* Card 3: Data Records & Backup Shortcut */}
+          <section aria-labelledby="data-heading" className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 id="data-heading" className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-4 h-4 text-slate-700" />
+                <span>Tenant Data & Backup</span>
+              </h2>
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                JSON Standard
+              </span>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Students</span>
+                <span className="text-sm font-bold text-slate-900 mt-0.5 block">{school.student_count || 0} Records</span>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Teachers</span>
+                <span className="text-sm font-bold text-slate-900 mt-0.5 block">{school.teacher_count || 0} Records</span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadFullBackup}
+              isLoading={isExporting}
+              leftIcon={<Download className="w-3.5 h-3.5 text-indigo-600" />}
+              className="w-full text-xs font-semibold border-slate-200 hover:bg-slate-50"
+            >
+              Download Full Backup (.JSON)
+            </Button>
           </section>
         </div>
       </div>
@@ -1040,13 +997,6 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
             placeholder="e.g. 54321"
             helperText="Must be exactly 5 numeric digits. Unlocks account automatically if currently locked."
           />
-
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <span>
-              This PIN is strictly required for the Principal / School Admin on both the Web dashboard and Mobile app before accessing any student, staff, or financial data.
-            </span>
-          </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" size="sm" onClick={() => setIsPinModalOpen(false)}>
@@ -1141,30 +1091,28 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
         onClose={() => setIsSuspendModalOpen(false)}
         title={`Suspend School: ${school.name}`}
         actionLabel="Confirm & Suspend School"
-        warningMessage="Suspending this school will immediately prevent all students, teachers, and school administrators from logging in. Active student portals will show the Institutional Suspension notice."
+        warningMessage="Suspending this school will immediately prevent all students, teachers, and school administrators from logging in."
         impactDetails={[
           { label: 'School Code', value: school.code },
           { label: 'Impacted Students', value: school.student_count || 0 },
           { label: 'Impacted Teachers', value: school.teacher_count || 0 },
-          { label: 'Partition Action', value: 'Disable Active Tokens' },
         ]}
         confirmationPrompt={`To proceed, type the school code "${school.code}" below:`}
         expectedConfirmationText={school.code}
         onConfirm={handleConfirmSuspend}
       />
 
-      {/* 4. Three-Step School Deletion Modal with Mandatory 30-Day Grace Period */}
+      {/* 4. Three-Step School Deletion Modal */}
       <ThreeStepConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         title={`Move School to 30-Day Recycle Bin: ${school.name}`}
         actionLabel="Move to 30-Day Recycle Bin"
-        warningMessage="This moves the institution into the 30-day Recycle Bin. In accordance with safety policies, this cannot be force-purged before 30 days. You can restore this school to active status anytime during the 30-day window."
+        warningMessage="This moves the institution into the 30-day Recycle Bin. You can restore this school to active status anytime during the 30-day window."
         impactDetails={[
           { label: 'School Code', value: school.code },
           { label: 'Retention Period', value: 'Strict 30 Days' },
           { label: 'Target School', value: school.name },
-          { label: 'Policy Enforcement', value: 'Auto-Purge after 30 Days (No Force Delete)' },
         ]}
         confirmationPrompt='To confirm, type "DELETE SCHOOL" below:'
         expectedConfirmationText="DELETE SCHOOL"
