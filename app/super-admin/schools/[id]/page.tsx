@@ -425,9 +425,9 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
           </Link>
 
           {/* School Avatar */}
-          <div className="w-13 h-13 rounded-2xl bg-linear-to-br from-indigo-50 to-indigo-100 border border-indigo-200/80 flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
             {school.logo_url ? (
-              <img src={school.logo_url} alt={school.name} className="w-full h-full object-contain p-1 rounded-2xl" />
+              <img src={school.logo_url} alt={school.name} className="w-full h-full object-cover" />
             ) : (
               <span className="text-base font-black text-indigo-700 tracking-tight">
                 {school.code.slice(0, 3)}
