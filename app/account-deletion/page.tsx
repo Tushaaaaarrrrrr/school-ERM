@@ -54,10 +54,10 @@ export default function PublicAccountDeletionPage() {
               Submit an email deletion request directly to our administration team (processed within 7 days).
             </p>
           </div>
-          <Link href="/delect">
+          <Link href="/delete">
             <Button variant="primary" size="sm" className="whitespace-nowrap">
               <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              <span>Go to /delect Portal</span>
+              <span>Go to /delete Portal</span>
             </Button>
           </Link>
         </div>
@@ -67,9 +67,9 @@ export default function PublicAccountDeletionPage() {
           <h2 className="text-base font-bold text-slate-900">How to Initiate Account Deletion</h2>
           <div className="space-y-3 text-xs text-slate-700">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-              <strong className="block text-slate-900">Method 1: Direct Deletion Portal (/delect)</strong>
+              <strong className="block text-slate-900">Method 1: Direct Deletion Portal (/delete)</strong>
               <p className="text-slate-600">
-                Visit the <Link href="/delect" className="text-indigo-600 font-semibold hover:underline">/delect portal</Link> to send a verified deletion request to our administrator at <a href="mailto:pay.laxmikant@gmail.com" className="text-indigo-600 font-medium hover:underline">pay.laxmikant@gmail.com</a>.
+                Visit the <Link href="/delete" className="text-indigo-600 font-semibold hover:underline">/delete portal</Link> to send a verified deletion request to our administrator at <a href="mailto:pay.laxmikant@gmail.com" className="text-indigo-600 font-medium hover:underline">pay.laxmikant@gmail.com</a>.
               </p>
             </div>
 
@@ -106,7 +106,7 @@ export default function PublicAccountDeletionPage() {
               Privacy Policy
             </Link>
             <span>&bull;</span>
-            <Link href="/delect" className="hover:text-indigo-600 transition-colors">
+            <Link href="/delete" className="hover:text-indigo-600 transition-colors">
               Account Deletion Portal
             </Link>
           </div>

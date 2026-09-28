@@ -166,8 +166,8 @@ export default function TermsAndConditionsPage() {
             </h3>
             <p>
               You may terminate your account at any time. To submit an account and personal data deletion request, you can visit our dedicated account deletion portal at{' '}
-              <Link href="/delect" className="text-indigo-600 font-semibold hover:underline">
-                https://school-erm.onrender.com/delect
+              <Link href="/delete" className="text-indigo-600 font-semibold hover:underline">
+                https://school-erm.onrender.com/delete
               </Link>{' '}
               or email us directly at{' '}
               <a href="mailto:pay.laxmikant@gmail.com" className="text-indigo-600 font-semibold hover:underline">
@@ -230,7 +230,7 @@ export default function TermsAndConditionsPage() {
               Privacy Policy
             </Link>
             <span>&bull;</span>
-            <Link href="/delect" className="hover:text-indigo-600 transition-colors">
+            <Link href="/delete" className="hover:text-indigo-600 transition-colors">
               Account Deletion Portal
             </Link>
             <span>&bull;</span>

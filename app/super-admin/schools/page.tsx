@@ -24,7 +24,7 @@ import {
   getFeaturesByCategory,
 } from '@/lib/utils/features';
 import { SchoolCodeInput } from '@/components/schools/school-code-input';
-import { AdminEmailInput } from '@/components/schools/admin-email-input';
+import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { PhoneInput, validatePhoneNumber } from '@/components/ui/phone-input';
 import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
 import { emailValidationService } from '@/lib/services/api';
@@ -474,7 +474,8 @@ export default function SchoolsManagementPage() {
                 helperText="Principal or Headmaster full name"
               />
 
-              <AdminEmailInput
+              <GoogleEmailInput
+                targetRole="school_admin"
                 value={formData.adminEmail}
                 onChange={(adminEmail) => setFormData({ ...formData, adminEmail })}
                 onValidationChange={(valid, available, checking) => {

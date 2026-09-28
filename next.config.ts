@@ -4,11 +4,15 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  compress: true,
-  reactStrictMode: true,
   poweredByHeader: false,
-  experimental: {
-    optimizePackageImports: ['lucide-react', 'date-fns'],
+  async redirects() {
+    return [
+      {
+        source: '/delect',
+        destination: '/delete',
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [

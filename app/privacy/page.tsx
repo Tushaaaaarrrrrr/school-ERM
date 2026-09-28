@@ -144,8 +144,8 @@ export default function PrivacyPolicyPage() {
               <strong className="block text-slate-900 font-semibold">How do you exercise your rights?</strong>
               <p className="text-slate-600">
                 The easiest way to exercise your rights is by visiting{' '}
-                <Link href="/delect" className="text-indigo-600 font-medium hover:underline">
-                  our Account Deletion Portal (/delect)
+                <Link href="/delete" className="text-indigo-600 font-medium hover:underline">
+                  our Account Deletion Portal (/delete)
                 </Link>
                 , or by contacting us at{' '}
                 <a href="mailto:pay.laxmikant@gmail.com" className="text-indigo-600 font-medium hover:underline">
@@ -335,8 +335,8 @@ export default function PrivacyPolicyPage() {
               <li>Log in to your account settings and update your user account.</li>
               <li>
                 Visit our Account Deletion portal at{' '}
-                <Link href="/delect" className="text-indigo-600 font-semibold hover:underline">
-                  https://school-erm.onrender.com/delect
+                <Link href="/delete" className="text-indigo-600 font-semibold hover:underline">
+                  https://school-erm.onrender.com/delete
                 </Link>
                 .
               </li>
@@ -418,10 +418,10 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="pt-1">
               <Link
-                href="/delect"
+                href="/delete"
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-xs"
               >
-                <span>Visit Account Deletion Portal (/delect)</span>
+                <span>Visit Account Deletion Portal (/delete)</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -439,7 +439,7 @@ export default function PrivacyPolicyPage() {
               Privacy Policy
             </Link>
             <span>&bull;</span>
-            <Link href="/delect" className="hover:text-indigo-600 transition-colors">
+            <Link href="/delete" className="hover:text-indigo-600 transition-colors">
               Account Deletion Portal
             </Link>
             <span>&bull;</span>

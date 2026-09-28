@@ -665,7 +665,7 @@ export default function LoginPage() {
               Privacy Policy
             </Link>
             <span>&bull;</span>
-            <Link href="/delect" className="hover:text-indigo-600 transition-colors">
+            <Link href="/delete" className="hover:text-indigo-600 transition-colors">
               Account Deletion
             </Link>
           </div>
