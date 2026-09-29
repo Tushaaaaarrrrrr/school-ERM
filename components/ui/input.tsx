@@ -32,6 +32,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
+    const isTel = type === 'tel';
+
+    const handleTelChange = isTel
+      ? (e: React.ChangeEvent<HTMLInputElement>) => {
+          const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);
+          e.target.value = cleaned;
+          props.onChange?.(e);
+        }
+      : props.onChange;
+
     return (
       <div className="w-full space-y-1.5 text-left">
         {label && (
@@ -49,6 +59,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            type={type}
+            inputMode={isTel ? 'numeric' : props.inputMode}
+            maxLength={isTel ? (props.maxLength ? Math.min(props.maxLength, 10) : 10) : props.maxLength}
             className={cn(
               'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-50 disabled:text-slate-500',
               leftIcon && 'pl-9',
@@ -57,6 +70,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               className
             )}
             {...props}
+            onChange={handleTelChange}
           />
           {rightElement ? (
             <div className="absolute inset-y-0 right-0 pr-2 flex items-center">

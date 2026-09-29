@@ -473,8 +473,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
     e.preventDefault();
     if (!student) return;
 
-    if (emergencyForm.emergency_contact_phone && !/^\d{10,15}$/.test(emergencyForm.emergency_contact_phone)) {
-      toastError('Emergency contact phone must contain 10 to 15 digits only.');
+    if (emergencyForm.emergency_contact_phone && !/^\d{10}$/.test(emergencyForm.emergency_contact_phone)) {
+      toastError('Emergency contact phone must contain exactly 10 digits.');
       return;
     }
 
@@ -1884,11 +1884,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 <input
                   type="tel"
                   inputMode="numeric"
-                  pattern="[0-9]{10,15}"
-                  maxLength={15}
+                  pattern="[0-9]{10}"
+                  maxLength={10}
                   placeholder="9876543210"
                   value={emergencyForm.emergency_contact_phone || ''}
-                  onChange={(e) => setEmergencyForm({ ...emergencyForm, emergency_contact_phone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+                  onChange={(e) => setEmergencyForm({ ...emergencyForm, emergency_contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
                 />
               </div>

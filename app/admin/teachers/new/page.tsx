@@ -388,9 +388,9 @@ export default function RegisterTeacherPage() {
               required
               type="tel"
               inputMode="numeric"
-              maxLength={15}
+              maxLength={10}
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
               placeholder="9876543210"
             />
 
@@ -398,9 +398,9 @@ export default function RegisterTeacherPage() {
               label="Alternate Contact Phone"
               type="tel"
               inputMode="numeric"
-              maxLength={15}
+              maxLength={10}
               value={formData.alternatePhone}
-              onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
               placeholder="9876500000 (optional)"
             />
           </div>
@@ -424,9 +424,9 @@ export default function RegisterTeacherPage() {
               label="Emergency Contact Phone"
               type="tel"
               inputMode="numeric"
-              maxLength={15}
+              maxLength={10}
               value={formData.emergencyContactPhone}
-              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
               placeholder="Emergency phone number"
             />
           </div>

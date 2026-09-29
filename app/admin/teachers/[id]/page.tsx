@@ -560,7 +560,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-900">
-                        {asg.class_name || 'Class 8'}{asg.section_name ? ` (${asg.section_name})` : ''}
+                        {asg.class_name || '—'}{asg.section_name ? ` (${asg.section_name})` : ''}
                       </span>
                       <span className="text-[10px] font-mono text-slate-400">
                         {asg.room_number ? `Room ${asg.room_number}` : 'Room 204'}

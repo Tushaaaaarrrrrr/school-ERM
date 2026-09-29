@@ -303,7 +303,7 @@ export default function FeesManagementPage() {
         school_id: schoolId,
         fee_structure_id: feeUpdateStructureId,
         class_id: feeUpdateClassId,
-        class_name: targetCls?.name || 'Class 8',
+        class_name: targetCls?.name || '—',
         new_amount: feeNewAmount,
         effective_from: feeEffectiveFrom,
         reason: feeUpdateReason,
@@ -344,7 +344,7 @@ export default function FeesManagementPage() {
         name: bulkChargeName.trim(),
         amount: bulkChargeAmount,
         target_type: bulkTargetType,
-        target_label: bulkTargetType === 'entire_school' ? 'Entire School' : `${targetCls?.name || 'Class 8'} (All Sections)`,
+        target_label: bulkTargetType === 'entire_school' ? 'Entire School' : `${targetCls?.name || '—'} (All Sections)`,
         target_class_id: bulkTargetClassId,
         charge_date: bulkChargeDate,
         due_date: bulkDueDate,
@@ -1070,7 +1070,7 @@ export default function FeesManagementPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <span className="text-slate-400 block">Class:</span>
-                    <strong className="text-slate-900">{classes.find((c) => c.id === feeUpdateClassId)?.name || 'Class 8'}</strong>
+                    <strong className="text-slate-900">{classes.find((c) => c.id === feeUpdateClassId)?.name || '—'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Students Affected:</span>

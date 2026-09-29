@@ -125,7 +125,7 @@ export default function AdminAccessRequestsPage() {
     setExistingProfileId(null);
     setProfileFirstName(firstName);
     setProfileLastName(lastName);
-    setProfilePhone((req.phone || '').replace(/\D/g, '').slice(0, 15));
+    setProfilePhone((req.phone || '').replace(/\D/g, '').slice(0, 10));
     setProfileDesignation(req.assigned_designation || '');
     setProfileDepartment(req.assigned_department || '');
     setProfileJoiningDate(new Date().toISOString().split('T')[0]);
@@ -142,7 +142,7 @@ export default function AdminAccessRequestsPage() {
           setExistingProfileId(existing.id);
           setProfileFirstName(existing.first_name);
           setProfileLastName(existing.last_name);
-          setProfilePhone(existing.phone.replace(/\D/g, '').slice(0, 15));
+          setProfilePhone(existing.phone.replace(/\D/g, '').slice(0, 10));
           setProfileDesignation(existing.designation || '');
           setProfileDepartment(existing.subjects?.[0] || req.assigned_department || '');
           setProfileJoiningDate(existing.joining_date);
@@ -156,7 +156,7 @@ export default function AdminAccessRequestsPage() {
           setExistingProfileId(existing.id);
           setProfileFirstName(existing.first_name);
           setProfileLastName(existing.last_name);
-          setProfilePhone(existing.phone.replace(/\D/g, '').slice(0, 15));
+          setProfilePhone(existing.phone.replace(/\D/g, '').slice(0, 10));
           setProfileDesignation(existing.custom_type_name || existing.department || '');
           setProfileDepartment(existing.department || '');
           setProfileJoiningDate(existing.joining_date);
@@ -171,7 +171,7 @@ export default function AdminAccessRequestsPage() {
           setExistingProfileId(existing.id);
           setProfileFirstName(existing.guardian_name);
           setProfileLastName('');
-          setProfilePhone(existing.primary_phone.replace(/\D/g, '').slice(0, 15));
+          setProfilePhone(existing.primary_phone.replace(/\D/g, '').slice(0, 10));
           setProfileAddress(existing.address || '');
         }
       }
@@ -184,8 +184,8 @@ export default function AdminAccessRequestsPage() {
   const handleSaveApprovedProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingApprovedReq || !schoolId) return;
-    if (!profileFirstName.trim() || !/^\d{10,15}$/.test(profilePhone)) {
-      toastError('Name and a valid 10-15 digit phone number are required');
+    if (!profileFirstName.trim() || !/^\d{10}$/.test(profilePhone)) {
+      toastError('Name and a valid 10-digit phone number are required');
       return;
     }
     if (editingApprovedReq.assigned_role === 'teacher' && (!profileDesignation || !profileDepartment)) {
@@ -743,7 +743,7 @@ export default function AdminAccessRequestsPage() {
               <Input label="Last Name" required value={profileLastName} onChange={(e) => setProfileLastName(e.target.value)} />
             )}
             <Input label="Email / Portal Login" value={editingApprovedReq?.user_email || ''} disabled />
-            <Input label="Phone Number" required inputMode="numeric" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value.replace(/\D/g, '').slice(0, 15))} helperText="Digits only (10-15 digits)" />
+            <Input label="Phone Number" required inputMode="numeric" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value.replace(/\D/g, '').slice(0, 10))} helperText="Digits only (exactly 10 digits)" />
           </div>
 
           {editingApprovedReq?.assigned_role === 'parent' ? (

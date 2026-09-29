@@ -107,8 +107,8 @@ export default function StudentDashboardPage() {
           Hello, {currentUser?.name?.split(' ')[0] || student?.first_name || 'Rahul'} 👋
         </h1>
         <p className="text-xs sm:text-sm text-slate-300">
-          {student?.current_enrollment?.class_name || 'Class 8'} • Section{' '}
-          {student?.current_enrollment?.section_name || 'A'} • Roll No.{' '}
+          {student?.current_enrollment?.class_name || '—'} • Section{' '}
+          {student?.current_enrollment?.section_name || '—'} • Roll No.{' '}
           <strong className="text-white font-bold">{student?.current_enrollment?.roll_number || '12'}</strong>
         </p>
       </div>

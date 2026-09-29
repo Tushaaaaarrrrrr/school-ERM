@@ -251,10 +251,10 @@ export default function StudentsDirectoryPage() {
                         {student.registration_number}
                       </td>
                       <td className="px-5 py-3.5 font-medium">
-                        {student.current_enrollment?.class_name || 'Class 8'}
+                        {student.current_enrollment?.class_name || '—'}
                       </td>
                       <td className="px-5 py-3.5 font-medium">
-                        {student.current_enrollment?.section_name || 'A'}
+                        {student.current_enrollment?.section_name || '—'}
                       </td>
                       <td className="px-5 py-3.5 font-bold text-slate-800">
                         {student.current_enrollment?.roll_number || '—'}
@@ -328,11 +328,11 @@ export default function StudentsDirectoryPage() {
                   <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs text-center border border-slate-100">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Class</span>
-                      <p className="font-bold text-slate-800">{student.current_enrollment?.class_name || 'Class 8'}</p>
+                      <p className="font-bold text-slate-800">{student.current_enrollment?.class_name || '—'}</p>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Section</span>
-                      <p className="font-bold text-slate-800">{student.current_enrollment?.section_name || 'A'}</p>
+                      <p className="font-bold text-slate-800">{student.current_enrollment?.section_name || '—'}</p>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Roll No</span>
