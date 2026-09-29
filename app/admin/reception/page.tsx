@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
 import {
   Search,
   User,
@@ -158,6 +158,23 @@ export default function ReceptionLookupPage() {
 
   const handleCreateEnquiry = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidPersonName(newEnquiryData.student_name)) {
+      toastError('Student name must contain letters only.');
+      return;
+    }
+    if (!isValidPersonName(newEnquiryData.parent_name)) {
+      toastError('Parent / Guardian name must contain letters only.');
+      return;
+    }
+    if (!isValidIndianMobile(newEnquiryData.primary_phone)) {
+      toastError('Primary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+    if (newEnquiryData.secondary_phone && !isValidIndianMobile(newEnquiryData.secondary_phone)) {
+      toastError('Secondary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
     try {
       await enquiryService.createEnquiry({
         school_id: schoolId,
@@ -616,9 +633,9 @@ export default function ReceptionLookupPage() {
               <input
                 type="text"
                 required
-                placeholder="e.g. Amit Sharma"
+                placeholder="e.g. Amit Sharma (letters only)"
                 value={newEnquiryData.student_name}
-                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, student_name: e.target.value }))}
+                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, student_name: sanitizePersonName(e.target.value) }))}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold"
               />
             </div>
@@ -627,9 +644,9 @@ export default function ReceptionLookupPage() {
               <input
                 type="text"
                 required
-                placeholder="e.g. Rajesh Sharma"
+                placeholder="e.g. Rajesh Sharma (letters only)"
                 value={newEnquiryData.parent_name}
-                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, parent_name: e.target.value }))}
+                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, parent_name: sanitizePersonName(e.target.value) }))}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold"
               />
             </div>
@@ -641,9 +658,12 @@ export default function ReceptionLookupPage() {
               <input
                 type="tel"
                 required
-                placeholder="e.g. +91 98765 43210"
+                inputMode="numeric"
+                pattern="[6-9][0-9]{9}"
+                maxLength={10}
+                placeholder="9876543210 (10 digits, starts 6-9)"
                 value={newEnquiryData.primary_phone}
-                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, primary_phone: e.target.value }))}
+                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, primary_phone: sanitizeIndianMobile(e.target.value) }))}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
               />
             </div>
@@ -651,9 +671,12 @@ export default function ReceptionLookupPage() {
               <label className="block font-semibold text-slate-700 mb-1">Secondary Phone (Optional)</label>
               <input
                 type="tel"
-                placeholder="e.g. +91 98765 43211"
+                inputMode="numeric"
+                pattern="[6-9][0-9]{9}"
+                maxLength={10}
+                placeholder="9876500000 (10 digits, starts 6-9)"
                 value={newEnquiryData.secondary_phone}
-                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, secondary_phone: e.target.value }))}
+                onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, secondary_phone: sanitizeIndianMobile(e.target.value) }))}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
               />
             </div>

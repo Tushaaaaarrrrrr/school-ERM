@@ -18,6 +18,7 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { IdentityProofsInput, IdentityProof } from '@/components/ui/identity-proofs-input';
 import { useToast } from '@/components/ui/toast';
+import { sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
 import {
   ArrowLeft,
   User,
@@ -114,6 +115,36 @@ export default function RegisterStaffPage() {
 
     if (!formData.firstName.trim() || !formData.employeeNumber || !formData.phone.trim()) {
       toastError('Please fill all required fields: First Name, Employee ID, and Phone Number.');
+      return;
+    }
+
+    if (!isValidPersonName(formData.firstName)) {
+      toastError('First Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (formData.lastName && !isValidPersonName(formData.lastName)) {
+      toastError('Last Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (!isValidIndianMobile(formData.phone)) {
+      toastError('Primary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    if (formData.alternatePhone && !isValidIndianMobile(formData.alternatePhone)) {
+      toastError('Alternate contact phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    if (formData.emergencyContactName && !isValidPersonName(formData.emergencyContactName)) {
+      toastError('Emergency contact person must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (formData.emergencyContactPhone && !isValidIndianMobile(formData.emergencyContactPhone)) {
+      toastError('Emergency contact phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -252,15 +283,17 @@ export default function RegisterStaffPage() {
               label="First Name *"
               required
               value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, firstName: sanitizePersonName(e.target.value) })}
               placeholder="e.g. Ramesh"
+              helperText="Letters only"
             />
 
             <Input
               label="Last Name"
               value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, lastName: sanitizePersonName(e.target.value) })}
               placeholder="e.g. Kumar (optional)"
+              helperText="Letters only"
             />
           </div>
 
@@ -367,19 +400,23 @@ export default function RegisterStaffPage() {
               required
               type="tel"
               inputMode="numeric"
+              pattern="[6-9][0-9]{9}"
               maxLength={10}
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              onChange={(e) => setFormData({ ...formData, phone: sanitizeIndianMobile(e.target.value) })}
               placeholder="9876543210"
+              helperText="10 digits only, starts with 6-9"
             />
             <Input
               label="Alternate Contact Phone"
               type="tel"
               inputMode="numeric"
+              pattern="[6-9][0-9]{9}"
               maxLength={10}
               value={formData.alternatePhone}
-              onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              onChange={(e) => setFormData({ ...formData, alternatePhone: sanitizeIndianMobile(e.target.value) })}
               placeholder="9876500000 (optional)"
+              helperText="10 digits only, starts with 6-9"
             />
           </div>
 
@@ -394,17 +431,20 @@ export default function RegisterStaffPage() {
             <Input
               label="Emergency Contact Person"
               value={formData.emergencyContactName}
-              onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, emergencyContactName: sanitizePersonName(e.target.value) })}
               placeholder="Spouse / Parent / Relative name"
+              helperText="Letters only"
             />
             <Input
               label="Emergency Contact Phone"
               type="tel"
               inputMode="numeric"
+              pattern="[6-9][0-9]{9}"
               maxLength={10}
               value={formData.emergencyContactPhone}
-              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: sanitizeIndianMobile(e.target.value) })}
               placeholder="Emergency phone number"
+              helperText="10 digits only, starts with 6-9"
             />
           </div>
         </div>
