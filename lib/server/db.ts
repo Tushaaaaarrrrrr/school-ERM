@@ -981,9 +981,9 @@ export const serverDb = {
       try {
         const { data: inserted, error } = await supabase.from('teachers').insert(filtered).select().single();
         if (!error && inserted) data = { ...data, ...inserted };
-        else if (error) console.warn('Supabase teacher insert warning:', error);
+        else if (error) throw new Error(`Database teacher insert failed: ${error.message}`);
       } catch (err) {
-        console.warn('Supabase teacher insert exception:', err);
+        throw err instanceof Error ? err : new Error('Database teacher insert failed');
       }
     }
     const db = initServerDb();
@@ -996,6 +996,8 @@ export const serverDb = {
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const { data, error } = await supabase.from('teachers').update(updates).eq('id', id).select().single();
+      if (error) throw new Error(`Database teacher update failed: ${error.message}`);
+      if (data) return data as Teacher;
     }
     const db = initServerDb();
     if (!db.teachers) db.teachers = [];
@@ -1066,10 +1068,10 @@ export const serverDb = {
         if (!error && inserted) {
           data = { ...data, ...inserted };
         } else if (error) {
-          console.warn('Supabase staff insert warning:', error);
+          throw new Error(`Database staff insert failed: ${error.message}`);
         }
       } catch (err) {
-        console.warn('Supabase staff insert exception:', err);
+        throw err instanceof Error ? err : new Error('Database staff insert failed');
       }
     }
     const db = initServerDb();
@@ -1085,7 +1087,9 @@ export const serverDb = {
       if (isUuid(id)) {
         const payload: any = { ...updates };
         delete payload.id;
-        await supabase.from('staff').update(payload).eq('id', id);
+        const { data, error } = await supabase.from('staff').update(payload).eq('id', id).select().single();
+        if (error) throw new Error(`Database staff update failed: ${error.message}`);
+        if (data) return data as Staff;
       }
     }
     const db = initServerDb();
@@ -1159,11 +1163,7 @@ export const serverDb = {
       try {
         let { data: inserted, error } = await supabase.from('students').insert(filtered).select().single();
         if (error && (error.message?.includes('current_enrollment') || (error as any).code === '42703')) {
-          // If current_enrollment column doesn't exist yet on live Supabase, retry without it
-          const { current_enrollment, ...filteredWithoutEnrollment } = filtered;
-          const retry = await supabase.from('students').insert(filteredWithoutEnrollment).select().single();
-          inserted = retry.data;
-          error = retry.error;
+          throw new Error('Database students.current_enrollment column is missing. Apply the student enrollment migration before creating students.');
         }
         if (!error && inserted) {
           student = { ...student, ...inserted };
@@ -1220,9 +1220,9 @@ export const serverDb = {
             }
           }
         }
-        else if (error) console.warn('Supabase student insert warning:', error);
+        else if (error) throw new Error(`Database student insert failed: ${error.message}`);
       } catch (err) {
-        console.warn('Supabase student insert exception:', err);
+        throw err instanceof Error ? err : new Error('Database student insert failed');
       }
     }
     const db = initServerDb();
@@ -1259,9 +1259,9 @@ export const serverDb = {
         try {
           const { error } = await supabase.from('students').update(payload).eq('id', id);
           if (error && (error.message?.includes('current_enrollment') || (error as any).code === '42703')) {
-            delete payload.current_enrollment;
-            await supabase.from('students').update(payload).eq('id', id);
+            throw new Error('Database students.current_enrollment column is missing. Apply the student enrollment migration before updating students.');
           }
+          if (error) throw new Error(`Database student update failed: ${error.message}`);
           if (updates.guardian?.email) {
             const parentEmail = updates.guardian.email.trim().toLowerCase();
             const guardianName = updates.guardian.guardian_name || updates.guardian.father_name || updates.guardian.mother_name || 'Parent / Guardian';
@@ -1294,7 +1294,7 @@ export const serverDb = {
             }
           }
         } catch (e) {
-          console.warn('Supabase student update error:', e);
+          throw e instanceof Error ? e : new Error('Database student update failed');
         }
       }
     }
@@ -2703,7 +2703,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('parent_profiles').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createParent error:', error);
+      if (error) throw new Error(`Database parent insert failed: ${error.message}`);
     }
     const db = initServerDb();
     if (!db.parents) db.parents = [];
@@ -2718,7 +2718,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('parent_profiles').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateParent error:', error);
+      if (error) throw new Error(`Database parent update failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2745,7 +2745,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('parent_student_links').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createParentLink error:', error);
+      if (error) throw new Error(`Database parent link insert failed: ${error.message}`);
     }
     return data;
   },

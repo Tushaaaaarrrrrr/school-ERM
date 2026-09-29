@@ -1595,15 +1595,14 @@ export const staffService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...newStaff, school_id: schoolId }),
         });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            newStaff.id = json.data.id || newStaff.id;
-          }
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.error || 'Could not save staff to database.');
         }
+        Object.assign(newStaff, json.data);
       }
     } catch (e) {
-      console.warn('API staff create fallback:', e);
+      throw e instanceof Error ? e : new Error('Could not save staff to database.');
     }
 
     list.push(newStaff);
@@ -1650,14 +1649,19 @@ export const staffService = {
 
     try {
       if (typeof window !== 'undefined') {
-        await fetch(`/api/staff/${id}`, {
+        const res = await fetch(`/api/staff/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.error || 'Could not update staff in database.');
+        }
+        list[index] = { ...list[index], ...json.data };
       }
     } catch (e) {
-      console.warn(`API staff update fallback for ${id}:`, e);
+      throw e instanceof Error ? e : new Error('Could not update staff in database.');
     }
 
     storageService.setItem(STORAGE_KEYS.STAFF, list);
@@ -3520,17 +3524,16 @@ export const studentService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...newStudent, school_id: studentData.school_id }),
         });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            const saved = this.mergeStudentRecord(json.data, [newStudent]);
-            Object.assign(newStudent, saved);
-            if (newStudent.current_enrollment) newStudent.current_enrollment.student_id = newStudent.id;
-          }
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.error || 'Could not save student to database.');
         }
+        const saved = this.mergeStudentRecord(json.data, [newStudent]);
+        Object.assign(newStudent, saved);
+        if (newStudent.current_enrollment) newStudent.current_enrollment.student_id = newStudent.id;
       }
     } catch (e) {
-      console.warn('API student create fallback:', e);
+      throw e instanceof Error ? e : new Error('Could not save student to database.');
     }
 
     students.push(newStudent);
@@ -3565,12 +3568,12 @@ export const studentService = {
       }
 
       const links = storageService.getItem<ParentStudentLink[]>(STORAGE_KEYS.PARENT_STUDENT_LINKS, []);
-      if (!links.some((item) => item.parent_id === parent!.id && item.student_id === newStudentId)) {
+      if (!links.some((item) => item.parent_id === parent!.id && item.student_id === newStudent.id)) {
         links.push({
           id: `psl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           school_id: studentData.school_id,
           parent_id: parent.id,
-          student_id: newStudentId,
+          student_id: newStudent.id,
           relationship: guardianInfo.guardian_name ? 'guardian' : guardianInfo.father_name ? 'father' : 'mother',
           is_primary_guardian: true,
           status: 'active',
@@ -3587,7 +3590,7 @@ export const studentService = {
       const charges = storageService.getItem<StudentCharge[]>(STORAGE_KEYS.STUDENT_CHARGES, INITIAL_STUDENT_CHARGES);
       const now = new Date().toISOString();
       enrollmentCharges.filter((item) => item.amount > 0).forEach((item, index) => {
-        charges.unshift({ id: `chg-${Date.now()}-${index}`, school_id: studentData.school_id, student_id: newStudentId,
+        charges.unshift({ id: `chg-${Date.now()}-${index}`, school_id: studentData.school_id, student_id: newStudent.id,
           academic_year_id: studentData.academic_year_id, charge_name: item.name, amount: item.amount, paid_amount: 0,
           remaining_amount: item.amount, charge_date: studentData.joining_date || now.split('T')[0], status: 'pending',
           student_name: `${studentData.first_name} ${studentData.last_name}`, registration_number: registrationNumber,
@@ -3640,14 +3643,19 @@ export const studentService = {
 
     try {
       if (typeof window !== 'undefined') {
-        await fetch(`/api/students/${id}`, {
+        const res = await fetch(`/api/students/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
         });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.error || 'Could not update student in database.');
+        }
+        Object.assign(updatedStudent, this.mergeStudentRecord(json.data, [updatedStudent]));
       }
     } catch (e) {
-      console.warn(`API student update fallback for ${id}:`, e);
+      throw e instanceof Error ? e : new Error('Could not update student in database.');
     }
 
     list[index] = updatedStudent;
@@ -3839,15 +3847,14 @@ export const teacherService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...newTeacher, school_id: schoolId }),
         });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            newTeacher.id = json.data.id || newTeacher.id;
-          }
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.error || 'Could not save teacher to database.');
         }
+        Object.assign(newTeacher, json.data);
       }
     } catch (e) {
-      console.warn('API teacher create fallback:', e);
+      throw e instanceof Error ? e : new Error('Could not save teacher to database.');
     }
 
     list.push(newTeacher);
@@ -3861,7 +3868,7 @@ export const teacherService = {
       salHist.push({
         id: `sal-${Date.now().toString().slice(-4)}`,
         school_id: schoolId,
-        employee_id: newTeacherId,
+        employee_id: newTeacher.id,
         employee_type: 'teacher',
         amount: teacherData.monthly_salary,
         effective_from: teacherData.joining_date || new Date().toISOString().split('T')[0],
@@ -3892,14 +3899,19 @@ export const teacherService = {
 
     try {
       if (typeof window !== 'undefined') {
-        await fetch(`/api/teachers/${id}`, {
+        const res = await fetch(`/api/teachers/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
         });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.error || 'Could not update teacher in database.');
+        }
+        list[index] = { ...list[index], ...json.data };
       }
     } catch (e) {
-      console.warn(`API teacher update fallback for ${id}:`, e);
+      throw e instanceof Error ? e : new Error('Could not update teacher in database.');
     }
 
     storageService.setItem(STORAGE_KEYS.TEACHERS, list);
@@ -7079,6 +7091,22 @@ export const parentService = {
     schoolId: string,
     filter?: { search?: string; status?: GeneralStatus }
   ): Promise<ParentProfile[]> {
+    try {
+      if (typeof window !== 'undefined') {
+        const qs = new URLSearchParams();
+        if (filter?.search) qs.set('search', filter.search);
+        if (filter?.status) qs.set('status', filter.status);
+        const res = await fetch(`/api/parents${qs.toString() ? `?${qs}` : ''}`);
+        const json = await res.json();
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          storageService.setItem(STORAGE_KEYS.PARENTS, json.data);
+          return json.data;
+        }
+      }
+    } catch (e) {
+      console.warn('API parents fetch fallback:', e);
+    }
+
     let list = storageService.getItem<ParentProfile[]>(STORAGE_KEYS.PARENTS, INITIAL_PARENTS).filter(
       (p) => p.school_id === schoolId
     );
@@ -7116,6 +7144,20 @@ export const parentService = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch('/api/parents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newParent),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) throw new Error(json.error || 'Could not save parent to database.');
+        Object.assign(newParent, json.data);
+      }
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('Could not save parent to database.');
+    }
     list.push(newParent);
     storageService.setItem(STORAGE_KEYS.PARENTS, list);
     return newParent;
@@ -7131,6 +7173,20 @@ export const parentService = {
       ...data,
       updated_at: new Date().toISOString(),
     };
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch(`/api/parents/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) throw new Error(json.error || 'Could not update parent in database.');
+        Object.assign(updated, json.data);
+      }
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('Could not update parent in database.');
+    }
     list[index] = updated;
     storageService.setItem(STORAGE_KEYS.PARENTS, list);
     return updated;
@@ -7140,6 +7196,21 @@ export const parentService = {
     schoolId: string,
     filter?: { parentId?: string; studentId?: string }
   ): Promise<ParentStudentLink[]> {
+    try {
+      if (typeof window !== 'undefined') {
+        const qs = new URLSearchParams();
+        if (filter?.parentId) qs.set('parentId', filter.parentId);
+        if (filter?.studentId) qs.set('studentId', filter.studentId);
+        const res = await fetch(`/api/parent-links${qs.toString() ? `?${qs}` : ''}`);
+        const json = await res.json();
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          storageService.setItem(STORAGE_KEYS.PARENT_STUDENT_LINKS, json.data);
+        }
+      }
+    } catch (e) {
+      console.warn('API parent links fetch fallback:', e);
+    }
+
     let list = storageService.getItem<ParentStudentLink[]>(
       STORAGE_KEYS.PARENT_STUDENT_LINKS,
       INITIAL_PARENT_STUDENT_LINKS
@@ -7174,11 +7245,14 @@ export const parentService = {
 
     const existing = list.find((l) => l.parent_id === parentId && l.student_id === studentId);
     if (existing) {
-      existing.status = 'active';
-      existing.relationship = relationship;
-      existing.is_primary_guardian = isPrimary;
-      storageService.setItem(STORAGE_KEYS.PARENT_STUDENT_LINKS, list);
-      return existing;
+      if (
+        existing.status === 'active' &&
+        existing.relationship === relationship &&
+        existing.is_primary_guardian === isPrimary
+      ) {
+        return existing;
+      }
+      throw new Error('Updating an existing parent link requires the database update endpoint.');
     }
 
     const newLink: ParentStudentLink = {
@@ -7193,6 +7267,20 @@ export const parentService = {
       created_at: new Date().toISOString(),
     };
 
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch('/api/parent-links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newLink),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) throw new Error(json.error || 'Could not save parent link to database.');
+        Object.assign(newLink, json.data);
+      }
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('Could not save parent link to database.');
+    }
     list.push(newLink);
     storageService.setItem(STORAGE_KEYS.PARENT_STUDENT_LINKS, list);
     return newLink;
