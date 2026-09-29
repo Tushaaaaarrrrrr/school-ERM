@@ -10,9 +10,7 @@ export async function PUT(
     const { schoolId } = await requireSchoolAccess(['school_admin', 'accountant']);
     const { id } = await params;
     const body = await request.json();
-    
-    // Call serverDb methods here
-    return NextResponse.json({ success: true, id });
+    return NextResponse.json({ success: false, error: 'Database endpoint not implemented.' }, { status: 501 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
   }
