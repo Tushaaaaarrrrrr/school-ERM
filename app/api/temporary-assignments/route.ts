@@ -84,8 +84,8 @@ export async function POST(request: Request) {
     }
 
     body.school_id = access.schoolId;
-    body.created_by = access.context.user?.id;
-    body.created_by_name = access.context.user?.name || 'School Administrator';
+    body.created_by = (access.context as any).user?.id;
+    body.created_by_name = (access.context as any).user?.name || 'School Administrator';
 
     const created = await serverDb.createTemporaryAssignment(body as TemporaryAssignment);
     return NextResponse.json({ success: true, data: created });

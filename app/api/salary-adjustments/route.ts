@@ -71,8 +71,8 @@ export async function POST(request: Request) {
     body.amount = amount;
     body.school_id = access.schoolId;
     body.billing_month = body.billing_month || body.effective_date.slice(0, 7);
-    body.created_by = access.context.user?.id;
-    body.created_by_name = access.context.user?.name || 'School Administrator';
+    body.created_by = (access.context as any).user?.id;
+    body.created_by_name = (access.context as any).user?.name || 'School Administrator';
 
     const created = await serverDb.createSalaryAdjustment(body as EmployeeSalaryAdjustment);
     return NextResponse.json({ success: true, data: created });

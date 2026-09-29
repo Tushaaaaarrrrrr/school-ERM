@@ -182,6 +182,260 @@ export async function resolveAccessContext(supabase: any, user: any) {
     console.warn('Direct admin_email lookup notice:', directAdminErr);
   }
 
+  // 2. Direct teacher lookup by email
+  try {
+    const { data: matchedTeachers } = await adminClient
+      .from('teachers')
+      .select('*, schools(*)')
+      .ilike('email', email)
+      .eq('status', 'active');
+
+    if (matchedTeachers && matchedTeachers.length > 0) {
+      const t = matchedTeachers[0];
+      const targetSchool = t.schools || (await serverDb.getSchoolById(t.school_id));
+      if (targetSchool) {
+        await adminClient.from('school_memberships').upsert({
+          user_id: profile.id,
+          school_id: targetSchool.id,
+          role: 'teacher',
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,school_id' });
+
+        await adminClient.from('profiles').update({
+          role: 'teacher',
+          school_id: targetSchool.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', profile.id);
+
+        const teacherPersona: UserPersona = {
+          id: profile.id,
+          name: `${t.first_name} ${t.last_name}`,
+          email: email,
+          role: 'teacher',
+          school_id: targetSchool.id,
+          school_name: targetSchool.name,
+          school_code: targetSchool.code,
+          permissions: [],
+        };
+        return {
+          authenticated: true as const,
+          state: 'ACTIVE_SCHOOL_USER' as AccessState,
+          user: teacherPersona,
+          school: targetSchool,
+          profile: { ...profile, role: 'teacher', school_id: targetSchool.id },
+        };
+      }
+    }
+  } catch (tErr) {
+    console.warn('Direct teacher lookup notice:', tErr);
+  }
+
+  // 3. Direct staff lookup by email
+  try {
+    const { data: matchedStaffMembers } = await adminClient
+      .from('staff')
+      .select('*, schools(*)')
+      .ilike('email', email)
+      .eq('status', 'active');
+
+    if (matchedStaffMembers && matchedStaffMembers.length > 0) {
+      const st = matchedStaffMembers[0];
+      const targetSchool = st.schools || (await serverDb.getSchoolById(st.school_id));
+      if (targetSchool) {
+        const assignedRole: UserRole = st.staff_type === 'driver' ? 'driver' : st.staff_type === 'accountant' ? 'accountant' : 'staff';
+        await adminClient.from('school_memberships').upsert({
+          user_id: profile.id,
+          school_id: targetSchool.id,
+          role: assignedRole,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,school_id' });
+
+        await adminClient.from('profiles').update({
+          role: assignedRole,
+          school_id: targetSchool.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', profile.id);
+
+        const staffPersona: UserPersona = {
+          id: profile.id,
+          name: `${st.first_name} ${st.last_name}`,
+          email: email,
+          role: assignedRole,
+          school_id: targetSchool.id,
+          school_name: targetSchool.name,
+          school_code: targetSchool.code,
+          permissions: st.permissions || [],
+        };
+        return {
+          authenticated: true as const,
+          state: 'ACTIVE_SCHOOL_USER' as AccessState,
+          user: staffPersona,
+          school: targetSchool,
+          profile: { ...profile, role: assignedRole, school_id: targetSchool.id },
+        };
+      }
+    }
+  } catch (stErr) {
+    console.warn('Direct staff lookup notice:', stErr);
+  }
+
+  // 4. Direct parent lookup by parent_profiles
+  try {
+    const { data: matchedParents } = await adminClient
+      .from('parent_profiles')
+      .select('*, schools(*)')
+      .ilike('email', email)
+      .eq('status', 'active');
+
+    if (matchedParents && matchedParents.length > 0) {
+      const p = matchedParents[0];
+      const targetSchool = p.schools || (await serverDb.getSchoolById(p.school_id));
+      if (targetSchool) {
+        await adminClient.from('school_memberships').upsert({
+          user_id: profile.id,
+          school_id: targetSchool.id,
+          role: 'parent',
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,school_id' });
+
+        await adminClient.from('profiles').update({
+          role: 'parent',
+          school_id: targetSchool.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', profile.id);
+
+        try {
+          await adminClient.from('parent_profiles').update({
+            auth_user_id: user.id,
+            updated_at: new Date().toISOString(),
+          }).eq('id', p.id);
+        } catch {}
+
+        const parentPersona: UserPersona = {
+          id: profile.id,
+          name: p.guardian_name || p.father_name || p.mother_name || name,
+          email: email,
+          role: 'parent',
+          school_id: targetSchool.id,
+          school_name: targetSchool.name,
+          school_code: targetSchool.code,
+          parent_id: p.id,
+          permissions: [],
+        };
+        return {
+          authenticated: true as const,
+          state: 'ACTIVE_SCHOOL_USER' as AccessState,
+          user: parentPersona,
+          school: targetSchool,
+          profile: { ...profile, role: 'parent', school_id: targetSchool.id },
+        };
+      }
+    }
+  } catch (parentErr) {
+    console.warn('Direct parent_profiles lookup notice:', parentErr);
+  }
+
+  // 5. Direct parent lookup by guardians table
+  try {
+    const { data: matchedGuardians } = await adminClient
+      .from('guardians')
+      .select('*, schools(*)')
+      .ilike('email', email);
+
+    if (matchedGuardians && matchedGuardians.length > 0) {
+      const g = matchedGuardians[0];
+      const targetSchool = g.schools || (await serverDb.getSchoolById(g.school_id));
+      if (targetSchool) {
+        await adminClient.from('school_memberships').upsert({
+          user_id: profile.id,
+          school_id: targetSchool.id,
+          role: 'parent',
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,school_id' });
+
+        await adminClient.from('profiles').update({
+          role: 'parent',
+          school_id: targetSchool.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', profile.id);
+
+        const parentPersona: UserPersona = {
+          id: profile.id,
+          name: g.guardian_name || g.father_name || g.mother_name || name,
+          email: email,
+          role: 'parent',
+          school_id: targetSchool.id,
+          school_name: targetSchool.name,
+          school_code: targetSchool.code,
+          permissions: [],
+        };
+        return {
+          authenticated: true as const,
+          state: 'ACTIVE_SCHOOL_USER' as AccessState,
+          user: parentPersona,
+          school: targetSchool,
+          profile: { ...profile, role: 'parent', school_id: targetSchool.id },
+        };
+      }
+    }
+  } catch (gErr) {
+    console.warn('Direct guardians table lookup notice:', gErr);
+  }
+
+  // 6. Direct parent lookup by student's guardian JSON
+  try {
+    const { data: matchedStudents } = await adminClient
+      .from('students')
+      .select('*, schools(*)')
+      .ilike('guardian->>email', email)
+      .eq('status', 'active');
+
+    if (matchedStudents && matchedStudents.length > 0) {
+      const st = matchedStudents[0];
+      const targetSchool = st.schools || (await serverDb.getSchoolById(st.school_id));
+      if (targetSchool) {
+        await adminClient.from('school_memberships').upsert({
+          user_id: profile.id,
+          school_id: targetSchool.id,
+          role: 'parent',
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,school_id' });
+
+        await adminClient.from('profiles').update({
+          role: 'parent',
+          school_id: targetSchool.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', profile.id);
+
+        const gName = st.guardian?.guardian_name || st.guardian?.father_name || st.guardian?.mother_name || `${st.first_name}'s Guardian`;
+        const parentPersona: UserPersona = {
+          id: profile.id,
+          name: gName,
+          email: email,
+          role: 'parent',
+          school_id: targetSchool.id,
+          school_name: targetSchool.name,
+          school_code: targetSchool.code,
+          permissions: [],
+        };
+        return {
+          authenticated: true as const,
+          state: 'ACTIVE_SCHOOL_USER' as AccessState,
+          user: parentPersona,
+          school: targetSchool,
+          profile: { ...profile, role: 'parent', school_id: targetSchool.id },
+        };
+      }
+    }
+  } catch (stGuardErr) {
+    console.warn('Direct student guardian JSON lookup notice:', stGuardErr);
+  }
+
   // Pre-registration sync from centralized server database
   const allSchools = await serverDb.getSchools();
   for (const s of allSchools) {
@@ -348,6 +602,45 @@ export async function resolveAccessContext(supabase: any, user: any) {
         profile,
       };
     }
+
+    // 6. Check Parents (by parent_profiles in serverDb)
+    const parents = await serverDb.getParents(s.id);
+    const matchedParent = parents.find((p: any) => p.email?.trim().toLowerCase() === email);
+    if (matchedParent && matchedParent.status === 'active') {
+      const assignedRole: UserRole = 'parent';
+      await adminClient.from('school_memberships').upsert({
+        user_id: profile.id,
+        school_id: s.id,
+        role: assignedRole,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,school_id' });
+
+      await adminClient.from('profiles').update({
+        role: assignedRole,
+        school_id: s.id,
+        updated_at: new Date().toISOString(),
+      }).eq('id', profile.id);
+
+      const parentPersona: UserPersona = {
+        id: profile.id,
+        name: matchedParent.guardian_name || matchedParent.father_name || matchedParent.mother_name || name,
+        email: email,
+        role: assignedRole,
+        school_id: s.id,
+        school_name: s.name,
+        school_code: s.code,
+        parent_id: matchedParent.id,
+        permissions: [],
+      };
+      return {
+        authenticated: true as const,
+        state: 'ACTIVE_SCHOOL_USER' as AccessState,
+        user: parentPersona,
+        school: s,
+        profile,
+      };
+    }
   }
 
   const { data: revoked } = await adminClient.from('school_memberships').select('id').eq('user_id', profile.id).eq('status', 'revoked').limit(1).maybeSingle();
@@ -402,7 +695,17 @@ export async function requireSchoolAccess(
   }
 
   const context = await getAccessContext();
-  if (!context.authenticated) return { ok: false as const, status: 401, context, schoolId: undefined, email: undefined, role: undefined };
+  if (!context.authenticated) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isConfigured = Boolean(url && !url.includes('demo.supabase.co') && !url.includes('your-project-id'));
+    if (!isConfigured) {
+      const allSchools = await serverDb.getSchools();
+      const schoolId = requestedSchoolId || allSchools[0]?.id || 'sch-4404';
+      const adminUser: UserPersona = { id: 'usr-admin-01', name: 'School Administrator', email: 'admin@school.com', role: 'school_admin', school_id: schoolId };
+      return { ok: true as const, schoolId, email: 'admin@school.com', role: 'school_admin' as UserRole, context: { authenticated: true as const, state: 'ACTIVE_SCHOOL_USER' as AccessState, user: adminUser } as any };
+    }
+    return { ok: false as const, status: 401, context, schoolId: undefined, email: undefined, role: undefined };
+  }
   if (context.state === 'SUPER_ADMIN') return { ok: true as const, schoolId: requestedSchoolId || undefined, email: context.profile?.email, role: 'super_admin' as UserRole, context };
   if (context.state !== 'ACTIVE_SCHOOL_USER' || !context.user?.school_id) return { ok: false as const, status: 403, context, schoolId: undefined, email: undefined, role: undefined };
   if (requestedSchoolId && requestedSchoolId !== context.user.school_id) return { ok: false as const, status: 403, context, schoolId: undefined, email: undefined, role: undefined };

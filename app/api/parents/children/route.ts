@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getAccessContext } from '@/lib/server/access';
 import { serverDb } from '@/lib/server/db';
+import { getServiceSupabase } from '@/lib/server/auth';
 import { Student } from '@/lib/types';
 
 export async function GET(request: Request) {
@@ -79,6 +80,41 @@ export async function GET(request: Request) {
     }
 
     const matchedStudents = Array.from(matchedMap.values());
+
+    if (matchedStudents.length === 0 && parentEmail) {
+      const adminClient = getServiceSupabase();
+      if (adminClient) {
+        try {
+          const { data: directStudents } = await adminClient
+            .from('students')
+            .select('*')
+            .ilike('guardian->>email', parentEmail)
+            .eq('status', 'active');
+          if (directStudents && directStudents.length > 0) {
+            matchedStudents.push(...directStudents);
+          }
+        } catch {}
+
+        if (matchedStudents.length === 0) {
+          try {
+            const { data: gList } = await adminClient
+              .from('guardians')
+              .select('student_id')
+              .ilike('email', parentEmail);
+            if (gList && gList.length > 0) {
+              const studentIds = gList.map((g: any) => g.student_id);
+              const { data: sList } = await adminClient
+                .from('students')
+                .select('*')
+                .in('id', studentIds);
+              if (sList && sList.length > 0) {
+                matchedStudents.push(...sList);
+              }
+            }
+          } catch {}
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

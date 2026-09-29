@@ -314,7 +314,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               academic_year_name: s.current_enrollment?.academic_year_name || '2026-27',
               class_id: matchedClass.id,
               class_name: matchedClass.name,
-              section_id: matchedSection?.id,
+              section_id: matchedSection?.id || '',
               section_name: matchedSection?.name,
               roll_number: s.current_enrollment?.roll_number || '01',
               joined_at: s.current_enrollment?.joined_at || s.joining_date,

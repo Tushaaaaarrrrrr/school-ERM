@@ -1,0 +1,13 @@
+[
+  {
+    "id": "std-test-01",
+    "school_id": "sch-4404",
+    "first_name": "Test",
+    "last_name": "Student",
+    "registration_number": "TEST-001",
+    "guardian": {
+      "email": "parent.test@gmail.com",
+      "guardian_name": "Test Parent"
+    }
+  }
+]

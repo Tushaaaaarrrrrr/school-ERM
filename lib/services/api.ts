@@ -971,29 +971,54 @@ export const authService = {
       };
     }
 
-    // 3. Student
+    // 3. Student (Registration Number)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    const matchedStudent = students.find((s) => {
+    const matchedStudentByReg = students.find((s) => {
       const regMatch = s.registration_number.toLowerCase() === rawLower;
-      const guardianEmailMatch = s.guardian?.email && s.guardian.email.toLowerCase() === rawLower;
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
-      return (regMatch || guardianEmailMatch) && schoolMatch && s.status === 'active';
+      return regMatch && schoolMatch && s.status === 'active';
     });
 
-    if (matchedStudent) {
-      const sch = schools.find((s) => s.id === matchedStudent.school_id) || targetSchool || schools[0];
+    if (matchedStudentByReg) {
+      const sch = schools.find((s) => s.id === matchedStudentByReg.school_id) || targetSchool || schools[0];
       return {
         exists: true,
         user: {
-          id: `usr-${matchedStudent.id}`,
-          name: `${matchedStudent.first_name} ${matchedStudent.last_name}`,
-          email: matchedStudent.guardian?.email,
+          id: `usr-${matchedStudentByReg.id}`,
+          name: `${matchedStudentByReg.first_name} ${matchedStudentByReg.last_name}`,
+          email: matchedStudentByReg.guardian?.email,
           role: 'student',
           school_id: sch?.id,
           school_name: sch?.name,
           school_code: sch?.code,
-          student_id: matchedStudent.id,
-          login_id: matchedStudent.registration_number,
+          student_id: matchedStudentByReg.id,
+          login_id: matchedStudentByReg.registration_number,
+        },
+      };
+    }
+
+    // 3b. Parent (by Student Guardian Email)
+    const matchedStudentByGuardian = students.find((s) => {
+      const guardianEmailMatch = s.guardian?.email && s.guardian.email.toLowerCase() === rawLower;
+      const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
+      return guardianEmailMatch && schoolMatch && s.status === 'active';
+    });
+
+    if (matchedStudentByGuardian) {
+      const sch = schools.find((s) => s.id === matchedStudentByGuardian.school_id) || targetSchool || schools[0];
+      const g = matchedStudentByGuardian.guardian;
+      const gName = g?.guardian_name || g?.father_name || g?.mother_name || `${matchedStudentByGuardian.first_name}'s Parent`;
+      return {
+        exists: true,
+        user: {
+          id: `usr-parent-${matchedStudentByGuardian.id}`,
+          name: gName,
+          email: g?.email,
+          role: 'parent',
+          school_id: sch?.id,
+          school_name: sch?.name,
+          school_code: sch?.code,
+          student_id: matchedStudentByGuardian.id,
         },
       };
     }
@@ -3217,6 +3242,19 @@ export interface RegisterStudentInput {
 }
 
 export const studentService = {
+  mergeStudentRecord(serverStudent: Student, localStudents: Student[]): Student {
+    const local = localStudents.find((l) => l.id === serverStudent.id || (l.registration_number && l.registration_number === serverStudent.registration_number));
+    return {
+      ...local,
+      ...serverStudent,
+      current_enrollment: serverStudent.current_enrollment || local?.current_enrollment,
+      guardian: serverStudent.guardian || local?.guardian,
+      emergency_info: serverStudent.emergency_info || local?.emergency_info,
+      transfer_info: serverStudent.transfer_info || local?.transfer_info,
+      sibling_student_ids: serverStudent.sibling_student_ids || local?.sibling_student_ids,
+    };
+  },
+
   async getStudents(
     schoolId: string,
     filter?: { classId?: string; sectionId?: string; search?: string }
@@ -3232,8 +3270,8 @@ export const studentService = {
             const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS).filter((sec) => sec.school_id === schoolId);
 
             const merged = (json.data as Student[]).map((srv) => {
-              const local = localStudents.find((l) => l.id === srv.id || (l.registration_number && l.registration_number === srv.registration_number));
-              let enr = srv.current_enrollment || local?.current_enrollment;
+              const student = this.mergeStudentRecord(srv, localStudents);
+              let enr = student.current_enrollment;
 
               // If enrollment is missing or lacks class_name, attempt auto-resolution
               if (!enr?.class_name) {
@@ -3242,28 +3280,25 @@ export const studentService = {
                 if (targetCls) {
                   enr = {
                     id: enr?.id || `enr-${srv.id}`,
-                    school_id: srv.school_id,
-                    student_id: srv.id,
+                    school_id: student.school_id,
+                    student_id: student.id,
                     academic_year_id: enr?.academic_year_id || 'ay-2026',
                     academic_year_name: enr?.academic_year_name || '2026-27',
                     class_id: targetCls.id,
                     class_name: targetCls.name,
-                    section_id: targetSec?.id,
+                    section_id: targetSec?.id || '',
                     section_name: targetSec?.name,
                     roll_number: enr?.roll_number || '01',
-                    joined_at: enr?.joined_at || srv.joining_date,
+                    joined_at: enr?.joined_at || student.joining_date,
                     status: 'active',
-                    created_at: enr?.created_at || srv.created_at,
+                    created_at: enr?.created_at || student.created_at,
                   };
                 }
               }
 
               return {
-                ...local,
-                ...srv,
+                ...student,
                 current_enrollment: enr,
-                guardian: srv.guardian || local?.guardian,
-                emergency_info: srv.emergency_info || local?.emergency_info,
               };
             });
 
@@ -3319,7 +3354,23 @@ export const studentService = {
 
   async getStudentById(id: string): Promise<Student | null> {
     const list = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    const target = list.find((s) => s.id === id);
+    let target = list.find((s) => s.id === id);
+
+    try {
+      if (typeof window !== 'undefined') {
+        const students = target
+          ? await this.getStudents(target.school_id)
+          : await fetch('/api/students').then(async (res) => {
+              if (!res.ok) return [];
+              const json = await res.json();
+              return json.success && Array.isArray(json.data) ? json.data as Student[] : [];
+            });
+        target = students.find((s) => s.id === id || s.registration_number === target?.registration_number) || target;
+      }
+    } catch (e) {
+      console.warn(`API student detail fallback for ${id}:`, e);
+    }
+
     if (!target) return null;
 
     if (target.sibling_student_ids && target.sibling_student_ids.length > 0) {
@@ -3472,7 +3523,9 @@ export const studentService = {
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
-            newStudent.id = json.data.id || newStudent.id;
+            const saved = this.mergeStudentRecord(json.data, [newStudent]);
+            Object.assign(newStudent, saved);
+            if (newStudent.current_enrollment) newStudent.current_enrollment.student_id = newStudent.id;
           }
         }
       }
@@ -9685,4 +9738,3 @@ export const schoolExportService = {
     };
   },
 };
-

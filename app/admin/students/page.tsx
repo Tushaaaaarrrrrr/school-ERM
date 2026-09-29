@@ -69,11 +69,11 @@ export default function StudentsDirectoryPage() {
                 academic_year_name: st.current_enrollment?.academic_year_name || '2026-27',
                 class_id: targetCls.id,
                 class_name: targetCls.name,
-                section_id: targetSec?.id,
+                section_id: targetSec?.id || '',
                 section_name: targetSec?.name,
                 roll_number: st.current_enrollment?.roll_number || '01',
                 joined_at: st.current_enrollment?.joined_at || st.joining_date,
-                status: 'active',
+                status: 'active' as const,
                 created_at: st.current_enrollment?.created_at || st.created_at,
               },
             };

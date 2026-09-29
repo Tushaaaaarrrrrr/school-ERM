@@ -23,6 +23,8 @@ import {
   AuthEvent,
   TemporaryAssignment,
   EmployeeSalaryAdjustment,
+  ParentProfile,
+  ParentStudentLink,
 } from '@/lib/types';
 import {
   INITIAL_SCHOOLS,
@@ -67,6 +69,8 @@ declare global {
     authEvents: AuthEvent[];
     temporaryAssignments: TemporaryAssignment[];
     salaryAdjustments: EmployeeSalaryAdjustment[];
+    parents: ParentProfile[];
+    parentLinks: ParentStudentLink[];
   } | undefined;
 }
 
@@ -118,6 +122,7 @@ import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const SCHOOLS_FILE = path.join(DATA_DIR, 'schools.json');
+const STUDENTS_FILE = path.join(DATA_DIR, 'students.json');
 
 function saveSchoolsToFile(schools: School[]) {
   try {
@@ -145,6 +150,32 @@ function loadSchoolsFromFile(): School[] | null {
   return null;
 }
 
+function saveStudentsToFile(students: Student[]) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(STUDENTS_FILE, JSON.stringify(students, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Could not write to students.json:', e);
+  }
+}
+
+function loadStudentsFromFile(): Student[] | null {
+  try {
+    if (fs.existsSync(STUDENTS_FILE)) {
+      const data = fs.readFileSync(STUDENTS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not read from students.json:', e);
+  }
+  return null;
+}
+
 function initServerDb() {
   if (!globalThis.__SERVER_DB__) {
     const fileSchools = loadSchoolsFromFile();
@@ -157,11 +188,19 @@ function initServerDb() {
       }
     });
 
+    const fileStudents = loadStudentsFromFile();
+    const mergedStudents = fileStudents ? [...fileStudents] : [...INITIAL_STUDENTS];
+    INITIAL_STUDENTS.forEach((initSt) => {
+      if (!mergedStudents.some((s) => s.id === initSt.id || s.registration_number === initSt.registration_number)) {
+        mergedStudents.push(initSt);
+      }
+    });
+
     globalThis.__SERVER_DB__ = {
       schools: mergedSchools,
       teachers: [...INITIAL_TEACHERS],
       staff: [...INITIAL_STAFF],
-      students: [...INITIAL_STUDENTS],
+      students: mergedStudents,
       profiles: [],
       classes: [...INITIAL_CLASSES],
       sections: [...INITIAL_SECTIONS],
@@ -177,9 +216,11 @@ function initServerDb() {
       authEvents: [],
       temporaryAssignments: [...INITIAL_TEMPORARY_ASSIGNMENTS],
       salaryAdjustments: [...INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS],
+      parents: [],
+      parentLinks: [],
     };
   }
-  return globalThis.__SERVER_DB__;
+  return globalThis.__SERVER_DB__!;
 }
 
 export function isUuidString(val: any): boolean {
@@ -1124,14 +1165,87 @@ export const serverDb = {
           inserted = retry.data;
           error = retry.error;
         }
-        if (!error && inserted) student = { ...student, ...inserted };
+        if (!error && inserted) {
+          student = { ...student, ...inserted };
+          if (payload.guardian?.email) {
+            const parentEmail = payload.guardian.email.trim().toLowerCase();
+            const guardianName = payload.guardian.guardian_name || payload.guardian.father_name || payload.guardian.mother_name || 'Parent / Guardian';
+            const primaryPhone = payload.guardian.primary_phone || '';
+            const studentId = inserted.id;
+            const schoolId = inserted.school_id;
+
+            try {
+              await supabase.from('guardians').upsert({
+                school_id: schoolId,
+                student_id: studentId,
+                father_name: payload.guardian.father_name || null,
+                mother_name: payload.guardian.mother_name || null,
+                guardian_name: guardianName,
+                primary_phone: primaryPhone,
+                secondary_phone: payload.guardian.secondary_phone || null,
+                email: parentEmail,
+                address: payload.guardian.address || null,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'student_id' });
+            } catch (gErr) {
+              console.warn('guardians upsert notice:', gErr);
+            }
+
+            try {
+              const { data: parentProf } = await supabase.from('parent_profiles').upsert({
+                school_id: schoolId,
+                father_name: payload.guardian.father_name || null,
+                mother_name: payload.guardian.mother_name || null,
+                guardian_name: guardianName,
+                primary_phone: primaryPhone,
+                secondary_phone: payload.guardian.secondary_phone || null,
+                email: parentEmail,
+                address: payload.guardian.address || null,
+                status: 'active',
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'school_id,email' }).select().maybeSingle();
+
+              if (parentProf?.id) {
+                await supabase.from('parent_student_links').upsert({
+                  school_id: schoolId,
+                  parent_id: parentProf.id,
+                  student_id: studentId,
+                  relationship: payload.guardian.guardian_name ? 'guardian' : payload.guardian.father_name ? 'father' : 'mother',
+                  is_primary_guardian: true,
+                  status: 'active',
+                }, { onConflict: 'school_id,parent_id,student_id' });
+              }
+            } catch (pErr) {
+              console.warn('parent_profiles upsert notice:', pErr);
+            }
+          }
+        }
         else if (error) console.warn('Supabase student insert warning:', error);
       } catch (err) {
         console.warn('Supabase student insert exception:', err);
       }
     }
     const db = initServerDb();
+    if (student.guardian?.email) {
+      const parentEmail = student.guardian.email.trim().toLowerCase();
+      const guardianName = student.guardian.guardian_name || student.guardian.father_name || student.guardian.mother_name || 'Parent / Guardian';
+      if (!db.parents) db.parents = [];
+      const existingParent = db.parents.find((p: any) => p.school_id === student.school_id && p.email?.toLowerCase() === parentEmail);
+      if (!existingParent) {
+        db.parents.unshift({
+          id: `parent-${Date.now()}`,
+          school_id: student.school_id,
+          email: parentEmail,
+          guardian_name: guardianName,
+          primary_phone: student.guardian.primary_phone || '',
+          status: 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
     db.students.unshift(student);
+    saveStudentsToFile(db.students);
     return student;
   },
 
@@ -1148,6 +1262,37 @@ export const serverDb = {
             delete payload.current_enrollment;
             await supabase.from('students').update(payload).eq('id', id);
           }
+          if (updates.guardian?.email) {
+            const parentEmail = updates.guardian.email.trim().toLowerCase();
+            const guardianName = updates.guardian.guardian_name || updates.guardian.father_name || updates.guardian.mother_name || 'Parent / Guardian';
+            try {
+              const { data: parentProf } = await supabase.from('parent_profiles').upsert({
+                school_id: updates.school_id,
+                father_name: updates.guardian.father_name || null,
+                mother_name: updates.guardian.mother_name || null,
+                guardian_name: guardianName,
+                primary_phone: updates.guardian.primary_phone || '',
+                secondary_phone: updates.guardian.secondary_phone || null,
+                email: parentEmail,
+                address: updates.guardian.address || null,
+                status: 'active',
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'school_id,email' }).select().maybeSingle();
+
+              if (parentProf?.id) {
+                await supabase.from('parent_student_links').upsert({
+                  school_id: updates.school_id,
+                  parent_id: parentProf.id,
+                  student_id: id,
+                  relationship: updates.guardian.guardian_name ? 'guardian' : updates.guardian.father_name ? 'father' : 'mother',
+                  is_primary_guardian: true,
+                  status: 'active',
+                }, { onConflict: 'school_id,parent_id,student_id' });
+              }
+            } catch (pErr) {
+              console.warn('parent update sync notice:', pErr);
+            }
+          }
         } catch (e) {
           console.warn('Supabase student update error:', e);
         }
@@ -1157,6 +1302,7 @@ export const serverDb = {
     const idx = db.students.findIndex((s) => s.id === id);
     if (idx !== -1) {
       db.students[idx] = { ...db.students[idx], ...updates };
+      saveStudentsToFile(db.students);
       return db.students[idx];
     }
     return updates as Student;
@@ -1172,6 +1318,7 @@ export const serverDb = {
     }
     const db = initServerDb();
     db.students = db.students.filter((s) => s.id !== id);
+    saveStudentsToFile(db.students);
     return true;
   },
 
@@ -2546,7 +2693,8 @@ export const serverDb = {
       const { data, error } = await supabase.from('parent_profiles').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
     }
-    return [];
+    const db = initServerDb();
+    return (db.parents || []).filter((p: any) => p.school_id === schoolId);
   },
 
   async createParent(data: any): Promise<any> {
@@ -2557,6 +2705,9 @@ export const serverDb = {
       if (!error && created) return created;
       if (error) console.error('Supabase createParent error:', error);
     }
+    const db = initServerDb();
+    if (!db.parents) db.parents = [];
+    db.parents.unshift(data);
     return data;
   },
 

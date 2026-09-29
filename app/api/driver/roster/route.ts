@@ -8,7 +8,8 @@ export async function GET(request: Request) {
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     
     const schoolId = access.schoolId;
-    const userEmail = access.context.user?.email || access.context.profile?.email;
+    const ctx = access.context as any;
+    const userEmail = ctx.user?.email || ctx.profile?.email;
     
     // Get all staff, vehicles, routes, stops, assignments, students for this school
     const [staffList, vehicles, routes, stops, assignments, students] = await Promise.all([
@@ -27,11 +28,11 @@ export async function GET(request: Request) {
     // Find the driver staff record by email (case-insensitive) or user profile ID
     const driver = staffList.find(s => 
       (userEmail && s.email?.toLowerCase().trim() === userEmail.toLowerCase().trim()) ||
-      (s.id === access.context.user?.id) ||
-      (s.auth_user_id && s.auth_user_id === access.context.user?.id)
+      (s.id === ctx.user?.id) ||
+      (s.auth_user_id && s.auth_user_id === ctx.user?.id)
     ) || null;
 
-    const driverName = driver ? `${driver.first_name} ${driver.last_name}`.trim().toLowerCase() : (access.context.user?.name || '').trim().toLowerCase();
+    const driverName = driver ? `${driver.first_name} ${driver.last_name}`.trim().toLowerCase() : (ctx.user?.name || '').trim().toLowerCase();
     
     // Find vehicle assigned to this driver by UUID, email, employee number, or full name
     const vehicle = vehicles.find((v: any) => {
