@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { School } from '@/lib/types';
 import { requireSchoolAccess, getAccessContext } from '@/lib/server/access';
+import { checkEmailRegistry } from '@/lib/server/email-registry';
 
 const SCHOOL_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
@@ -56,6 +57,18 @@ export async function PUT(
     if (body.school_hours !== undefined && !validSchoolHours(body.school_hours)) {
       return NextResponse.json({ success: false, error: 'Invalid weekly school timing' }, { status: 400 });
     }
+    if (isSuperAdmin && body.admin_email) {
+      const existing = await serverDb.getSchoolById(id);
+      const emailCheck = await checkEmailRegistry(body.admin_email, {
+        excludeEmail: existing?.admin_email,
+        excludeSchoolId: id,
+        targetSchoolId: id,
+        targetRole: 'school_admin',
+      });
+      if (!emailCheck.valid || !emailCheck.available) {
+        return NextResponse.json({ success: false, error: emailCheck.error || 'School admin email is not available.' }, { status: 409 });
+      }
+    }
     const allowed = isSuperAdmin ? body : {
       name: body.name,
       email: body.email,
@@ -82,4 +95,3 @@ export async function PUT(
     );
   }
 }
-

@@ -122,7 +122,7 @@ export function GoogleEmailInput({
             setServerError(null);
             onValidationChangeRef.current?.(true, true, false);
           } else {
-            setServerError('Not Available');
+            setServerError(res.error || 'Not Available');
             setServerMessage(null);
             onValidationChangeRef.current?.(true, false, false);
           }

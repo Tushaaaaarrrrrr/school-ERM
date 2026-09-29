@@ -52,6 +52,7 @@ import { ResetPasswordModal } from '@/components/auth/reset-password-modal';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { FeeReceipt } from '@/components/receipt/fee-receipt';
 import { DateInput } from '@/components/ui/date-input';
+import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { formatCurrency, formatDate, formatPercentage, sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
@@ -219,6 +220,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
     stopId: '',
     pickupEnabled: true,
   });
+  const [isParentEmailAvailable, setIsParentEmailAvailable] = useState<boolean | null>(true);
+  const [isParentEmailChecking, setIsParentEmailChecking] = useState(false);
 
   const [isDeactivating, setIsDeactivating] = useState(false);
 
@@ -428,6 +431,16 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
 
     if (!editForm.address.trim()) {
       toastError('Residential address is required.');
+      return;
+    }
+
+    if (editForm.email.trim() && isParentEmailAvailable === false) {
+      toastError('Parent email is not available for portal login.');
+      return;
+    }
+
+    if (isParentEmailChecking) {
+      toastError('Checking parent email availability...');
       return;
     }
 
@@ -993,7 +1006,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 <span className="font-semibold text-slate-800 font-mono">{student.guardian?.primary_phone || 'Not provided'}</span>
               </div>
               <div>
-                <span className="text-slate-400 block">Email Address</span>
+                <span className="text-slate-400 block">Parent Portal Login Email</span>
                 <span className="font-semibold text-slate-800">{student.guardian?.email || 'Not provided'}</span>
               </div>
               <div>
@@ -2160,12 +2173,19 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">Parent Email</label>
-                <input
-                  type="email"
+                <GoogleEmailInput
+                  label="Parent Email (Parent Portal Login)"
                   value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs"
+                  onChange={(val) => setEditForm({ ...editForm, email: val })}
+                  targetSchoolId={currentSchool?.id || student.school_id}
+                  targetRole="parent"
+                  excludeEmail={student.guardian?.email}
+                  onValidationChange={(_, available, checking) => {
+                    setIsParentEmailAvailable(available);
+                    setIsParentEmailChecking(checking);
+                  }}
+                  placeholder="parent.name@gmail.com"
+                  id="student-edit-parent-email-input"
                 />
               </div>
             </div>
@@ -2224,7 +2244,12 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
             <Button type="button" variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="sm">
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isParentEmailChecking || (Boolean(editForm.email.trim()) && isParentEmailAvailable === false)}
+            >
               Save Changes
             </Button>
           </div>

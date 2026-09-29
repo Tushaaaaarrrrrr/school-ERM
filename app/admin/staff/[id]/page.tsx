@@ -33,6 +33,7 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { SalaryAdjustmentModal } from '@/components/payroll/salary-adjustment-modal';
 import { TemporaryAssignmentModal } from '@/components/payroll/temporary-assignment-modal';
 import { DateInput } from '@/components/ui/date-input';
+import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
@@ -127,6 +128,8 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
     licenseExpiry: '',
     status: 'active' as Staff['status'],
   });
+  const [isStaffEmailAvailable, setIsStaffEmailAvailable] = useState<boolean | null>(true);
+  const [isStaffEmailChecking, setIsStaffEmailChecking] = useState(false);
 
   // Salary Update Form
   const [salaryForm, setSalaryForm] = useState({
@@ -246,6 +249,15 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
     e.preventDefault();
     if (!staff) return;
 
+    if (isStaffEmailChecking) {
+      toastError('Checking staff email availability...');
+      return;
+    }
+    if (isStaffEmailAvailable === false) {
+      toastError('Staff email is not available for login.');
+      return;
+    }
+
     try {
       await staffService.updateStaff(
         staff.id,
@@ -270,8 +282,8 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
       success('Employee profile updated successfully');
       setIsEditModalOpen(false);
       loadProfile();
-    } catch {
-      toastError('Failed to update staff profile');
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Failed to update staff profile');
     }
   };
 
@@ -1200,13 +1212,21 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Institutional Email *</label>
-              <input
-                type="email"
-                required
+              <GoogleEmailInput
+                label="Staff Google Email (For Sign-In)"
+                required={editForm.portalAccess}
                 value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                onChange={(val) => setEditForm({ ...editForm, email: val })}
+                targetSchoolId={staff.school_id}
+                targetRole="staff"
+                excludeEmail={staff.email}
+                excludeUserId={staff.id}
+                onValidationChange={(_, available, checking) => {
+                  setIsStaffEmailAvailable(available);
+                  setIsStaffEmailChecking(checking);
+                }}
+                placeholder="staff.name@gmail.com"
+                id="staff-profile-edit-email-input"
               />
             </div>
             <div>
@@ -1247,7 +1267,12 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
             <Button type="button" variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="sm">
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isStaffEmailChecking || isStaffEmailAvailable === false}
+            >
               Save Changes
             </Button>
           </div>

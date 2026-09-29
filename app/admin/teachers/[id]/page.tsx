@@ -39,6 +39,7 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { SalaryAdjustmentModal } from '@/components/payroll/salary-adjustment-modal';
 import { TemporaryAssignmentModal } from '@/components/payroll/temporary-assignment-modal';
 import { DateInput } from '@/components/ui/date-input';
+import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
@@ -112,6 +113,8 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
     photoUrl: '',
     status: 'active' as Teacher['status'],
   });
+  const [isTeacherEmailAvailable, setIsTeacherEmailAvailable] = useState<boolean | null>(true);
+  const [isTeacherEmailChecking, setIsTeacherEmailChecking] = useState(false);
 
   // Salary Update Form
   const [salaryForm, setSalaryForm] = useState({
@@ -234,6 +237,15 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
     e.preventDefault();
     if (!teacher) return;
 
+    if (isTeacherEmailChecking) {
+      toastError('Checking teacher email availability...');
+      return;
+    }
+    if (isTeacherEmailAvailable === false) {
+      toastError('Teacher email is not available for login.');
+      return;
+    }
+
     try {
       await teacherService.updateTeacher(
         teacher.id,
@@ -254,8 +266,8 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
       success('Teacher details updated successfully');
       setIsEditModalOpen(false);
       loadProfile();
-    } catch {
-      toastError('Failed to update teacher profile');
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Failed to update teacher profile');
     }
   };
 
@@ -1132,13 +1144,21 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Institutional Email *</label>
-              <input
-                type="email"
+              <GoogleEmailInput
+                label="Teacher Google Email (For Sign-In)"
                 required
                 value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                onChange={(val) => setEditForm({ ...editForm, email: val })}
+                targetSchoolId={teacher.school_id}
+                targetRole="teacher"
+                excludeEmail={teacher.email}
+                excludeUserId={teacher.id}
+                onValidationChange={(_, available, checking) => {
+                  setIsTeacherEmailAvailable(available);
+                  setIsTeacherEmailChecking(checking);
+                }}
+                placeholder="teacher.name@gmail.com"
+                id="teacher-profile-edit-email-input"
               />
             </div>
             <div>
@@ -1157,7 +1177,12 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
             <Button type="button" variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="sm">
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isTeacherEmailChecking || isTeacherEmailAvailable === false}
+            >
               Save Changes
             </Button>
           </div>

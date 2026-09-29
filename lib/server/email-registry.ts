@@ -185,7 +185,7 @@ export async function checkEmailRegistry(
     for (const school of allSchools) {
       const teachers = await serverDb.getTeachers(school.id);
       const existingTeacher = teachers.find(
-        (t) => t.email?.toLowerCase().trim() === normalizedEmail
+        (t) => t.email?.toLowerCase().trim() === normalizedEmail && t.id !== options?.excludeUserId
       );
       if (existingTeacher) {
         return {
@@ -207,7 +207,7 @@ export async function checkEmailRegistry(
       // 3. Check Staff in serverDb
       const staffList = await serverDb.getStaff(school.id);
       const existingStaff = staffList.find(
-        (s) => s.email?.toLowerCase().trim() === normalizedEmail
+        (s) => s.email?.toLowerCase().trim() === normalizedEmail && s.id !== options?.excludeUserId
       );
       if (existingStaff) {
         return {
@@ -229,7 +229,7 @@ export async function checkEmailRegistry(
       // 4. Check Students / Parents in serverDb
       const students = await serverDb.getStudents(school.id);
       const existingStudent = students.find(
-        (s) => s.guardian?.email?.toLowerCase().trim() === normalizedEmail
+        (s) => s.guardian?.email?.toLowerCase().trim() === normalizedEmail && s.id !== options?.excludeUserId
       );
       if (existingStudent) {
         // If checking a parent email for a new student in the same school, allow linking to existing parent
