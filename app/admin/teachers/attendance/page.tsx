@@ -608,6 +608,11 @@ export default function TeacherAndStaffAttendancePage() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
+              onClick={(e) => {
+                try {
+                  (e.currentTarget as any).showPicker?.();
+                } catch {}
+              }}
               className="text-xs font-semibold text-slate-800 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer"
             />
           </div>

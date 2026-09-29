@@ -397,10 +397,8 @@ export function TemporaryAssignmentModal({
         {/* Step 3: Date Range */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Start Date <span className="text-rose-500">*</span>
-            </label>
-            <input
+            <Input
+              label="Start Date"
               type="date"
               required
               value={startDate}
@@ -409,20 +407,18 @@ export function TemporaryAssignmentModal({
                 setStartDate(s);
                 if (endDate < s) setEndDate(s);
               }}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-indigo-500"
+              className="text-xs"
             />
           </div>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              End Date <span className="text-rose-500">*</span>
-            </label>
-            <input
+            <Input
+              label="End Date"
               type="date"
               required
               min={startDate}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-indigo-500"
+              className="text-xs"
             />
           </div>
         </div>

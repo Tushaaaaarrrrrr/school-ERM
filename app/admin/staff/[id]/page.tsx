@@ -32,6 +32,7 @@ import { Modal } from '@/components/ui/modal';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { SalaryAdjustmentModal } from '@/components/payroll/salary-adjustment-modal';
 import { TemporaryAssignmentModal } from '@/components/payroll/temporary-assignment-modal';
+import { DateInput } from '@/components/ui/date-input';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
@@ -1232,12 +1233,11 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">License Expiry</label>
-                <input
-                  type="date"
+                <DateInput
+                  label="License Expiry"
                   value={editForm.licenseExpiry}
                   onChange={(e) => setEditForm({ ...editForm, licenseExpiry: e.target.value })}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs"
+                  className="text-xs"
                 />
               </div>
             </div>
@@ -1282,13 +1282,12 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Effective From Date *</label>
-            <input
-              type="date"
+            <DateInput
+              label="Effective From Date"
               required
               value={salaryForm.effectiveFrom}
               onChange={(e) => setSalaryForm({ ...salaryForm, effectiveFrom: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+              className="text-xs"
             />
           </div>
 

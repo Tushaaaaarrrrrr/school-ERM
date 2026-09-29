@@ -38,6 +38,7 @@ import { Modal } from '@/components/ui/modal';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { SalaryAdjustmentModal } from '@/components/payroll/salary-adjustment-modal';
 import { TemporaryAssignmentModal } from '@/components/payroll/temporary-assignment-modal';
+import { DateInput } from '@/components/ui/date-input';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
@@ -1120,12 +1121,11 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Joining Date</label>
-              <input
-                type="date"
+              <DateInput
+                label="Joining Date"
                 value={editForm.joiningDate}
                 onChange={(e) => setEditForm({ ...editForm, joiningDate: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="text-xs"
               />
             </div>
           </div>
@@ -1192,13 +1192,12 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Effective From Date *</label>
-            <input
-              type="date"
+            <DateInput
+              label="Effective From Date"
               required
               value={salaryForm.effectiveFrom}
               onChange={(e) => setSalaryForm({ ...salaryForm, effectiveFrom: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+              className="text-xs"
             />
           </div>
 

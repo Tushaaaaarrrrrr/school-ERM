@@ -1033,13 +1033,13 @@ export default function FeesManagementPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Effective From *</label>
-                  <input
+                  <Input
+                    label="Effective From"
                     type="date"
                     required
                     value={feeEffectiveFrom}
                     onChange={(e) => setFeeEffectiveFrom(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                    className="text-xs"
                   />
                 </div>
                 <div>
@@ -1353,13 +1353,13 @@ export default function FeesManagementPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Payment Date</label>
-                <input
+                <Input
+                  label="Payment Date"
                   type="date"
                   required
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold"
+                  className="text-xs font-bold"
                 />
               </div>
               <div>

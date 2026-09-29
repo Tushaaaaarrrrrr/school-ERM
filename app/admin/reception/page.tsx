@@ -743,12 +743,12 @@ export default function ReceptionLookupPage() {
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Scheduled Next Follow-Up</label>
-              <input
+              <Input
+                label="Scheduled Next Follow-Up"
                 type="date"
                 value={newEnquiryData.next_follow_up_at}
                 onChange={(e) => setNewEnquiryData((prev) => ({ ...prev, next_follow_up_at: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="text-xs"
               />
             </div>
           </div>
@@ -819,12 +819,12 @@ export default function ReceptionLookupPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Next Follow-Up Date</label>
-                <input
+                <Input
+                  label="Next Follow-Up Date"
                   type="date"
                   value={nextFollowUpDate}
                   onChange={(e) => setNextFollowUpDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="text-xs"
                 />
               </div>
             </div>

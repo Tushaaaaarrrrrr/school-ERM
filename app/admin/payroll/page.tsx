@@ -11,6 +11,7 @@ import { payrollService, teacherService, staffService } from '@/lib/services/api
 import { EmployeePayment, Teacher, Staff } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { DateInput } from '@/components/ui/date-input';
 import { StatusBadge } from '@/components/ui/badge';
 import { SearchFilterBar } from '@/components/ui/search-filter-bar';
 import { useToast } from '@/components/ui/toast';
@@ -473,13 +474,12 @@ export default function AdminPayrollPage() {
         >
           <form onSubmit={handleDisbursePaymentSubmit} className="space-y-4 text-xs text-left">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Disbursement Date *</label>
-              <input
-                type="date"
+              <DateInput
+                label="Disbursement Date"
                 required
                 value={disburseForm.paymentDate}
                 onChange={(e) => setDisburseForm({ ...disburseForm, paymentDate: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="text-xs"
               />
             </div>
 

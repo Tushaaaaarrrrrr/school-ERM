@@ -51,6 +51,7 @@ import { Modal } from '@/components/ui/modal';
 import { ResetPasswordModal } from '@/components/auth/reset-password-modal';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { FeeReceipt } from '@/components/receipt/fee-receipt';
+import { DateInput } from '@/components/ui/date-input';
 import { formatCurrency, formatDate, formatPercentage, sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
@@ -2056,12 +2057,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Date of Birth</label>
-              <input
-                type="date"
+              <DateInput
+                label="Date of Birth"
                 value={editForm.dateOfBirth}
                 onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="text-xs"
               />
             </div>
             <div>
@@ -2305,12 +2305,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Due Date (Optional)</label>
-              <input
-                type="date"
+              <DateInput
+                label="Due Date (Optional)"
                 value={newChargeForm.dueDate}
                 onChange={(e) => setNewChargeForm({ ...newChargeForm, dueDate: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="text-xs"
               />
             </div>
           </div>

@@ -20,7 +20,12 @@ export interface DateInputProps extends Omit<React.InputHTMLAttributes<HTMLInput
 
 export function isoToDisplay(iso: string | number | readonly string[] | undefined): string {
   if (!iso || typeof iso !== 'string') return '';
-  const match = iso.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const trimmed = iso.trim();
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
+    const [d, m, y] = trimmed.split('/');
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+  const match = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (!match) return '';
   const [, y, m, d] = match;
   return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
@@ -135,6 +140,10 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       isDeletingRef.current = e.key === 'Backspace' || e.key === 'Delete';
+      if ((e.altKey && e.key === 'ArrowDown') || e.key === 'F4') {
+        e.preventDefault();
+        openCalendarPicker();
+      }
       props.onKeyDown?.(e);
     };
 
@@ -152,7 +161,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     };
 
     const openCalendarPicker = () => {
-      if (disabled) return;
+      if (disabled || props.readOnly) return;
       try {
         if (pickerRef.current && typeof pickerRef.current.showPicker === 'function') {
           pickerRef.current.showPicker();
@@ -163,8 +172,8 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     };
 
     // Current ISO value for the native picker
-    const currentIso = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-      ? value
+    const currentIso = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)
+      ? value.slice(0, 10)
       : displayToIso(displayValue) || '';
 
     return (
@@ -205,9 +214,13 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
             value={displayValue}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onClick={(e) => {
+              props.onClick?.(e);
+              openCalendarPicker();
+            }}
             onBlur={onBlur}
             className={cn(
-              'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-50 disabled:text-slate-500 pr-10 font-normal',
+              'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-50 disabled:text-slate-500 pr-10 font-normal cursor-pointer',
               leftIcon && 'pl-9',
               error && 'border-rose-500 focus:border-rose-500 focus:ring-rose-500',
               className
@@ -227,14 +240,17 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
                   type="button"
                   tabIndex={-1}
                   aria-label="Open calendar picker"
-                  onClick={openCalendarPicker}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openCalendarPicker();
+                  }}
                   disabled={disabled}
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-4 h-4" />
                 </button>
 
-                {/* Invisible Native Date Picker overlay to ensure instant mobile/browser support */}
+                {/* Invisible Native Date Picker overlay triggered by showPicker() */}
                 <input
                   ref={pickerRef}
                   type="date"
@@ -245,7 +261,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
                   max={max}
                   value={currentIso}
                   onChange={handlePickerChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-auto"
+                  className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
                 />
               </div>
             )}

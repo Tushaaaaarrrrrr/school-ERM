@@ -336,15 +336,13 @@ export function SalaryAdjustmentModal({
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Effective Date <span className="text-rose-500">*</span>
-            </label>
-            <input
+            <Input
+              label="Effective Date"
               type="date"
               required
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-indigo-500"
+              className="text-xs"
             />
           </div>
         </div>

@@ -37,6 +37,7 @@ import {
 } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { DateInput } from '@/components/ui/date-input';
 import { StatusBadge, InvoiceStatusBadge } from '@/components/ui/badge';
 import { FeeReceipt } from '@/components/receipt/fee-receipt';
 import { SchoolStatusBoard } from '@/components/school/school-status-board';
@@ -974,26 +975,24 @@ export default function ParentPortalPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Start Date *</label>
-                <input
-                  type="date"
+                <DateInput
+                  label="Start Date"
                   required
                   value={leaveStartDate}
                   onChange={(e) => setLeaveStartDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold"
+                  className="text-xs font-semibold"
                 />
               </div>
             </div>
 
             {leaveType === 'full_day' && (
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">End Date *</label>
-                <input
-                  type="date"
+                <DateInput
+                  label="End Date"
                   required
                   value={leaveEndDate}
                   onChange={(e) => setLeaveEndDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold"
+                  className="text-xs font-semibold"
                 />
               </div>
             )}

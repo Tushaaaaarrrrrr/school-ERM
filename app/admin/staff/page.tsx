@@ -687,12 +687,12 @@ export default function AdminStaffPage() {
               <p className="mt-1 text-[11px] text-slate-500">Automatically assigned from the school code and staff sequence.</p>
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Joining Date</label>
-              <input
+              <Input
+                label="Joining Date"
                 type="date"
                 value={formData.joiningDate}
                 onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="text-xs"
               />
             </div>
           </div>
@@ -740,12 +740,12 @@ export default function AdminStaffPage() {
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">License Expiry Date</label>
-                <input
+                <Input
+                  label="License Expiry Date"
                   type="date"
                   value={formData.licenseExpiry}
                   onChange={(e) => setFormData({ ...formData, licenseExpiry: e.target.value })}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs"
+                  className="text-xs"
                 />
               </div>
             </div>

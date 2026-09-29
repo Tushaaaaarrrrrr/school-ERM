@@ -11,6 +11,7 @@ import { attendanceService, classService, holidayService, studentService, leaveS
 import { StudentAttendance, AttendanceStatus, SchoolClass, SchoolHoliday, Student, StudentLeave } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/components/ui/toast';
 import { formatDate, formatTime } from '@/lib/utils/formatters';
 import {
@@ -418,12 +419,11 @@ export default function AdminAttendancePage() {
           {/* Controls: Date Picker & Filter */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-slate-500">Selected Date:</label>
-              <input
-                type="date"
+              <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Selected Date:</label>
+              <DateInput
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold bg-slate-50 shadow-2xs"
+                className="w-36 text-xs py-1 font-semibold bg-slate-50 shadow-2xs"
               />
             </div>
 
@@ -777,22 +777,20 @@ export default function AdminAttendancePage() {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Start Date *</label>
-                <input
-                  type="date"
+                <DateInput
+                  label="Start Date"
                   required
                   value={newHoliday.startDate}
                   onChange={(e) => setNewHoliday({ ...newHoliday, startDate: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="text-xs"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">End Date</label>
-                <input
-                  type="date"
+                <DateInput
+                  label="End Date"
                   value={newHoliday.endDate}
                   onChange={(e) => setNewHoliday({ ...newHoliday, endDate: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="text-xs"
                 />
               </div>
             </div>
@@ -913,15 +911,15 @@ export default function AdminAttendancePage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Attendance Date *</label>
-                <input
-                  type="date"
+                <DateInput
+                  label="Attendance Date"
+                  required
                   value={takeDate}
                   onChange={(e) => {
                     setTakeDate(e.target.value);
                     if (takeClassId) loadTakeStudents(takeClassId, e.target.value);
                   }}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                  className="text-xs font-medium"
                 />
               </div>
             </div>
