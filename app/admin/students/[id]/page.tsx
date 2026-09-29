@@ -301,6 +301,31 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
         setStudentFollowUps(followUps || []);
         setSiblings(sibsList || []);
 
+        // Auto-heal missing current_enrollment if school has classes
+        if (!s.current_enrollment?.class_name) {
+          const matchedClass = clsList.find((c) => c.id === s.current_enrollment?.class_id) || (clsList.length === 1 ? clsList[0] : undefined);
+          const matchedSection = secList.find((sec) => sec.id === s.current_enrollment?.section_id) || (matchedClass ? secList.find((sec) => sec.class_id === matchedClass.id) : undefined);
+          if (matchedClass) {
+            s.current_enrollment = {
+              id: s.current_enrollment?.id || `enr-${s.id}`,
+              school_id: s.school_id,
+              student_id: s.id,
+              academic_year_id: s.current_enrollment?.academic_year_id || 'ay-2026',
+              academic_year_name: s.current_enrollment?.academic_year_name || '2026-27',
+              class_id: matchedClass.id,
+              class_name: matchedClass.name,
+              section_id: matchedSection?.id,
+              section_name: matchedSection?.name,
+              roll_number: s.current_enrollment?.roll_number || '01',
+              joined_at: s.current_enrollment?.joined_at || s.joining_date,
+              status: 'active',
+              created_at: s.current_enrollment?.created_at || s.created_at,
+            };
+            setStudent({ ...s });
+            studentService.updateStudent(s.id, { current_enrollment: s.current_enrollment }).catch(() => {});
+          }
+        }
+
         // Pre-fill emergency info
         if (s.emergency_info) {
           setEmergencyForm({
@@ -448,7 +473,15 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
             address: editForm.address,
           },
           current_enrollment: {
-            ...student.current_enrollment!,
+            id: student.current_enrollment?.id || `enr-${student.id}`,
+            school_id: student.school_id,
+            student_id: student.id,
+            academic_year_id: student.current_enrollment?.academic_year_id || 'ay-2026',
+            academic_year_name: student.current_enrollment?.academic_year_name || '2026-27',
+            joined_at: student.current_enrollment?.joined_at || student.joining_date || new Date().toISOString().split('T')[0],
+            status: 'active',
+            created_at: student.current_enrollment?.created_at || new Date().toISOString(),
+            ...student.current_enrollment,
             class_id: editForm.classId,
             class_name: targetClass?.name || student.current_enrollment?.class_name,
             section_id: editForm.sectionId,

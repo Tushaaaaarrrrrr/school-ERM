@@ -1075,16 +1075,26 @@ export const serverDb = {
   // STUDENTS
   // --------------------------------------------------------------------------
   async getStudents(schoolId: string, filters?: any): Promise<Student[]> {
+    const db = initServerDb();
     const supabase = getSupabaseAdmin();
     if (supabase) {
       let query = supabase.from('students').select('*').eq('school_id', schoolId);
-      if (filters?.classId) query = query.eq('class_id', filters.classId);
-      if (filters?.sectionId) query = query.eq('section_id', filters.sectionId);
       if (filters?.status) query = query.eq('status', filters.status);
       const { data, error } = await query;
-      if (!error && data && data.length > 0) return data as Student[];
+      if (!error && data && data.length > 0) {
+        // Enrich any students whose current_enrollment was not stored in Supabase table
+        const enriched = (data as Student[]).map((st) => {
+          if (!st.current_enrollment) {
+            const memoryStudent = db.students.find((s) => s.id === st.id || s.registration_number === st.registration_number);
+            if (memoryStudent?.current_enrollment) {
+              return { ...st, current_enrollment: memoryStudent.current_enrollment };
+            }
+          }
+          return st;
+        });
+        return enriched;
+      }
     }
-    const db = initServerDb();
     return db.students.filter((s) => s.school_id === schoolId);
   },
 
@@ -1096,14 +1106,24 @@ export const serverDb = {
       if (payload.id && !isUuid(payload.id)) delete payload.id;
       const validCols = [
         'id', 'school_id', 'auth_user_id', 'registration_number', 'first_name', 'last_name',
-        'date_of_birth', 'gender', 'joining_date', 'status', 'created_at', 'updated_at'
+        'date_of_birth', 'gender', 'joining_date', 'status', 'photo_url', 'guardian',
+        'emergency_info', 'transfer_info', 'uses_class_monthly_fee', 'monthly_fee_amount',
+        'apply_new_student_charges', 'sibling_student_ids', 'current_enrollment',
+        'created_at', 'updated_at'
       ];
       const filtered: any = {};
       for (const c of validCols) {
         if (payload[c] !== undefined) filtered[c] = payload[c];
       }
       try {
-        const { data: inserted, error } = await supabase.from('students').insert(filtered).select().single();
+        let { data: inserted, error } = await supabase.from('students').insert(filtered).select().single();
+        if (error && (error.message?.includes('current_enrollment') || (error as any).code === '42703')) {
+          // If current_enrollment column doesn't exist yet on live Supabase, retry without it
+          const { current_enrollment, ...filteredWithoutEnrollment } = filtered;
+          const retry = await supabase.from('students').insert(filteredWithoutEnrollment).select().single();
+          inserted = retry.data;
+          error = retry.error;
+        }
         if (!error && inserted) student = { ...student, ...inserted };
         else if (error) console.warn('Supabase student insert warning:', error);
       } catch (err) {
@@ -1122,7 +1142,15 @@ export const serverDb = {
       if (isUuid(id)) {
         const payload: any = { ...updates };
         delete payload.id;
-        await supabase.from('students').update(payload).eq('id', id);
+        try {
+          const { error } = await supabase.from('students').update(payload).eq('id', id);
+          if (error && (error.message?.includes('current_enrollment') || (error as any).code === '42703')) {
+            delete payload.current_enrollment;
+            await supabase.from('students').update(payload).eq('id', id);
+          }
+        } catch (e) {
+          console.warn('Supabase student update error:', e);
+        }
       }
     }
     const db = initServerDb();

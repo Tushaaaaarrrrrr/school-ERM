@@ -53,7 +53,36 @@ export default function StudentsDirectoryPage() {
         classService.getClasses(schoolId),
         classService.getSections(schoolId),
       ]);
-      setStudents(stdList);
+
+      const healedList = stdList.map((st) => {
+        if (!st.current_enrollment?.class_name) {
+          const targetCls = clsList.find((c) => c.id === st.current_enrollment?.class_id) || (clsList.length === 1 ? clsList[0] : undefined);
+          const targetSec = secList.find((s) => s.id === st.current_enrollment?.section_id) || (targetCls ? secList.find((s) => s.class_id === targetCls.id) : undefined);
+          if (targetCls) {
+            return {
+              ...st,
+              current_enrollment: {
+                id: st.current_enrollment?.id || `enr-${st.id}`,
+                school_id: st.school_id,
+                student_id: st.id,
+                academic_year_id: st.current_enrollment?.academic_year_id || 'ay-2026',
+                academic_year_name: st.current_enrollment?.academic_year_name || '2026-27',
+                class_id: targetCls.id,
+                class_name: targetCls.name,
+                section_id: targetSec?.id,
+                section_name: targetSec?.name,
+                roll_number: st.current_enrollment?.roll_number || '01',
+                joined_at: st.current_enrollment?.joined_at || st.joining_date,
+                status: 'active',
+                created_at: st.current_enrollment?.created_at || st.created_at,
+              },
+            };
+          }
+        }
+        return st;
+      });
+
+      setStudents(healedList);
       setClasses(clsList);
       setSections(secList);
     } catch {

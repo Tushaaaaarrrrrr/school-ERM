@@ -3227,8 +3227,48 @@ export const studentService = {
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            storageService.setItem(STORAGE_KEYS.STUDENTS, json.data);
-            let serverList: Student[] = json.data;
+            const localStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, []);
+            const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
+            const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS).filter((sec) => sec.school_id === schoolId);
+
+            const merged = (json.data as Student[]).map((srv) => {
+              const local = localStudents.find((l) => l.id === srv.id || (l.registration_number && l.registration_number === srv.registration_number));
+              let enr = srv.current_enrollment || local?.current_enrollment;
+
+              // If enrollment is missing or lacks class_name, attempt auto-resolution
+              if (!enr?.class_name) {
+                const targetCls = classes.find((c) => c.id === enr?.class_id) || (classes.length === 1 ? classes[0] : undefined);
+                const targetSec = sections.find((s) => s.id === enr?.section_id) || (targetCls ? sections.find((s) => s.class_id === targetCls.id) : undefined);
+                if (targetCls) {
+                  enr = {
+                    id: enr?.id || `enr-${srv.id}`,
+                    school_id: srv.school_id,
+                    student_id: srv.id,
+                    academic_year_id: enr?.academic_year_id || 'ay-2026',
+                    academic_year_name: enr?.academic_year_name || '2026-27',
+                    class_id: targetCls.id,
+                    class_name: targetCls.name,
+                    section_id: targetSec?.id,
+                    section_name: targetSec?.name,
+                    roll_number: enr?.roll_number || '01',
+                    joined_at: enr?.joined_at || srv.joining_date,
+                    status: 'active',
+                    created_at: enr?.created_at || srv.created_at,
+                  };
+                }
+              }
+
+              return {
+                ...local,
+                ...srv,
+                current_enrollment: enr,
+                guardian: srv.guardian || local?.guardian,
+                emergency_info: srv.emergency_info || local?.emergency_info,
+              };
+            });
+
+            storageService.setItem(STORAGE_KEYS.STUDENTS, merged);
+            let serverList: Student[] = merged;
             if (filter?.classId) {
               serverList = serverList.filter((s) => s.current_enrollment?.class_id === filter.classId);
             }
@@ -3528,12 +3568,18 @@ export const studentService = {
         ...updates.guardian,
         primary_phone: updates.guardian?.primary_phone || existing.guardian?.primary_phone || '',
       },
-      current_enrollment: existing.current_enrollment
+      current_enrollment: updates.current_enrollment
         ? {
-            ...existing.current_enrollment,
+            ...(existing.current_enrollment || {
+              id: `enr-${Date.now().toString().slice(-4)}`,
+              school_id: existing.school_id,
+              student_id: existing.id,
+              status: 'active',
+              created_at: new Date().toISOString(),
+            }),
             ...updates.current_enrollment,
           }
-        : undefined,
+        : existing.current_enrollment,
       transport_assignment: updates.transport_assignment
         ? ({ ...existing.transport_assignment, ...updates.transport_assignment } as StudentTransportAssignment)
         : existing.transport_assignment,
