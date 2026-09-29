@@ -87,3 +87,51 @@ export function formatNumber(num: number | string | null | undefined): string {
   if (isNaN(numeric)) return '0';
   return new Intl.NumberFormat('en-IN').format(numeric);
 }
+
+/**
+ * Sanitizes a person's name to only allow letters (Latin and Unicode),
+ * combining marks (for Indian script vowels), and spaces.
+ * Strictly removes all digits, symbols, and numbers.
+ */
+export function sanitizePersonName(val: string | null | undefined): string {
+  if (!val) return '';
+  return val.replace(/[^\p{L}\p{M}\s]/gu, '');
+}
+
+/**
+ * Validates that a person's name contains only letters, marks, and spaces.
+ */
+export function isValidPersonName(val: string | null | undefined): boolean {
+  if (!val || !val.trim()) return true;
+  return /^[\p{L}\p{M}\s]+$/u.test(val.trim());
+}
+
+/**
+ * Sanitizes Indian mobile phone numbers:
+ * - Digits only
+ * - Handles pasted numbers with country code +91 / 91 or leading 0
+ * - Restricts starting digit to 6, 7, 8, or 9
+ * - Restricts length to maximum 10 digits
+ */
+export function sanitizeIndianMobile(val: string | null | undefined): string {
+  if (!val) return '';
+  let digits = val.replace(/\D/g, '');
+  if (digits.startsWith('91') && digits.length > 10 && ['6', '7', '8', '9'].includes(digits[2])) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith('0') && digits.length > 10 && ['6', '7', '8', '9'].includes(digits[1])) {
+    digits = digits.slice(1);
+  }
+  if (digits.length > 0 && !/^[6-9]/.test(digits)) {
+    return '';
+  }
+  return digits.slice(0, 10);
+}
+
+/**
+ * Validates that a mobile phone number is exactly 10 digits starting with 6, 7, 8, or 9.
+ */
+export function isValidIndianMobile(val: string | null | undefined): boolean {
+  if (!val) return false;
+  return /^[6-9]\d{9}$/.test(val.replace(/\D/g, ''));
+}
+

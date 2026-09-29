@@ -162,7 +162,7 @@ export default function RoomsPage() {
   const libraryOfficeCount = rooms.filter((r) => r.type === 'library' || r.type === 'office').length;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto text-left">
+    <div className="space-y-6 text-left w-full">
       {/* Back Link */}
       <Link
         href="/admin/academics/classes"

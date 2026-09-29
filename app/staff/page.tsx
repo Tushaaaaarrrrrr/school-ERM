@@ -68,7 +68,7 @@ export default function StaffDashboardPage() {
   }, [schoolId, hasFeeAccess, hasStudentAccess, hasNoticeAccess]);
 
   return (
-    <div className="space-y-6 text-left max-w-6xl">
+    <div className="space-y-6 text-left w-full">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -589,7 +589,7 @@ export default function TeacherAndStaffAttendancePage() {
   }, [teacherLeaves, staffLeaves]);
 
   return (
-    <div className="space-y-6 text-left max-w-6xl pb-12">
+    <div className="space-y-6 text-left w-full pb-12">
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

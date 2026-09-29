@@ -66,7 +66,7 @@ export default function StudentTransportPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4 text-left">
+      <div className="space-y-4 text-left w-full">
         <CardSkeleton />
         <CardSkeleton />
       </div>
@@ -79,7 +79,7 @@ export default function StudentTransportPage() {
   const cityName = assignment?.city || route?.city || 'Kolodihari';
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto text-left">
+    <div className="space-y-6 text-left w-full">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">

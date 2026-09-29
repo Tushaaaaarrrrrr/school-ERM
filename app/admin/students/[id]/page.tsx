@@ -51,7 +51,7 @@ import { Modal } from '@/components/ui/modal';
 import { ResetPasswordModal } from '@/components/auth/reset-password-modal';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { FeeReceipt } from '@/components/receipt/fee-receipt';
-import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate, formatPercentage, sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
 import {
@@ -357,18 +357,43 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
     e.preventDefault();
     if (!student) return;
 
+    if (!isValidPersonName(editForm.firstName)) {
+      toastError('First Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (editForm.lastName && !isValidPersonName(editForm.lastName)) {
+      toastError('Last Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
     if (![editForm.fatherName, editForm.motherName, editForm.guardianName].some((name) => name.trim())) {
       toastError('Please enter at least one guardian name.');
       return;
     }
 
-    if (!/^\d{10,15}$/.test(editForm.primaryPhone)) {
-      toastError('Primary phone must contain 10 to 15 digits only.');
+    if (editForm.fatherName && !isValidPersonName(editForm.fatherName)) {
+      toastError("Father's Name must contain letters only (no numbers or symbols).");
       return;
     }
 
-    if (editForm.secondaryPhone && !/^\d{10,15}$/.test(editForm.secondaryPhone)) {
-      toastError('Secondary phone must contain 10 to 15 digits only.');
+    if (editForm.motherName && !isValidPersonName(editForm.motherName)) {
+      toastError("Mother's Name must contain letters only (no numbers or symbols).");
+      return;
+    }
+
+    if (editForm.guardianName && !isValidPersonName(editForm.guardianName)) {
+      toastError('Guardian Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (!isValidIndianMobile(editForm.primaryPhone)) {
+      toastError('Primary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    if (editForm.secondaryPhone && !isValidIndianMobile(editForm.secondaryPhone)) {
+      toastError('Secondary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -655,7 +680,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
   const isTodayHoliday = holidays.some((h) => h.start_date <= todayDateStr && h.end_date >= todayDateStr);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto text-left">
+    <div className="space-y-6 text-left w-full">
       {/* Back Link */}
       <Link
         href="/admin/students"
@@ -1968,7 +1993,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 type="text"
                 required
                 value={editForm.firstName}
-                onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                onChange={(e) => setEditForm({ ...editForm, firstName: sanitizePersonName(e.target.value) })}
+                placeholder="Letters only"
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
               />
             </div>
@@ -1978,7 +2004,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 type="text"
                 required
                 value={editForm.lastName}
-                onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                onChange={(e) => setEditForm({ ...editForm, lastName: sanitizePersonName(e.target.value) })}
+                placeholder="Letters only"
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
               />
             </div>
@@ -2067,7 +2094,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 <input
                   type="text"
                   value={editForm.fatherName}
-                  onChange={(e) => setEditForm({ ...editForm, fatherName: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, fatherName: sanitizePersonName(e.target.value) })}
+                  placeholder="Letters only"
                   className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs"
                 />
               </div>
@@ -2076,7 +2104,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 <input
                   type="text"
                   value={editForm.motherName}
-                  onChange={(e) => setEditForm({ ...editForm, motherName: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, motherName: sanitizePersonName(e.target.value) })}
+                  placeholder="Letters only"
                   className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs"
                 />
               </div>
@@ -2086,10 +2115,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                   type="tel"
                   required
                   inputMode="numeric"
-                  pattern="[0-9]{10,15}"
-                  maxLength={15}
+                  pattern="[6-9][0-9]{9}"
+                  maxLength={10}
                   value={editForm.primaryPhone}
-                  onChange={(e) => setEditForm({ ...editForm, primaryPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+                  onChange={(e) => setEditForm({ ...editForm, primaryPhone: sanitizeIndianMobile(e.target.value) })}
+                  placeholder="9876543210 (10 digits, starts with 6-9)"
                   className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-mono"
                 />
               </div>

@@ -107,7 +107,7 @@ export default function AdminRecycleBinPage() {
   });
 
   return (
-    <div className="space-y-6 text-left max-w-6xl">
+    <div className="space-y-6 text-left w-full">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

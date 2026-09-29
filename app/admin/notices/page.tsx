@@ -111,7 +111,7 @@ export default function SchoolNoticesPage() {
   const todayStr = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="space-y-6 text-left max-w-5xl">
+    <div className="space-y-6 text-left w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

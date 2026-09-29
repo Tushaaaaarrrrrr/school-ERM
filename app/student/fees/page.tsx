@@ -58,7 +58,7 @@ export default function StudentFeesPage() {
   const totalBalanceDue = pendingTuition + pendingCharges;
 
   return (
-    <div className="space-y-6 text-left max-w-4xl mx-auto p-4 sm:p-6">
+    <div className="space-y-6 text-left w-full">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">

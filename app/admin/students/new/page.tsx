@@ -17,6 +17,7 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { IdentityProofsInput, IdentityProof } from '@/components/ui/identity-proofs-input';
 import { useToast } from '@/components/ui/toast';
+import { sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
 import {
   ArrowLeft,
   User,
@@ -184,16 +185,16 @@ export default function CreateStudentPage() {
     if (sibling.guardian) {
       setFormData((prev) => ({
         ...prev,
-        fatherName: sibling.guardian?.father_name || '',
-        motherName: sibling.guardian?.mother_name || '',
-        guardianName: sibling.guardian?.guardian_name || sibling.guardian?.father_name || '',
-        primaryPhone: (sibling.guardian?.primary_phone || '').replace(/\D/g, '').slice(0, 15),
-        secondaryPhone: (sibling.guardian?.secondary_phone || '').replace(/\D/g, '').slice(0, 15),
+        fatherName: sanitizePersonName(sibling.guardian?.father_name || ''),
+        motherName: sanitizePersonName(sibling.guardian?.mother_name || ''),
+        guardianName: sanitizePersonName(sibling.guardian?.guardian_name || sibling.guardian?.father_name || ''),
+        primaryPhone: sanitizeIndianMobile(sibling.guardian?.primary_phone || ''),
+        secondaryPhone: sanitizeIndianMobile(sibling.guardian?.secondary_phone || ''),
         email: sibling.guardian?.email || '',
         address: sibling.guardian?.address || '',
-        emergencyContactName: prev.emergencyContactName || sibling.emergency_info?.emergency_contact_name || sibling.guardian?.father_name || sibling.guardian?.guardian_name || '',
+        emergencyContactName: sanitizePersonName(prev.emergencyContactName || sibling.emergency_info?.emergency_contact_name || sibling.guardian?.father_name || sibling.guardian?.guardian_name || ''),
         emergencyContactRelationship: prev.emergencyContactRelationship || sibling.emergency_info?.emergency_contact_relationship || 'Parent',
-        emergencyContactPhone: prev.emergencyContactPhone || (sibling.emergency_info?.emergency_contact_phone || sibling.guardian?.primary_phone || '').replace(/\D/g, '').slice(0, 15),
+        emergencyContactPhone: sanitizeIndianMobile(prev.emergencyContactPhone || sibling.emergency_info?.emergency_contact_phone || sibling.guardian?.primary_phone || ''),
       }));
     }
   };
@@ -214,11 +215,11 @@ export default function CreateStudentPage() {
     } else if (selectedSibling?.guardian) {
       setFormData((prev) => ({
         ...prev,
-        fatherName: selectedSibling.guardian?.father_name || '',
-        motherName: selectedSibling.guardian?.mother_name || '',
-        guardianName: selectedSibling.guardian?.guardian_name || selectedSibling.guardian?.father_name || '',
-        primaryPhone: (selectedSibling.guardian?.primary_phone || '').replace(/\D/g, '').slice(0, 15),
-        secondaryPhone: (selectedSibling.guardian?.secondary_phone || '').replace(/\D/g, '').slice(0, 15),
+        fatherName: sanitizePersonName(selectedSibling.guardian?.father_name || ''),
+        motherName: sanitizePersonName(selectedSibling.guardian?.mother_name || ''),
+        guardianName: sanitizePersonName(selectedSibling.guardian?.guardian_name || selectedSibling.guardian?.father_name || ''),
+        primaryPhone: sanitizeIndianMobile(selectedSibling.guardian?.primary_phone || ''),
+        secondaryPhone: sanitizeIndianMobile(selectedSibling.guardian?.secondary_phone || ''),
         email: selectedSibling.guardian?.email || '',
         address: selectedSibling.guardian?.address || '',
       }));
@@ -256,18 +257,43 @@ export default function CreateStudentPage() {
       return;
     }
 
+    if (!isValidPersonName(formData.firstName)) {
+      toastError('First Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (formData.lastName && !isValidPersonName(formData.lastName)) {
+      toastError('Last Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
     if (![formData.fatherName, formData.motherName, formData.guardianName].some((name) => name.trim())) {
       toastError('Please enter at least one guardian name.');
       return;
     }
 
-    if (!/^\d{10,15}$/.test(formData.primaryPhone)) {
-      toastError('Primary phone must contain 10 to 15 digits only.');
+    if (formData.fatherName && !isValidPersonName(formData.fatherName)) {
+      toastError("Father's Name must contain letters only (no numbers or symbols).");
       return;
     }
 
-    if (formData.secondaryPhone && !/^\d{10,15}$/.test(formData.secondaryPhone)) {
-      toastError('Secondary phone must contain 10 to 15 digits only.');
+    if (formData.motherName && !isValidPersonName(formData.motherName)) {
+      toastError("Mother's Name must contain letters only (no numbers or symbols).");
+      return;
+    }
+
+    if (formData.guardianName && !isValidPersonName(formData.guardianName)) {
+      toastError('Guardian Name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (!isValidIndianMobile(formData.primaryPhone)) {
+      toastError('Primary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    if (formData.secondaryPhone && !isValidIndianMobile(formData.secondaryPhone)) {
+      toastError('Secondary phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -286,8 +312,13 @@ export default function CreateStudentPage() {
       return;
     }
 
-    if (formData.emergencyContactPhone && !/^\d{10,15}$/.test(formData.emergencyContactPhone)) {
-      toastError('Emergency contact phone must contain 10 to 15 digits only.');
+    if (formData.emergencyContactName && !isValidPersonName(formData.emergencyContactName)) {
+      toastError('Emergency contact name must contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (formData.emergencyContactPhone && !isValidIndianMobile(formData.emergencyContactPhone)) {
+      toastError('Emergency contact phone must be a 10-digit mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -442,14 +473,16 @@ export default function CreateStudentPage() {
               label="First Name"
               required
               value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, firstName: sanitizePersonName(e.target.value) })}
               placeholder="e.g. Rahul"
+              helperText="Letters only"
             />
             <Input
               label="Last Name"
               value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, lastName: sanitizePersonName(e.target.value) })}
               placeholder="e.g. Kumar (optional)"
+              helperText="Letters only"
             />
           </div>
 
@@ -796,19 +829,22 @@ export default function CreateStudentPage() {
             <Input
               label="Father's Name"
               value={formData.fatherName}
-              onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, fatherName: sanitizePersonName(e.target.value) })}
               placeholder="e.g. Manoj Kumar"
+              helperText="Letters only"
             />
             <Input
               label="Mother's Name"
               value={formData.motherName}
-              onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, motherName: sanitizePersonName(e.target.value) })}
               placeholder="e.g. Sunita Devi"
+              helperText="Letters only"
             />
             <Input
               label="Guardian Name (if different)"
               value={formData.guardianName}
-              onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, guardianName: sanitizePersonName(e.target.value) })}
+              helperText="Letters only"
             />
           </div>
 
@@ -818,21 +854,23 @@ export default function CreateStudentPage() {
               required
               type="tel"
               inputMode="numeric"
-              pattern="[0-9]{10,15}"
-              maxLength={15}
+              pattern="[6-9][0-9]{9}"
+              maxLength={10}
               value={formData.primaryPhone}
-              onChange={(e) => setFormData({ ...formData, primaryPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              onChange={(e) => setFormData({ ...formData, primaryPhone: sanitizeIndianMobile(e.target.value) })}
               placeholder="9876543210"
+              helperText="10 digits only, starts with 6-9"
             />
             <Input
               label="Secondary Phone"
               type="tel"
               inputMode="numeric"
-              pattern="[0-9]{10,15}"
-              maxLength={15}
+              pattern="[6-9][0-9]{9}"
+              maxLength={10}
               value={formData.secondaryPhone}
-              onChange={(e) => setFormData({ ...formData, secondaryPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              onChange={(e) => setFormData({ ...formData, secondaryPhone: sanitizeIndianMobile(e.target.value) })}
               placeholder="9876500000"
+              helperText="10 digits only, starts with 6-9"
             />
             <GoogleEmailInput
               label="Parent Email (Parent Portal Login)"
@@ -881,9 +919,25 @@ export default function CreateStudentPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input label="Emergency Contact Name" value={formData.emergencyContactName} onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })} />
+            <Input
+              label="Emergency Contact Name"
+              value={formData.emergencyContactName}
+              onChange={(e) => setFormData({ ...formData, emergencyContactName: sanitizePersonName(e.target.value) })}
+              placeholder="e.g. Ramesh Kumar"
+              helperText="Letters only"
+            />
             <Input label="Relationship" value={formData.emergencyContactRelationship} onChange={(e) => setFormData({ ...formData, emergencyContactRelationship: e.target.value })} placeholder="Mother, father, uncle…" />
-            <Input label="Emergency Contact Phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength={15} value={formData.emergencyContactPhone} onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 15) })} placeholder="9876543210" />
+            <Input
+              label="Emergency Contact Phone"
+              type="tel"
+              inputMode="numeric"
+              pattern="[6-9][0-9]{9}"
+              maxLength={10}
+              value={formData.emergencyContactPhone}
+              onChange={(e) => setFormData({ ...formData, emergencyContactPhone: sanitizeIndianMobile(e.target.value) })}
+              placeholder="9876543210"
+              helperText="10 digits only, starts with 6-9"
+            />
           </div>
 
           <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">

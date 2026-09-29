@@ -104,7 +104,7 @@ function TeacherClassesContent() {
   const activeAsg = assignments.find((a) => a.id === selectedAsgId);
 
   return (
-    <div className="space-y-6 text-left max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6 text-left w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">My Classes & Academic Insights</h1>

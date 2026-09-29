@@ -352,7 +352,7 @@ export default function AdminAccessRequestsPage() {
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
 
   return (
-    <div className="space-y-6 text-left max-w-6xl">
+    <div className="space-y-6 text-left w-full">
       {/* Title & Stats */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

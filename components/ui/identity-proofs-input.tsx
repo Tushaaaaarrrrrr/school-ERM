@@ -212,7 +212,10 @@ export function IdentityProofsInput({
                 <div className="pt-2 border-t border-slate-100">
                   <PhotoUpload
                     label={`Upload ${config.label} Photo / Scan (Optional)`}
+                    helperText="Upload any clear document photo or scan (no crop required)"
                     currentPhotoUrl={proof.documentUrl}
+                    allowCrop={false}
+                    aspectRatio="contain"
                     onPhotoChange={(url) => handleUpdate(idx, { documentUrl: url || '' })}
                   />
                 </div>

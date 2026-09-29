@@ -162,7 +162,7 @@ export default function TeacherDashboardPage() {
   };
 
   return (
-    <div className="space-y-6 text-left max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6 text-left w-full">
       {myTeacherLeaves.some((leave) => leave.status === 'approved' && leave.start_date <= new Date().toISOString().split('T')[0] && leave.end_date >= new Date().toISOString().split('T')[0]) && (() => {
         const leave = myTeacherLeaves.find((item) => item.status === 'approved' && item.start_date <= new Date().toISOString().split('T')[0] && item.end_date >= new Date().toISOString().split('T')[0])!;
         return <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><strong>Your leave is approved.</strong> Return joining date: <strong>{formatDate(leave.return_date)}</strong>. <Link className="ml-2 underline" href="/teacher/leave">View details</Link></div>;

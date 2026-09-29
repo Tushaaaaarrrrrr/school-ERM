@@ -335,7 +335,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
   const totalPending = payments.filter((p) => p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto text-left">
+    <div className="space-y-6 text-left w-full">
       {/* Back Link */}
       <Link
         href="/admin/teachers"

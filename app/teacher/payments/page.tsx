@@ -43,7 +43,7 @@ export default function TeacherPaymentsPage() {
   }, [schoolId, teacherId]);
 
   return (
-    <div className="space-y-6 text-left max-w-4xl">
+    <div className="space-y-6 text-left w-full">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">My Salary & Payment Receipts</h1>
         <p className="text-xs text-slate-500 mt-0.5">

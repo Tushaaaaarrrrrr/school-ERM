@@ -353,7 +353,7 @@ export default function AdminAttendancePage() {
   };
 
   return (
-    <div className="space-y-6 text-left max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6 text-left w-full">
       {/* Header with Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

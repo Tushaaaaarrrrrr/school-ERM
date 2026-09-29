@@ -96,7 +96,7 @@ export default function StudentDashboardPage() {
   }, [schoolId, studentId]);
 
   return (
-    <div className="space-y-6 text-left max-w-4xl">
+    <div className="space-y-6 text-left w-full">
       {/* Student Greeting Card */}
       <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-sm space-y-2">
         <div className="flex items-center gap-2 text-indigo-300 text-xs font-semibold uppercase tracking-wider">

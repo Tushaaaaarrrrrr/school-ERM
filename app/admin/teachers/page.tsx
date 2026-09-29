@@ -389,7 +389,7 @@ export default function TeachersPage() {
   });
 
   return (
-    <div className="space-y-6 text-left max-w-7xl mx-auto">
+    <div className="space-y-6 text-left w-full">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

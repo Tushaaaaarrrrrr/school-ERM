@@ -9,7 +9,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { validateImageFile } from '@/lib/utils/security';
 import { Button } from '@/components/ui/button';
 import { ImageCropperModal } from '@/components/ui/image-cropper-modal';
-import { Upload, X, Image as ImageIcon, AlertCircle, Crop, Sparkles } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, AlertCircle, Crop, Sparkles, ExternalLink, FileText } from 'lucide-react';
 
 interface PhotoUploadProps {
   label: string;
@@ -18,15 +18,17 @@ interface PhotoUploadProps {
   maxMb?: number;
   onPhotoChange: (url: string | null) => void;
   aspectRatio?: 'square' | 'contain' | 'wide';
+  allowCrop?: boolean;
 }
 
 export function PhotoUpload({
   label,
-  helperText = 'Recommended: Square 1:1 photo (Auto-crop supported)',
+  helperText,
   currentPhotoUrl,
   maxMb = 5,
   onPhotoChange,
   aspectRatio = 'square',
+  allowCrop = true,
 }: PhotoUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentPhotoUrl || null);
@@ -53,8 +55,16 @@ export function PhotoUpload({
 
     const reader = new FileReader();
     reader.onload = () => {
-      setRawImageSrc(reader.result as string);
-      setIsCropperOpen(true);
+      const dataUrl = reader.result as string;
+      if (!allowCrop) {
+        setPreviewUrl(dataUrl);
+        setError(null);
+        onPhotoChange(dataUrl);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } else {
+        setRawImageSrc(dataUrl);
+        setIsCropperOpen(true);
+      }
     };
     reader.onerror = () => {
       setError('Failed to read selected image.');
@@ -78,13 +88,18 @@ export function PhotoUpload({
   };
 
   const handleReCrop = () => {
-    if (previewUrl) {
+    if (previewUrl && allowCrop) {
       setRawImageSrc(previewUrl);
       setIsCropperOpen(true);
     }
   };
 
   const recommendedText = 'Recommended: 1:1 Square Photo (Auto-Centered)';
+  const resolvedHelperText =
+    helperText ??
+    (allowCrop
+      ? 'Recommended: Square 1:1 photo (Auto-crop supported)'
+      : 'Upload clear document photo or scan (PNG, JPG, WebP)');
 
   return (
     <div className="space-y-1.5 text-left">
@@ -100,7 +115,11 @@ export function PhotoUpload({
       <div className="flex items-center gap-4">
         {/* Preview Area */}
         <div
-          className={`w-16 h-16 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 relative group shadow-2xs ${
+          className={`${
+            allowCrop && aspectRatio === 'square'
+              ? 'w-16 h-16 rounded-xl'
+              : 'w-24 h-16 sm:w-28 sm:h-20 rounded-xl p-1 bg-slate-100/60'
+          } border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 relative group shadow-2xs ${
             aspectRatio === 'contain' ? 'p-1' : ''
           }`}
         >
@@ -110,20 +129,40 @@ export function PhotoUpload({
                 src={previewUrl}
                 alt="Preview"
                 className={`w-full h-full ${
-                  aspectRatio === 'contain' ? 'object-contain' : 'object-cover'
+                  aspectRatio === 'contain' || !allowCrop ? 'object-contain' : 'object-cover'
                 }`}
               />
-              <button
-                type="button"
-                onClick={handleReCrop}
-                className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-semibold transition-opacity"
-                title="Re-crop photo"
-              >
-                <Crop className="w-4 h-4" />
-              </button>
+              {allowCrop ? (
+                <button
+                  type="button"
+                  onClick={handleReCrop}
+                  className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-semibold transition-opacity"
+                  title="Re-crop photo"
+                >
+                  <Crop className="w-4 h-4" />
+                </button>
+              ) : (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-semibold transition-opacity gap-1"
+                  title="View full image in new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>View</span>
+                </a>
+              )}
             </>
           ) : (
-            <ImageIcon className="w-6 h-6 text-slate-300" />
+            allowCrop ? (
+              <ImageIcon className="w-6 h-6 text-slate-300" />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-400 gap-0.5">
+                <FileText className="w-5 h-5 text-slate-300" />
+                <span className="text-[9px] font-medium text-slate-400">Card / Doc</span>
+              </div>
+            )
           )}
         </div>
 
@@ -149,20 +188,22 @@ export function PhotoUpload({
 
             {previewUrl && (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleReCrop}
-                  leftIcon={<Crop className="w-3.5 h-3.5 text-indigo-600" />}
-                  className="text-xs text-indigo-700 hover:bg-indigo-50 border-indigo-200"
-                >
-                  Re-Crop
-                </Button>
+                {allowCrop && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReCrop}
+                    leftIcon={<Crop className="w-3.5 h-3.5 text-indigo-600" />}
+                    className="text-xs text-indigo-700 hover:bg-indigo-50 border-indigo-200"
+                  >
+                    Re-Crop
+                  </Button>
+                )}
                 <button
                   type="button"
                   onClick={handleRemove}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                   title="Remove photo"
                 >
                   <X className="w-4 h-4" />
@@ -171,24 +212,30 @@ export function PhotoUpload({
             )}
           </div>
           <p className="text-[10px] text-slate-400 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
-            <span>{helperText}</span>
+            {allowCrop ? (
+              <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
+            ) : (
+              <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+            )}
+            <span>{resolvedHelperText}</span>
           </p>
         </div>
       </div>
 
-      {/* Interactive Image Cropper Modal */}
-      <ImageCropperModal
-        isOpen={isCropperOpen}
-        onClose={() => {
-          setIsCropperOpen(false);
-          setRawImageSrc(null);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }}
-        imageSrc={rawImageSrc}
-        onCropComplete={handleCropComplete}
-        recommendedSizeText={recommendedText}
-      />
+      {/* Interactive Image Cropper Modal (Only when crop allowed) */}
+      {allowCrop && (
+        <ImageCropperModal
+          isOpen={isCropperOpen}
+          onClose={() => {
+            setIsCropperOpen(false);
+            setRawImageSrc(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }}
+          imageSrc={rawImageSrc}
+          onCropComplete={handleCropComplete}
+          recommendedSizeText={recommendedText}
+        />
+      )}
     </div>
   );
 }

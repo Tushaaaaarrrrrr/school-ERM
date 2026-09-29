@@ -97,7 +97,7 @@ export default function AdminAccountRequestsPage() {
   };
 
   return (
-    <div className="space-y-6 text-left max-w-5xl">
+    <div className="space-y-6 text-left w-full">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Account Deletion Requests</h1>

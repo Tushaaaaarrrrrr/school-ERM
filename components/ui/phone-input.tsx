@@ -8,6 +8,9 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
+
+export { sanitizeIndianMobile, isValidIndianMobile };
 
 export interface PhoneInputProps {
   value: string;
@@ -27,7 +30,7 @@ export function validatePhoneNumber(raw: string): {
   error?: string;
   cleaned: string;
 } {
-  const cleaned = raw.replace(/\D/g, '').slice(0, 10);
+  const cleaned = sanitizeIndianMobile(raw);
   if (!cleaned) {
     return { isValid: false, cleaned };
   }
@@ -60,7 +63,7 @@ export function PhoneInput({
   className,
   id = 'phone-input',
 }: PhoneInputProps) {
-  const cleaned = (value || '').replace(/\D/g, '').slice(0, 10);
+  const cleaned = sanitizeIndianMobile(value || '');
   const validation = validatePhoneNumber(cleaned);
 
   useEffect(() => {
@@ -68,9 +71,8 @@ export function PhoneInput({
   }, [validation.isValid, onValidationChange]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digitsOnly = raw.replace(/\D/g, '').slice(0, 10);
-    onChange(digitsOnly);
+    const sanitized = sanitizeIndianMobile(e.target.value);
+    onChange(sanitized);
   };
 
   const getStatusBorder = () => {
