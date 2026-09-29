@@ -2,33 +2,43 @@ import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
 
-export async function GET(request: Request) {
+function errorResponse(error: any) {
+  return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
+}
+
+export async function GET() {
   try {
-    const { schoolId } = await requireSchoolAccess(['school_admin']);
-    const { searchParams } = new URL(request.url);
-    return NextResponse.json({ success: false, error: 'Database endpoint not implemented.' }, { status: 501 });
+    const access = await requireSchoolAccess(null, ['school_admin', 'teacher', 'staff', 'accountant', 'driver']);
+    if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
+    const data = await serverDb.getNotifications(access.schoolId);
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
+    return errorResponse(error);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const { schoolId } = await requireSchoolAccess(['school_admin']);
+    const access = await requireSchoolAccess(null, ['school_admin', 'teacher', 'staff', 'accountant', 'driver']);
+    if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const body = await request.json();
-    return NextResponse.json({ success: false, error: 'Database endpoint not implemented.' }, { status: 501 });
+    const data = await serverDb.createNotification({ ...body, school_id: access.schoolId });
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
+    return errorResponse(error);
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    const { schoolId } = await requireSchoolAccess(['school_admin']);
+    const access = await requireSchoolAccess(null, ['school_admin', 'teacher', 'staff', 'accountant', 'driver']);
+    if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const body = await request.json();
-    return NextResponse.json({ success: false, error: 'Database endpoint not implemented.' }, { status: 501 });
+    if (!body.id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
+    delete body.school_id;
+    const data = await serverDb.updateNotification(body.id, body);
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
+    return errorResponse(error);
   }
 }
-

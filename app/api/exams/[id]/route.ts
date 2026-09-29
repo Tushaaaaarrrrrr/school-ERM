@@ -2,30 +2,27 @@ import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
 
+function errorResponse(error: any) {
+  return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { schoolId } = await requireSchoolAccess(['school_admin']);
+    const access = await requireSchoolAccess(null, ['school_admin', 'teacher']);
+    if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const { id } = await params;
     const body = await request.json();
-    return NextResponse.json({ success: false, error: 'Database endpoint not implemented.' }, { status: 501 });
+    delete body.school_id;
+    const data = await serverDb.updateExam(id, body);
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
+    return errorResponse(error);
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { schoolId } = await requireSchoolAccess(['school_admin']);
-    const { id } = await params;
-    return NextResponse.json({ success: false, error: 'Database endpoint not implemented.' }, { status: 501 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
-  }
+export async function DELETE() {
+  return NextResponse.json({ success: false, error: 'Delete is not enabled for this endpoint.' }, { status: 405 });
 }
-

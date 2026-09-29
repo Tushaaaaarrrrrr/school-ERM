@@ -1553,6 +1553,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('academic_years').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -1590,6 +1591,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('classes').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -1627,6 +1629,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('sections').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -1664,6 +1667,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('subjects').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -1701,6 +1705,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('school_rooms').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -1780,7 +1785,7 @@ export const serverDb = {
           driver_phone: data.driver_phone,
         };
       }
-      if (error) console.error('Supabase createVehicle error:', error);
+      if (error) throw new Error(`Database createVehicle failed: ${error.message}`);
     }
     return data;
   },
@@ -1824,7 +1829,7 @@ export const serverDb = {
             driver_phone: updates.driver_phone,
           };
         }
-        if (error) console.error('Supabase updateVehicle error:', error);
+        if (error) throw new Error(`Database updateVehicle failed: ${error.message}`);
       } else if (updates.school_id) {
         return await this.createVehicle({ ...updates, school_id: updates.school_id });
       }
@@ -1889,7 +1894,7 @@ export const serverDb = {
         }
         return { ...created, stops: [] };
       }
-      if (error) console.error('Supabase createTransportRoute error:', error);
+      if (error) throw new Error(`Database createTransportRoute failed: ${error.message}`);
     }
     return data;
   },
@@ -1947,7 +1952,7 @@ export const serverDb = {
         }
 
         if (!error && updated) return updated;
-        if (error) console.error('Supabase updateTransportRoute error:', error);
+        if (error) throw new Error(`Database updateTransportRoute failed: ${error.message}`);
       } else if (updates.school_id) {
         return await this.createTransportRoute({ ...updates, school_id: updates.school_id }, stops);
       }
@@ -1968,6 +1973,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('transport_stops').select('*').eq('school_id', schoolId).order('stop_order', { ascending: true });
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -1988,7 +1994,7 @@ export const serverDb = {
 
       const { data: created, error } = await supabase.from('transport_stops').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTransportStop error:', error);
+      if (error) throw new Error(`Database createTransportStop failed: ${error.message}`);
     }
     return data;
   },
@@ -2010,7 +2016,7 @@ export const serverDb = {
 
       const { data: updated, error } = await supabase.from('transport_stops').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateTransportStop error:', error);
+      if (error) throw new Error(`Database updateTransportStop failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2027,6 +2033,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_transport_assignments').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2049,7 +2056,7 @@ export const serverDb = {
 
       const { data: created, error } = await supabase.from('student_transport_assignments').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTransportAssignment error:', error);
+      if (error) throw new Error(`Database createTransportAssignment failed: ${error.message}`);
     }
     return data;
   },
@@ -2067,7 +2074,7 @@ export const serverDb = {
 
       const { data: updated, error } = await supabase.from('student_transport_assignments').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateTransportAssignment error:', error);
+      if (error) throw new Error(`Database updateTransportAssignment failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2084,6 +2091,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_transport_events').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2102,6 +2110,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('timetable_entries').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2115,7 +2124,7 @@ export const serverDb = {
       if (payload.day_of_week) payload.day_of_week = Number(payload.day_of_week) || 1;
       const { data: created, error } = await supabase.from('timetable_entries').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTimetableEntry error:', error);
+      if (error) throw new Error(`Database createTimetableEntry failed: ${error.message}`);
     }
     return data;
   },
@@ -2130,7 +2139,7 @@ export const serverDb = {
       if (payload.day_of_week) payload.day_of_week = Number(payload.day_of_week);
       const { data: updated, error } = await supabase.from('timetable_entries').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateTimetableEntry error:', error);
+      if (error) throw new Error(`Database updateTimetableEntry failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2147,6 +2156,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_attendance').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2157,7 +2167,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_attendance').upsert(payload, { onConflict: 'school_id,student_id,attendance_date' }).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createStudentAttendance error:', error);
+      if (error) throw new Error(`Database createStudentAttendance failed: ${error.message}`);
     }
     return data;
   },
@@ -2167,6 +2177,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('teacher_attendance').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2177,7 +2188,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('teacher_attendance').upsert(payload, { onConflict: 'school_id,teacher_id,attendance_date' }).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTeacherAttendance error:', error);
+      if (error) throw new Error(`Database createTeacherAttendance failed: ${error.message}`);
     }
     return data;
   },
@@ -2187,6 +2198,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('staff_attendance').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2197,7 +2209,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('staff_attendance').upsert(payload, { onConflict: 'school_id,staff_id,attendance_date' }).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createStaffAttendance error:', error);
+      if (error) throw new Error(`Database createStaffAttendance failed: ${error.message}`);
     }
     return data;
   },
@@ -2207,6 +2219,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_leaves').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2217,7 +2230,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_leaves').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createStudentLeave error:', error);
+      if (error) throw new Error(`Database createStudentLeave failed: ${error.message}`);
     }
     return data;
   },
@@ -2229,7 +2242,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('student_leaves').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateStudentLeave error:', error);
+      if (error) throw new Error(`Database updateStudentLeave failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2239,6 +2252,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('teacher_leaves').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2249,7 +2263,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('teacher_leaves').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTeacherLeave error:', error);
+      if (error) throw new Error(`Database createTeacherLeave failed: ${error.message}`);
     }
     return data;
   },
@@ -2261,7 +2275,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('teacher_leaves').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateTeacherLeave error:', error);
+      if (error) throw new Error(`Database updateTeacherLeave failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2271,6 +2285,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('staff_leaves').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2281,7 +2296,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('staff_leaves').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createStaffLeave error:', error);
+      if (error) throw new Error(`Database createStaffLeave failed: ${error.message}`);
     }
     return data;
   },
@@ -2293,7 +2308,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('staff_leaves').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateStaffLeave error:', error);
+      if (error) throw new Error(`Database updateStaffLeave failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2303,6 +2318,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('fee_structures').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2313,7 +2329,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('fee_structures').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createFeeStructure error:', error);
+      if (error) throw new Error(`Database createFeeStructure failed: ${error.message}`);
     }
     return data;
   },
@@ -2325,7 +2341,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('fee_structures').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateFeeStructure error:', error);
+      if (error) throw new Error(`Database updateFeeStructure failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2342,6 +2358,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_fee_invoices').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2352,7 +2369,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_fee_invoices').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createFeeInvoice error:', error);
+      if (error) throw new Error(`Database createFeeInvoice failed: ${error.message}`);
     }
     return data;
   },
@@ -2364,7 +2381,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('student_fee_invoices').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateFeeInvoice error:', error);
+      if (error) throw new Error(`Database updateFeeInvoice failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2374,6 +2391,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_charges').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2384,7 +2402,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_charges').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createStudentCharge error:', error);
+      if (error) throw new Error(`Database createStudentCharge failed: ${error.message}`);
     }
     return data;
   },
@@ -2396,7 +2414,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('student_charges').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateStudentCharge error:', error);
+      if (error) throw new Error(`Database updateStudentCharge failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2406,6 +2424,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('payment_receipts').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2416,7 +2435,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('payment_receipts').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createPaymentReceipt error:', error);
+      if (error) throw new Error(`Database createPaymentReceipt failed: ${error.message}`);
     }
     return data;
   },
@@ -2426,6 +2445,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('employee_payments').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2436,7 +2456,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('employee_payments').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createEmployeePayment error:', error);
+      if (error) throw new Error(`Database createEmployeePayment failed: ${error.message}`);
     }
     return data;
   },
@@ -2448,7 +2468,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('employee_payments').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateEmployeePayment error:', error);
+      if (error) throw new Error(`Database updateEmployeePayment failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2458,6 +2478,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('teacher_payments').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2468,7 +2489,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('teacher_payments').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTeacherPayment error:', error);
+      if (error) throw new Error(`Database createTeacherPayment failed: ${error.message}`);
     }
     return data;
   },
@@ -2478,6 +2499,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('employee_salary_history').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2488,7 +2510,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('employee_salary_history').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createSalaryHistory error:', error);
+      if (error) throw new Error(`Database createSalaryHistory failed: ${error.message}`);
     }
     return data;
   },
@@ -2498,6 +2520,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('fee_structure_versions').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2508,7 +2531,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('fee_structure_versions').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createFeeVersion error:', error);
+      if (error) throw new Error(`Database createFeeVersion failed: ${error.message}`);
     }
     return data;
   },
@@ -2518,6 +2541,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('bulk_charge_batches').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2528,7 +2552,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('bulk_charge_batches').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createBulkChargeBatch error:', error);
+      if (error) throw new Error(`Database createBulkChargeBatch failed: ${error.message}`);
     }
     return data;
   },
@@ -2540,7 +2564,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('bulk_charge_batches').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateBulkChargeBatch error:', error);
+      if (error) throw new Error(`Database updateBulkChargeBatch failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2550,6 +2574,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('exams').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2560,7 +2585,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('exams').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createExam error:', error);
+      if (error) throw new Error(`Database createExam failed: ${error.message}`);
     }
     return data;
   },
@@ -2572,7 +2597,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('exams').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateExam error:', error);
+      if (error) throw new Error(`Database updateExam failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2589,6 +2614,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('exam_results').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2599,7 +2625,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('exam_results').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createExamResult error:', error);
+      if (error) throw new Error(`Database createExamResult failed: ${error.message}`);
     }
     return data;
   },
@@ -2611,7 +2637,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('exam_results').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateExamResult error:', error);
+      if (error) throw new Error(`Database updateExamResult failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2621,6 +2647,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('notices').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2631,7 +2658,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('notices').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createNotice error:', error);
+      if (error) throw new Error(`Database createNotice failed: ${error.message}`);
     }
     return data;
   },
@@ -2643,7 +2670,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('notices').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateNotice error:', error);
+      if (error) throw new Error(`Database updateNotice failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2660,6 +2687,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('app_notifications').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2670,7 +2698,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('app_notifications').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createNotification error:', error);
+      if (error) throw new Error(`Database createNotification failed: ${error.message}`);
     }
     return data;
   },
@@ -2682,7 +2710,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('app_notifications').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateNotification error:', error);
+      if (error) throw new Error(`Database updateNotification failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2735,6 +2763,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('parent_student_links').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2762,6 +2791,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('admission_enquiries').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2772,7 +2802,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('admission_enquiries').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createEnquiry error:', error);
+      if (error) throw new Error(`Database createEnquiry failed: ${error.message}`);
     }
     return data;
   },
@@ -2784,7 +2814,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('admission_enquiries').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateEnquiry error:', error);
+      if (error) throw new Error(`Database updateEnquiry failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2794,6 +2824,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('student_followups').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2804,7 +2835,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_followups').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createFollowUp error:', error);
+      if (error) throw new Error(`Database createFollowUp failed: ${error.message}`);
     }
     return data;
   },
@@ -2816,7 +2847,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('student_followups').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateFollowUp error:', error);
+      if (error) throw new Error(`Database updateFollowUp failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2826,6 +2857,7 @@ export const serverDb = {
     if (supabase) {
       const { data, error } = await supabase.from('academic_year_transition_batches').select('*').eq('school_id', schoolId);
       if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
     }
     return [];
   },
@@ -2836,7 +2868,7 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('academic_year_transition_batches').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase createTransitionBatch error:', error);
+      if (error) throw new Error(`Database createTransitionBatch failed: ${error.message}`);
     }
     return data;
   },
@@ -2848,7 +2880,7 @@ export const serverDb = {
       delete payload.id;
       const { data: updated, error } = await supabase.from('academic_year_transition_batches').update(payload).eq('id', id).select().single();
       if (!error && updated) return updated;
-      if (error) console.error('Supabase updateTransitionBatch error:', error);
+      if (error) throw new Error(`Database updateTransitionBatch failed: ${error.message}`);
     }
     return { id, ...updates };
   },
@@ -2859,9 +2891,26 @@ export const serverDb = {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('recycle_bin_items').insert(payload).select().single();
       if (!error && created) return created;
-      if (error) console.error('Supabase addToRecycleBin error:', error);
+      if (error) throw new Error(`Database recycle-bin insert failed: ${error.message}`);
     }
+    const db = initServerDb();
+    db.recycleBin.unshift(data);
     return data;
+  },
+
+  async getRecycleBinItems(schoolId: string): Promise<any[]> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('recycle_bin_items')
+        .select('*')
+        .eq('school_id', schoolId)
+        .eq('status', 'in_bin');
+      if (!error && data) return data;
+      if (error) throw new Error(`Database recycle-bin fetch failed: ${error.message}`);
+    }
+    const db = initServerDb();
+    return db.recycleBin.filter((item: any) => item.school_id === schoolId && item.status === 'in_bin');
   },
 
   async removeFromRecycleBin(id: string): Promise<void> {
