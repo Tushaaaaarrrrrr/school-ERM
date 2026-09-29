@@ -91,6 +91,9 @@ import {
 } from 'lucide-react';
 import { CardSkeleton } from '@/components/ui/skeleton';
 
+const errorMessage = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
+
 export default function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const { currentUser, currentSchool } = useAuth();
@@ -231,8 +234,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           ? `Student "${student.first_name} ${student.last_name}" deactivated. Login and active attendance are suspended while academic & fee history remain safe.`
           : `Student "${student.first_name} ${student.last_name}" restored to Active status.`
       );
-    } catch {
-      toastError('Failed to update student status');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to update student status'));
     } finally {
       setIsDeactivating(false);
     }
@@ -368,8 +371,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           pickupEnabled: transStatus.assignment?.pickup_enabled ?? true,
         });
       }
-    } catch {
-      toastError('Failed to load student profile');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to load student profile'));
     } finally {
       setIsLoading(false);
     }
@@ -498,8 +501,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       success('Student details updated successfully');
       setIsEditModalOpen(false);
       loadProfile();
-    } catch {
-      toastError('Failed to update student profile');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to update student profile'));
     }
   };
 
@@ -528,8 +531,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       );
       success('Emergency & medical information saved successfully');
       loadProfile();
-    } catch {
-      toastError('Failed to update emergency information');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to update emergency information'));
     } finally {
       setIsSavingEmergency(false);
     }
@@ -574,8 +577,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
         description: '',
       });
       loadProfile();
-    } catch {
-      toastError('Failed to add charge');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to add charge'));
     }
   };
 
@@ -662,8 +665,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       setPaymentToReverse(null);
       setReversalReason('');
       loadProfile();
-    } catch {
-      toastError('Failed to reverse payment');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to reverse payment'));
     } finally {
       setIsSubmittingReversal(false);
     }
@@ -683,8 +686,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       );
       success(`Charge ${action} successfully`);
       loadProfile();
-    } catch {
-      toastError(`Failed to ${action} charge`);
+    } catch (err) {
+      toastError(errorMessage(err, `Failed to ${action} charge`));
     }
   };
 
