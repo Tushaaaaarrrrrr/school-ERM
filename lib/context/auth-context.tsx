@@ -46,6 +46,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'school_erp_active_user';
 const PIN_UNLOCKED_PREFIX = 'school_erp_pin_unlocked_';
 
+export function syncAuthSessionCookie(user: UserPersona | null) {
+  if (typeof document === 'undefined') return;
+  if (user) {
+    const data = encodeURIComponent(
+      JSON.stringify({
+        id: user.id,
+        role: user.role,
+        name: user.name,
+        email: user.email,
+        school_id: user.school_id,
+        login_id: user.login_id,
+      })
+    );
+    document.cookie = `school_erp_session=${data}; path=/; max-age=604800; SameSite=Lax`;
+  } else {
+    document.cookie = 'school_erp_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserPersona | null>(null);
   const [currentSchool, setCurrentSchoolState] = useState<School | null>(null);
@@ -91,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(personaUser);
       if (personaUser && typeof window !== 'undefined') {
         storageService.setItem(AUTH_STORAGE_KEY, personaUser);
+        syncAuthSessionCookie(personaUser);
       }
 
       let activeSchool = context.school || null;
@@ -167,11 +187,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (typeof window !== 'undefined') {
           const saved = storageService.getItem<UserPersona | null>(AUTH_STORAGE_KEY, null);
-          if (saved) activeUser = saved;
+          if (saved) {
+            activeUser = saved;
+          } else {
+            try {
+              const match = document.cookie.match(/(?:^|;\s*)school_erp_session=([^;]+)/);
+              if (match && match[1]) {
+                const parsed = JSON.parse(decodeURIComponent(match[1]));
+                if (parsed && (parsed.id || parsed.role)) {
+                  activeUser = parsed as UserPersona;
+                }
+              }
+            } catch {}
+          }
         }
 
         if (activeUser) {
           setCurrentUser(activeUser);
+          setAccessState(activeUser.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
+          syncAuthSessionCookie(activeUser);
           if (activeUser.role === 'super_admin') {
             setIsPinUnlocked(true);
           } else {
@@ -280,6 +314,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await passkeyService.authenticateWithPasskey();
       if (res.success && res.user) {
         setCurrentUser(res.user);
+        setAccessState(res.user.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
+        syncAuthSessionCookie(res.user);
         const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
         setIsPinUnlocked(!pinStatus.hasPin);
         storageService.setItem(AUTH_STORAGE_KEY, res.user);
@@ -299,6 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (res.success && res.user) {
       setCurrentUser(res.user);
       setAccessState(res.user.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
+      syncAuthSessionCookie(res.user);
       const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
       setIsPinUnlocked(!pinStatus.hasPin);
       storageService.setItem(AUTH_STORAGE_KEY, res.user);
@@ -319,6 +356,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (res.success && res.user) {
       setCurrentUser(res.user);
       setAccessState('ACTIVE_SCHOOL_USER');
+      syncAuthSessionCookie(res.user);
       const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
       setIsPinUnlocked(!pinStatus.hasPin);
       storageService.setItem(AUTH_STORAGE_KEY, res.user);
@@ -363,6 +401,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessState(null);
     setPendingAccessRequest(null);
     setIsPinUnlocked(false);
+    syncAuthSessionCookie(null);
 
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

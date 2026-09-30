@@ -3,6 +3,27 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  // 1. Check if user has an active School ERP credential session cookie (students, teachers, staff, parents)
+  const sessionCookie = request.cookies.get('school_erp_session')?.value;
+  if (sessionCookie) {
+    try {
+      let raw = sessionCookie.trim();
+      if (raw.startsWith('"') && raw.endsWith('"')) {
+        raw = raw.slice(1, -1);
+      }
+      try {
+        raw = decodeURIComponent(raw);
+      } catch {}
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.id || parsed.role)) {
+        return response;
+      }
+    } catch {
+      // In case of malformed cookie, proceed to Supabase check
+    }
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -30,12 +51,14 @@ export async function middleware(request: NextRequest) {
     });
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      // No valid server session — redirect to login (no client cookie fallback)
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('next', request.nextUrl.pathname);
-      return NextResponse.redirect(loginUrl);
+    if (user) {
+      return response;
     }
+
+    // No valid server session — redirect to login
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   } catch {
     // If Supabase server auth check fails, allow response to avoid infinite redirects
     return response;

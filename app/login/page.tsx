@@ -75,11 +75,7 @@ export default function LoginPage() {
     if (authLoading) return;
     if (typeof window === 'undefined') return;
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const hasNext = Boolean(searchParams.get('next'));
-
-    // Only auto-route if user already has an active session and is NOT returning from an unauthorized redirect
-    if (currentUser && !hasNext) {
+    if (currentUser) {
       let targetPath = '/admin';
       switch (currentUser.role) {
         case 'super_admin':
@@ -106,9 +102,12 @@ export default function LoginPage() {
           targetPath = '/admin';
           break;
       }
-      router.replace(targetPath);
+      const searchParams = new URLSearchParams(window.location.search);
+      const nextParam = searchParams.get('next');
+      const destination = (nextParam && nextParam.startsWith(targetPath)) ? nextParam : targetPath;
+      window.location.href = destination;
     }
-  }, [currentUser, authLoading, router]);
+  }, [currentUser, authLoading]);
 
   useEffect(() => {
     const authError = new URLSearchParams(window.location.search).get('error');
@@ -135,7 +134,7 @@ export default function LoginPage() {
           });
           if (!isCancelled && res.success && res.redirectUrl) {
             toastSuccess('Passkey verified successfully!');
-            router.push(res.redirectUrl);
+            window.location.href = res.redirectUrl;
           }
         }
       } catch {
@@ -205,7 +204,11 @@ export default function LoginPage() {
       const res = await loginWithIdentifier(identifier, password, schoolCode);
       if (res.success && res.redirectUrl) {
         toastSuccess('Signed in successfully!');
-        router.push(res.redirectUrl);
+        const searchParams = new URLSearchParams(window.location.search);
+        const nextParam = searchParams.get('next');
+        const destination = (nextParam && nextParam.startsWith(res.redirectUrl)) ? nextParam : res.redirectUrl;
+        window.location.href = destination;
+        return;
       } else {
         const errorMsg = res.error || 'Invalid password. Note that passwords are case-sensitive.';
         setError(errorMsg);
@@ -228,7 +231,7 @@ export default function LoginPage() {
     try {
       const res = await loginWithGoogle();
       if (res.success && res.redirectUrl) {
-        router.push(res.redirectUrl);
+        window.location.href = res.redirectUrl;
       } else if (!res.success) {
         setError(res.error || 'Google Sign-In failed. Please try again.');
       }
