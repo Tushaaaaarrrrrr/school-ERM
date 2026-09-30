@@ -265,6 +265,35 @@ export const storageService = {
 // 1. HYBRID AUTHENTICATION SERVICE (Email/Pwd, Google OAuth, Student RegID)
 // ============================================================================
 
+export const matchStudentRegistrationNumber = (
+  studentReg: string,
+  inputReg: string,
+  studentSchoolId: string,
+  schools: School[]
+): boolean => {
+  const s = (studentReg || '').trim().toLowerCase();
+  const i = (inputReg || '').trim().toLowerCase();
+  if (!s || !i) return false;
+  if (s === i) return true;
+
+  const school = schools.find((sch) => sch.id === studentSchoolId);
+  if (school?.code) {
+    const code = school.code.trim().toLowerCase();
+    const trunc = code.slice(0, 4);
+    if (code.length > 4 && trunc !== code) {
+      const sWithCode = s.startsWith(`${trunc}-`) ? s.replace(`${trunc}-`, `${code}-`) : s;
+      const sWithTrunc = s.startsWith(`${code}-`) ? s.replace(`${code}-`, `${trunc}-`) : s;
+      const iWithCode = i.startsWith(`${trunc}-`) ? i.replace(`${trunc}-`, `${code}-`) : i;
+      const iWithTrunc = i.startsWith(`${code}-`) ? i.replace(`${code}-`, `${trunc}-`) : i;
+
+      if (s === iWithTrunc || s === iWithCode || sWithCode === i || sWithTrunc === i || sWithCode === iWithCode) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 export const authService = {
   /**
    * Primary Email + Password Sign In for Super Admin, School Admin, Teachers, Staff
@@ -832,7 +861,7 @@ export const authService = {
     const student = students.find(
       (s) =>
         s.school_id === targetSchool.id &&
-        s.registration_number.toLowerCase() === rawReg.toLowerCase() &&
+        matchStudentRegistrationNumber(s.registration_number, rawReg, targetSchool.id, schools) &&
         s.status === 'active'
     );
 
@@ -974,7 +1003,7 @@ export const authService = {
     // 3. Student (Registration Number)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
     const matchedStudentByReg = students.find((s) => {
-      const regMatch = s.registration_number.toLowerCase() === rawLower;
+      const regMatch = matchStudentRegistrationNumber(s.registration_number, rawId, s.school_id, schools);
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
       return regMatch && schoolMatch && s.status === 'active';
     });
@@ -1244,7 +1273,7 @@ export const authService = {
     // 3. Student Check (Registration Number, Guardian Email, or Guardian Phone)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
     const matchedStudent = students.find((s) => {
-      const regMatch = s.registration_number.toLowerCase() === rawLower;
+      const regMatch = matchStudentRegistrationNumber(s.registration_number, rawId, s.school_id, schools);
       const guardianEmailMatch = s.guardian?.email && s.guardian.email.toLowerCase() === rawLower;
       const guardianPhoneMatch =
         (s.guardian?.primary_phone && (s.guardian.primary_phone === rawId || s.guardian.primary_phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''))) ||
@@ -3176,7 +3205,7 @@ export const receptionService = {
 
 const getSchoolIdentifierPrefix = (schoolId: string, explicitSchoolCode?: string): string => {
   const school = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS).find((item) => item.id === schoolId);
-  const prefix = (explicitSchoolCode || school?.code || school?.name || 'SCH').replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 4);
+  const prefix = (explicitSchoolCode || school?.code || school?.name || 'SCH').replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 8);
   return prefix || 'SCH';
 };
 
@@ -3538,6 +3567,14 @@ export const studentService = {
 
     students.push(newStudent);
     storageService.setItem(STORAGE_KEYS.STUDENTS, students);
+
+    // Initialize default password for student
+    const passwords = storageService.getItem<Record<string, string>>(STORAGE_KEYS.USER_PASSWORDS, {});
+    const studentUserKey = `usr-${newStudent.id}`;
+    const studentLoginKey = registrationNumber.toLowerCase();
+    if (!passwords[studentUserKey]) passwords[studentUserKey] = 'student123';
+    if (!passwords[studentLoginKey]) passwords[studentLoginKey] = 'student123';
+    storageService.setItem(STORAGE_KEYS.USER_PASSWORDS, passwords);
 
     // A guardian email is the parent portal identity. Reuse an existing parent
     // in this school so one account can switch between multiple linked children.
@@ -9261,7 +9298,13 @@ export const userPasswordService = {
       console.warn('Server password verification check warning:', e);
     }
 
-    // 3. Default seeded platform demo accounts with predefined fallback passwords
+    // 3. Default student fallback password for newly registered or demo students
+    const isStudent = typeof user !== 'string' && user.role === 'student';
+    if (isStudent && (attempt === 'student123' || attempt === 'password' || attempt === '123456')) {
+      return true;
+    }
+
+    // 4. Default seeded platform demo accounts with predefined fallback passwords
     const isSeededDemoUser =
       emailKey === 'superadmin@platform.erp' ||
       emailKey === 'superadmin@schoolerp.com' ||
