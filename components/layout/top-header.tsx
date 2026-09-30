@@ -20,6 +20,7 @@ import {
   Edit2,
   Mail,
   Phone,
+  Lock,
 } from 'lucide-react';
 import { UserPasswordModal } from '@/components/auth/user-password-modal';
 import { Modal } from '@/components/ui/modal';
@@ -210,7 +211,9 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                 <p className="font-semibold text-xs text-slate-900 truncate">
                   {currentUser?.name || 'Logged In User'}
                 </p>
-                <p className="text-[11px] text-slate-500 truncate">{currentUser?.email || ''}</p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {currentUser?.role === 'student' ? 'Student Account' : (currentUser?.email || '')}
+                </p>
                 <span className="inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 capitalize border border-indigo-100">
                   {currentUser?.role.replace('_', ' ') || 'User'}
                 </span>
@@ -303,18 +306,26 @@ function EditProfileModal({
     }
   }, [currentUser, isOpen]);
 
+  const isStudent = currentUser?.role === 'student';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    if (!isStudent && !name.trim()) {
       toastError('Display name cannot be empty');
       return;
     }
     setIsSaving(true);
     try {
+      const payload: { name?: string; phone: string } = {
+        phone: phone.trim(),
+      };
+      if (!isStudent) {
+        payload.name = name.trim();
+      }
       const res = await fetch('/api/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim() }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -327,7 +338,7 @@ function EditProfileModal({
           const raw = localStorage.getItem('school_erp_active_user');
           if (raw) {
             const parsed = JSON.parse(raw);
-            parsed.name = name.trim();
+            if (!isStudent) parsed.name = name.trim();
             if (phone.trim()) parsed.phone = phone.trim();
             localStorage.setItem('school_erp_active_user', JSON.stringify(parsed));
           }
@@ -354,17 +365,34 @@ function EditProfileModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Display Name <span className="text-rose-500">*</span>
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-semibold text-slate-700">
+              Display Name {!isStudent && <span className="text-rose-500">*</span>}
+            </label>
+            {isStudent && (
+              <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5 text-amber-600" /> Official Record (Locked)
+              </span>
+            )}
+          </div>
           <input
             type="text"
-            required
-            value={name}
+            disabled={isStudent}
+            required={!isStudent}
+            value={isStudent ? (currentUser?.name || '') : name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={`w-full px-3 py-2 rounded-xl border text-xs ${
+              isStudent
+                ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed font-medium'
+                : 'border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+            }`}
             placeholder="e.g. Laxmikant"
           />
+          {isStudent && (
+            <p className="text-[11px] text-slate-500 mt-1">
+              Official student names are managed by school administration and cannot be changed here.
+            </p>
+          )}
         </div>
 
         <div>
@@ -382,7 +410,7 @@ function EditProfileModal({
 
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">
-            Registered Email
+            {isStudent ? 'Parent / Login Email' : 'Registered Email'}
           </label>
           <input
             type="email"
@@ -390,6 +418,11 @@ function EditProfileModal({
             value={currentUser?.email || ''}
             className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-500 cursor-not-allowed font-mono"
           />
+          {isStudent && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              Registered parent/guardian contact email for notifications and authentication.
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

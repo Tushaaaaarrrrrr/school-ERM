@@ -79,6 +79,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const role = getEffectiveRole();
 
+  const [studentSubtitle, setStudentSubtitle] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (role === 'student' && typeof window !== 'undefined') {
+      try {
+        const studentId = currentUser?.student_id || currentUser?.id || 'std-001';
+        const raw = localStorage.getItem('school_erp_students');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const s = list.find(
+            (item: any) =>
+              item.id === studentId ||
+              item.auth_user_id === currentUser?.id ||
+              item.first_name?.toLowerCase() === currentUser?.name?.toLowerCase()?.split(' ')[0]
+          );
+          if (s) {
+            const reg = s.registration_number ? `Reg: ${s.registration_number}` : '';
+            const cls = s.current_enrollment?.class_name
+              ? `${s.current_enrollment.class_name}${s.current_enrollment.section_name ? ` (${s.current_enrollment.section_name})` : ''}`
+              : '';
+            setStudentSubtitle(reg || cls || 'Student ID');
+          }
+        }
+      } catch {}
+    }
+  }, [currentUser, role]);
+
   // Navigation Items per Role
   const getNavSections = (): NavSection[] => {
     switch (role) {
@@ -396,7 +423,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="flex-1 min-w-0 text-left">
               <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'User'}</p>
               <p className="text-[10px] text-slate-400 truncate font-mono">
-                {currentUser?.email || currentUser?.login_id}
+                {role === 'student'
+                  ? (studentSubtitle || (currentUser?.login_id ? `Reg: ${currentUser.login_id}` : 'Student Account'))
+                  : (currentUser?.email || currentUser?.login_id)}
               </p>
             </div>
           </div>

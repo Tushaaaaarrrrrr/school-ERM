@@ -195,11 +195,22 @@ export async function PATCH(request: Request) {
     const { supabase } = await requireIdentity();
     const adminClient = getServiceSupabase() || supabase;
 
+    const isStudent = context.user?.role === 'student' || context.profile?.role === 'student';
+
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
     if (body.name !== undefined && typeof body.name === 'string') {
-      updates.display_name = body.name.trim();
+      const trimmedName = body.name.trim();
+      if (isStudent && trimmedName !== (context.profile.display_name || '').trim()) {
+        return NextResponse.json(
+          { error: 'Students are not authorized to modify their official name. Please contact school administration.' },
+          { status: 403 }
+        );
+      }
+      if (!isStudent) {
+        updates.display_name = trimmedName;
+      }
     }
     if (body.phone !== undefined && typeof body.phone === 'string') {
       updates.phone = body.phone.trim();
