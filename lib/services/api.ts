@@ -9328,7 +9328,7 @@ export const userPasswordService = {
 
     // 3. Default student fallback password for newly registered or demo students
     const isStudent = typeof user !== 'string' && user.role === 'student';
-    if (isStudent && (attempt === 'student123' || attempt === 'password' || attempt === '123456')) {
+    if (isStudent && (attempt === 'student123' || attempt === 'Student@123' || attempt === 'password' || attempt === '123456')) {
       return true;
     }
 
