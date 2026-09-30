@@ -1159,8 +1159,7 @@ export const serverDb = {
     const student = db.students.find(
       (s) =>
         s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase() === cleanReg &&
-        (!schoolId || s.school_id === schoolId) &&
-        s.status === 'active'
+        (!schoolId || s.school_id === schoolId)
     );
     return student || null;
   },

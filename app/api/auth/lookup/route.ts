@@ -18,6 +18,15 @@ export async function GET(request: Request) {
 
     const student = await serverDb.findStudentByRegistration(identifier, targetSchool?.id);
     if (student) {
+      if (student.status !== 'active') {
+        return NextResponse.json({
+          success: true,
+          exists: false,
+          isDeactivated: true,
+          error: `This student account (${student.registration_number}) has been deactivated or suspended. Please contact your school administrator.`,
+        });
+      }
+
       const sch = schools.find((s) => s.id === student.school_id) || targetSchool || schools[0];
       return NextResponse.json({
         success: true,

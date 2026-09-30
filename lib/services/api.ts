@@ -973,12 +973,20 @@ export const authService = {
 
     // 3. Student (Registration Number)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    let matchedStudentByReg = students.find((s) => {
+    const anyStudentByReg = students.find((s) => {
       const sReg = s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase();
-      const regMatch = sReg === rawLower;
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
-      return regMatch && schoolMatch && s.status === 'active';
+      return sReg === rawLower && schoolMatch;
     });
+
+    if (anyStudentByReg && anyStudentByReg.status !== 'active') {
+      return {
+        exists: false,
+        error: `This student account (${anyStudentByReg.registration_number}) has been deactivated or suspended. Please contact your school administrator.`,
+      };
+    }
+
+    let matchedStudentByReg = anyStudentByReg?.status === 'active' ? anyStudentByReg : undefined;
 
     // If not found in browser localStorage, check the centralized server database
     if (!matchedStudentByReg && typeof window !== 'undefined') {
@@ -988,6 +996,12 @@ export const authService = {
         const res = await fetch(`/api/auth/lookup?${queryParams.toString()}`);
         if (res.ok) {
           const lookup = await res.json();
+          if (lookup.isDeactivated) {
+            return {
+              exists: false,
+              error: lookup.error || 'This student account has been deactivated or suspended. Please contact your school administrator.',
+            };
+          }
           if (lookup.success && lookup.exists && lookup.studentData) {
             matchedStudentByReg = lookup.studentData;
             // Cache student and school into localStorage so subsequent operations succeed
@@ -1056,12 +1070,21 @@ export const authService = {
 
     // 4. Teacher
     const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
-    const matchedTeacher = teachers.find((t) => {
+    const anyTeacher = teachers.find((t) => {
       const emailMatch = t.email.toLowerCase() === rawLower;
       const empMatch = t.employee_number && t.employee_number.toLowerCase() === rawLower;
       const schoolMatch = !targetSchool || t.school_id === targetSchool.id;
-      return (emailMatch || empMatch) && schoolMatch && t.status === 'active';
+      return (emailMatch || empMatch) && schoolMatch;
     });
+
+    if (anyTeacher && anyTeacher.status !== 'active') {
+      return {
+        exists: false,
+        error: 'This teacher account has been deactivated. Please contact your school administrator.',
+      };
+    }
+
+    const matchedTeacher = anyTeacher?.status === 'active' ? anyTeacher : undefined;
 
     if (matchedTeacher) {
       const sch = schools.find((s) => s.id === matchedTeacher.school_id) || targetSchool || schools[0];
@@ -1083,12 +1106,22 @@ export const authService = {
 
     // 5. Staff / Driver
     const staffList = storageService.getItem<Staff[]>(STORAGE_KEYS.STAFF, INITIAL_STAFF);
-    const matchedStaff = staffList.find((st) => {
+    const anyStaff = staffList.find((st) => {
       const emailMatch = st.email.toLowerCase() === rawLower;
       const empMatch = st.employee_number && st.employee_number.toLowerCase() === rawLower;
+      const phoneMatch = st.phone && (st.phone === rawId || st.phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''));
       const schoolMatch = !targetSchool || st.school_id === targetSchool.id;
-      return (emailMatch || empMatch) && schoolMatch && st.status === 'active';
+      return (emailMatch || empMatch || phoneMatch) && schoolMatch;
     });
+
+    if (anyStaff && (anyStaff.status !== 'active' || anyStaff.portal_access === false)) {
+      return {
+        exists: false,
+        error: 'Portal access has been disabled for this staff account. Please contact your school administrator.',
+      };
+    }
+
+    const matchedStaff = anyStaff?.status === 'active' && anyStaff.portal_access !== false ? anyStaff : undefined;
 
     if (matchedStaff) {
       const sch = schools.find((s) => s.id === matchedStaff.school_id) || targetSchool || schools[0];
@@ -1274,7 +1307,7 @@ export const authService = {
 
     // 3. Student Check (Registration Number, Guardian Email, or Guardian Phone)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    let matchedStudent = students.find((s) => {
+    const anyStudent = students.find((s) => {
       const sReg = s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase();
       const regMatch = sReg === rawLower;
       const guardianEmailMatch = s.guardian?.email && s.guardian.email.toLowerCase() === rawLower;
@@ -1282,8 +1315,14 @@ export const authService = {
         (s.guardian?.primary_phone && (s.guardian.primary_phone === rawId || s.guardian.primary_phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''))) ||
         (s.guardian?.secondary_phone && (s.guardian.secondary_phone === rawId || s.guardian.secondary_phone.replace(/\D/g, '') === rawId.replace(/\D/g, '')));
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
-      return (regMatch || guardianEmailMatch || guardianPhoneMatch) && schoolMatch && s.status === 'active';
+      return (regMatch || guardianEmailMatch || guardianPhoneMatch) && schoolMatch;
     });
+
+    if (anyStudent && anyStudent.status !== 'active') {
+      return { success: false, error: `This student account (${anyStudent.registration_number}) has been deactivated or suspended. Please contact your school administrator.` };
+    }
+
+    let matchedStudent = anyStudent?.status === 'active' ? anyStudent : undefined;
 
     if (!matchedStudent && typeof window !== 'undefined') {
       try {
@@ -1292,6 +1331,9 @@ export const authService = {
         const res = await fetch(`/api/auth/lookup?${queryParams.toString()}`);
         if (res.ok) {
           const lookup = await res.json();
+          if (lookup.isDeactivated) {
+            return { success: false, error: lookup.error || 'This student account has been deactivated or suspended. Please contact your school administrator.' };
+          }
           if (lookup.success && lookup.exists && lookup.studentData) {
             matchedStudent = lookup.studentData;
             // Cache student and school locally so subsequent operations and dashboards succeed
@@ -1361,13 +1403,19 @@ export const authService = {
 
     // 4. Teacher Check (Email, Phone, Employee ID)
     const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
-    const matchedTeacher = teachers.find((t) => {
+    const anyTeacher = teachers.find((t) => {
       const emailMatch = t.email.toLowerCase() === rawLower;
       const phoneMatch = t.phone && (t.phone === rawId || t.phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''));
       const empMatch = t.employee_number && t.employee_number.toLowerCase() === rawLower;
       const schoolMatch = !targetSchool || t.school_id === targetSchool.id;
-      return (emailMatch || phoneMatch || empMatch) && schoolMatch && t.status === 'active';
+      return (emailMatch || phoneMatch || empMatch) && schoolMatch;
     });
+
+    if (anyTeacher && anyTeacher.status !== 'active') {
+      return { success: false, error: 'This teacher account has been deactivated. Please contact your school administrator.' };
+    }
+
+    const matchedTeacher = anyTeacher?.status === 'active' ? anyTeacher : undefined;
 
     if (matchedTeacher) {
       const sch = schools.find((s) => s.id === matchedTeacher.school_id) || targetSchool || schools[0];
@@ -1415,13 +1463,19 @@ export const authService = {
 
     // 5. Staff / Driver Check (Email, Phone, Employee ID)
     const staffList = storageService.getItem<Staff[]>(STORAGE_KEYS.STAFF, INITIAL_STAFF);
-    const matchedStaff = staffList.find((st) => {
+    const anyStaff = staffList.find((st) => {
       const emailMatch = st.email.toLowerCase() === rawLower;
       const phoneMatch = st.phone && (st.phone === rawId || st.phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''));
       const empMatch = st.employee_number && st.employee_number.toLowerCase() === rawLower;
       const schoolMatch = !targetSchool || st.school_id === targetSchool.id;
-      return (emailMatch || phoneMatch || empMatch) && schoolMatch && st.status === 'active';
+      return (emailMatch || phoneMatch || empMatch) && schoolMatch;
     });
+
+    if (anyStaff && (anyStaff.status !== 'active' || anyStaff.portal_access === false)) {
+      return { success: false, error: 'Portal access has been disabled for this staff account. Please contact your school administrator.' };
+    }
+
+    const matchedStaff = anyStaff?.status === 'active' && anyStaff.portal_access !== false ? anyStaff : undefined;
 
     if (matchedStaff) {
       const sch = schools.find((s) => s.id === matchedStaff.school_id) || targetSchool || schools[0];

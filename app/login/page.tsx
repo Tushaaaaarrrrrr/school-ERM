@@ -175,7 +175,7 @@ export default function LoginPage() {
           : (check.error || 'This email or registration number is not found in the school database.');
         setError(errorMsg);
         toastError(errorMsg);
-        if (!check.schoolNotFound) {
+        if (!check.schoolNotFound && !(check as any).isDeactivated && !check.error?.includes('deactivated') && !check.error?.includes('disabled')) {
           setNotRegisteredNotice(true);
         }
       }
