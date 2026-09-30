@@ -1143,6 +1143,25 @@ export const serverDb = {
     return db.students.filter((s) => s.school_id === schoolId);
   },
 
+  async findStudentByRegistration(registrationNumber: string, schoolId?: string): Promise<Student | null> {
+    const cleanReg = registrationNumber.trim().toLowerCase();
+    const db = initServerDb();
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      let query = supabase.from('students').select('*').ilike('registration_number', cleanReg);
+      if (schoolId) query = query.eq('school_id', schoolId);
+      const { data } = await query.maybeSingle();
+      if (data) return data as Student;
+    }
+    const student = db.students.find(
+      (s) =>
+        s.registration_number.toLowerCase() === cleanReg &&
+        (!schoolId || s.school_id === schoolId) &&
+        s.status === 'active'
+    );
+    return student || null;
+  },
+
   async createStudent(student: Student): Promise<Student> {
     const supabase = getSupabaseAdmin();
     if (supabase) {

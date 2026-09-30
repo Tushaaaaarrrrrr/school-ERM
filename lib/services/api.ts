@@ -265,35 +265,6 @@ export const storageService = {
 // 1. HYBRID AUTHENTICATION SERVICE (Email/Pwd, Google OAuth, Student RegID)
 // ============================================================================
 
-export const matchStudentRegistrationNumber = (
-  studentReg: string,
-  inputReg: string,
-  studentSchoolId: string,
-  schools: School[]
-): boolean => {
-  const s = (studentReg || '').trim().toLowerCase();
-  const i = (inputReg || '').trim().toLowerCase();
-  if (!s || !i) return false;
-  if (s === i) return true;
-
-  const school = schools.find((sch) => sch.id === studentSchoolId);
-  if (school?.code) {
-    const code = school.code.trim().toLowerCase();
-    const trunc = code.slice(0, 4);
-    if (code.length > 4 && trunc !== code) {
-      const sWithCode = s.startsWith(`${trunc}-`) ? s.replace(`${trunc}-`, `${code}-`) : s;
-      const sWithTrunc = s.startsWith(`${code}-`) ? s.replace(`${code}-`, `${trunc}-`) : s;
-      const iWithCode = i.startsWith(`${trunc}-`) ? i.replace(`${trunc}-`, `${code}-`) : i;
-      const iWithTrunc = i.startsWith(`${code}-`) ? i.replace(`${code}-`, `${trunc}-`) : i;
-
-      if (s === iWithTrunc || s === iWithCode || sWithCode === i || sWithTrunc === i || sWithCode === iWithCode) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
 export const authService = {
   /**
    * Primary Email + Password Sign In for Super Admin, School Admin, Teachers, Staff
@@ -861,7 +832,7 @@ export const authService = {
     const student = students.find(
       (s) =>
         s.school_id === targetSchool.id &&
-        matchStudentRegistrationNumber(s.registration_number, rawReg, targetSchool.id, schools) &&
+        s.registration_number.toLowerCase() === rawReg.toLowerCase() &&
         s.status === 'active'
     );
 
@@ -1002,11 +973,41 @@ export const authService = {
 
     // 3. Student (Registration Number)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    const matchedStudentByReg = students.find((s) => {
-      const regMatch = matchStudentRegistrationNumber(s.registration_number, rawId, s.school_id, schools);
+    let matchedStudentByReg = students.find((s) => {
+      const regMatch = s.registration_number.toLowerCase() === rawLower;
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
       return regMatch && schoolMatch && s.status === 'active';
     });
+
+    // If not found in browser localStorage, check the centralized server database
+    if (!matchedStudentByReg && typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams({ identifier: rawId });
+        if (rawCode) queryParams.set('schoolCode', rawCode);
+        const res = await fetch(`/api/auth/lookup?${queryParams.toString()}`);
+        if (res.ok) {
+          const lookup = await res.json();
+          if (lookup.success && lookup.exists && lookup.studentData) {
+            matchedStudentByReg = lookup.studentData;
+            // Cache student and school into localStorage so subsequent operations succeed
+            const currentStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
+            if (!currentStudents.some((s) => s.id === lookup.studentData.id)) {
+              currentStudents.push(lookup.studentData);
+              storageService.setItem(STORAGE_KEYS.STUDENTS, currentStudents);
+            }
+            if (lookup.schoolData) {
+              const currentSchools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
+              if (!currentSchools.some((s) => s.id === lookup.schoolData.id)) {
+                currentSchools.push(lookup.schoolData);
+                storageService.setItem(STORAGE_KEYS.SCHOOLS, currentSchools);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Server student lookup fallback warning:', err);
+      }
+    }
 
     if (matchedStudentByReg) {
       const sch = schools.find((s) => s.id === matchedStudentByReg.school_id) || targetSchool || schools[0];
@@ -1272,8 +1273,8 @@ export const authService = {
 
     // 3. Student Check (Registration Number, Guardian Email, or Guardian Phone)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    const matchedStudent = students.find((s) => {
-      const regMatch = matchStudentRegistrationNumber(s.registration_number, rawId, s.school_id, schools);
+    let matchedStudent = students.find((s) => {
+      const regMatch = s.registration_number.toLowerCase() === rawLower;
       const guardianEmailMatch = s.guardian?.email && s.guardian.email.toLowerCase() === rawLower;
       const guardianPhoneMatch =
         (s.guardian?.primary_phone && (s.guardian.primary_phone === rawId || s.guardian.primary_phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''))) ||
@@ -1281,6 +1282,22 @@ export const authService = {
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
       return (regMatch || guardianEmailMatch || guardianPhoneMatch) && schoolMatch && s.status === 'active';
     });
+
+    if (!matchedStudent && typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams({ identifier: rawId });
+        if (rawCode) queryParams.set('schoolCode', rawCode);
+        const res = await fetch(`/api/auth/lookup?${queryParams.toString()}`);
+        if (res.ok) {
+          const lookup = await res.json();
+          if (lookup.success && lookup.exists && lookup.studentData) {
+            matchedStudent = lookup.studentData;
+          }
+        }
+      } catch (err) {
+        console.warn('Server student login lookup warning:', err);
+      }
+    }
 
     if (matchedStudent) {
       const sch = schools.find((s) => s.id === matchedStudent.school_id) || targetSchool || schools[0];
@@ -7344,6 +7361,17 @@ export const parentService = {
       if (res.ok) {
         const result = await res.json();
         if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+          const currentStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
+          let updated = false;
+          for (const s of result.data) {
+            if (!currentStudents.some((c) => c.id === s.id || c.registration_number === s.registration_number)) {
+              currentStudents.push(s);
+              updated = true;
+            }
+          }
+          if (updated) {
+            storageService.setItem(STORAGE_KEYS.STUDENTS, currentStudents);
+          }
           return result.data;
         }
       }
