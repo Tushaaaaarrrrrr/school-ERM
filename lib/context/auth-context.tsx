@@ -298,12 +298,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await authService.authenticateWithIdentifierAndPassword(identifier, pass, schoolCode);
     if (res.success && res.user) {
       setCurrentUser(res.user);
+      setAccessState(res.user.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
       const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
       setIsPinUnlocked(!pinStatus.hasPin);
       storageService.setItem(AUTH_STORAGE_KEY, res.user);
       if (res.user.school_id) {
-        const sch = await schoolService.getSchoolById(res.user.school_id);
-        if (sch) setCurrentSchool(sch);
+        try {
+          const sch = await schoolService.getSchoolById(res.user.school_id);
+          if (sch) setCurrentSchool(sch);
+        } catch (e) {
+          console.warn('Could not fetch school details on login:', e);
+        }
       }
     }
     return res;
@@ -313,12 +318,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await authService.authenticateStudent(schoolCode, registrationNumber, pass);
     if (res.success && res.user) {
       setCurrentUser(res.user);
+      setAccessState('ACTIVE_SCHOOL_USER');
       const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
       setIsPinUnlocked(!pinStatus.hasPin);
       storageService.setItem(AUTH_STORAGE_KEY, res.user);
       if (res.user.school_id) {
-        const sch = await schoolService.getSchoolById(res.user.school_id);
-        if (sch) setCurrentSchool(sch);
+        try {
+          const sch = await schoolService.getSchoolById(res.user.school_id);
+          if (sch) setCurrentSchool(sch);
+        } catch (e) {
+          console.warn('Could not fetch school details on login:', e);
+        }
       }
     }
     return res;

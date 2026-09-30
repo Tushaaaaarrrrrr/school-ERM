@@ -793,7 +793,7 @@ export const authService = {
     password: string
   ): Promise<{ success: boolean; user?: UserPersona; redirectUrl?: string; error?: string }> {
     const rawCode = schoolCode.trim().toUpperCase();
-    const rawReg = registrationNumber.trim();
+    const rawReg = registrationNumber.trim().replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
     const rateKey = `auth_student_${rawCode}_${rawReg}`;
 
     const rateCheck = checkRateLimit(rateKey);
@@ -832,7 +832,7 @@ export const authService = {
     const student = students.find(
       (s) =>
         s.school_id === targetSchool.id &&
-        s.registration_number.toLowerCase() === rawReg.toLowerCase() &&
+        s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase() === rawReg.toLowerCase() &&
         s.status === 'active'
     );
 
@@ -894,7 +894,7 @@ export const authService = {
     user?: UserPersona;
     suggestGoogle?: boolean;
   }> {
-    const rawId = identifier.trim();
+    const rawId = identifier.trim().replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
     const rawLower = rawId.toLowerCase();
     const rawCode = (schoolCode || '').trim().toUpperCase();
 
@@ -974,7 +974,8 @@ export const authService = {
     // 3. Student (Registration Number)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
     let matchedStudentByReg = students.find((s) => {
-      const regMatch = s.registration_number.toLowerCase() === rawLower;
+      const sReg = s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase();
+      const regMatch = sReg === rawLower;
       const schoolMatch = !targetSchool || s.school_id === targetSchool.id;
       return regMatch && schoolMatch && s.status === 'active';
     });
@@ -1147,7 +1148,7 @@ export const authService = {
     password: string,
     schoolCode?: string
   ): Promise<{ success: boolean; user?: UserPersona; redirectUrl?: string; error?: string }> {
-    const rawId = identifier.trim();
+    const rawId = identifier.trim().replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
     const rawLower = rawId.toLowerCase();
     const rawCode = (schoolCode || '').trim().toUpperCase();
     const isEmail = rawId.includes('@');
@@ -1274,7 +1275,8 @@ export const authService = {
     // 3. Student Check (Registration Number, Guardian Email, or Guardian Phone)
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
     let matchedStudent = students.find((s) => {
-      const regMatch = s.registration_number.toLowerCase() === rawLower;
+      const sReg = s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase();
+      const regMatch = sReg === rawLower;
       const guardianEmailMatch = s.guardian?.email && s.guardian.email.toLowerCase() === rawLower;
       const guardianPhoneMatch =
         (s.guardian?.primary_phone && (s.guardian.primary_phone === rawId || s.guardian.primary_phone.replace(/\D/g, '') === rawId.replace(/\D/g, ''))) ||
@@ -1292,6 +1294,19 @@ export const authService = {
           const lookup = await res.json();
           if (lookup.success && lookup.exists && lookup.studentData) {
             matchedStudent = lookup.studentData;
+            // Cache student and school locally so subsequent operations and dashboards succeed
+            const currentStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
+            if (!currentStudents.some((s) => s.id === lookup.studentData.id)) {
+              currentStudents.push(lookup.studentData);
+              storageService.setItem(STORAGE_KEYS.STUDENTS, currentStudents);
+            }
+            if (lookup.schoolData) {
+              const currentSchools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
+              if (!currentSchools.some((s) => s.id === lookup.schoolData.id)) {
+                currentSchools.push(lookup.schoolData);
+                storageService.setItem(STORAGE_KEYS.SCHOOLS, currentSchools);
+              }
+            }
           }
         }
       } catch (err) {

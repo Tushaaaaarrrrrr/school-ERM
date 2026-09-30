@@ -170,15 +170,19 @@ export default function LoginPage() {
         setNotRegisteredNotice(false);
         setStep('password');
       } else {
-        if (check.schoolNotFound) {
-          setError(check.error || 'School code is wrong or does not exist.');
-        } else {
-          setError(check.error || 'This email or registration number is not found in the school database.');
+        const errorMsg = check.schoolNotFound
+          ? (check.error || 'School code is wrong or does not exist.')
+          : (check.error || 'This email or registration number is not found in the school database.');
+        setError(errorMsg);
+        toastError(errorMsg);
+        if (!check.schoolNotFound) {
           setNotRegisteredNotice(true);
         }
       }
     } catch {
-      setError('Unable to verify account. Please try again.');
+      const errorMsg = 'Unable to verify account. Please try again.';
+      setError(errorMsg);
+      toastError(errorMsg);
     } finally {
       setIsVerifying(false);
     }
@@ -190,6 +194,7 @@ export default function LoginPage() {
     setError(null);
     if (!password) {
       setError('Please enter your password.');
+      toastError('Please enter your password.');
       return;
     }
 
@@ -199,12 +204,17 @@ export default function LoginPage() {
       // Email/Reg ID is case-insensitive, Password is case-sensitive
       const res = await loginWithIdentifier(identifier, password, schoolCode);
       if (res.success && res.redirectUrl) {
+        toastSuccess('Signed in successfully!');
         router.push(res.redirectUrl);
       } else {
-        setError(res.error || 'Invalid password. Note that passwords are case-sensitive.');
+        const errorMsg = res.error || 'Invalid password. Note that passwords are case-sensitive.';
+        setError(errorMsg);
+        toastError(errorMsg);
       }
     } catch {
-      setError('An unexpected error occurred during sign-in.');
+      const errorMsg = 'An unexpected error occurred during sign-in.';
+      setError(errorMsg);
+      toastError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -587,11 +597,18 @@ export default function LoginPage() {
                       autoFocus
                       autoComplete="current-password webauthn"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError(null);
+                      }}
                       placeholder="••••••••••••"
-                      className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-300 text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className={`w-full pl-9 pr-10 py-2.5 rounded-xl border text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 ${
+                        error
+                          ? 'border-rose-400 focus:ring-rose-500 bg-rose-50/20'
+                          : 'border-slate-300 focus:ring-indigo-500'
+                      }`}
                     />
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${error ? 'text-rose-400' : 'text-slate-400'}`} />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
@@ -601,6 +618,12 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {error && (
+                    <p className="text-xs text-rose-600 font-medium mt-1.5 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{error}</span>
+                    </p>
+                  )}
                   <p className="text-[10px] text-slate-400 mt-1">
                     Password is case-sensitive
                   </p>

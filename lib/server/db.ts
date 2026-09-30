@@ -1144,7 +1144,10 @@ export const serverDb = {
   },
 
   async findStudentByRegistration(registrationNumber: string, schoolId?: string): Promise<Student | null> {
-    const cleanReg = registrationNumber.trim().toLowerCase();
+    const cleanReg = registrationNumber
+      .trim()
+      .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-')
+      .toLowerCase();
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
     if (supabase) {
@@ -1155,7 +1158,7 @@ export const serverDb = {
     }
     const student = db.students.find(
       (s) =>
-        s.registration_number.toLowerCase() === cleanReg &&
+        s.registration_number.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').toLowerCase() === cleanReg &&
         (!schoolId || s.school_id === schoolId) &&
         s.status === 'active'
     );

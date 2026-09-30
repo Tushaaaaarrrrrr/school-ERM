@@ -4,7 +4,9 @@ import { serverDb } from '@/lib/server/db';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const identifier = (searchParams.get('identifier') || '').trim();
+    const identifier = (searchParams.get('identifier') || '')
+      .trim()
+      .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
     const schoolCode = (searchParams.get('schoolCode') || '').trim().toUpperCase();
 
     if (!identifier) {
