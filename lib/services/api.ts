@@ -4130,17 +4130,72 @@ export const teacherService = {
   },
 
   async getAssignments(schoolId: string, teacherId?: string): Promise<TeacherAssignment[]> {
-    const teachers = await this.getTeachers(schoolId);
+    const [teachers, classes, sections] = await Promise.all([
+      this.getTeachers(schoolId),
+      academicService.getClasses(schoolId),
+      academicService.getSections(schoolId),
+    ]);
     const assignments: TeacherAssignment[] = [];
+    const seenKeys = new Set<string>();
+
     teachers.forEach((t) => {
       if (t.assignments) {
         t.assignments.forEach((asg) => {
           if (!teacherId || asg.teacher_id === teacherId) {
-            assignments.push(asg);
+            const key = `${asg.class_id}-${asg.section_id || ''}-${asg.subject_id || ''}`;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              assignments.push(asg);
+            }
           }
         });
       }
     });
+
+    classes.forEach((c) => {
+      if (c.class_teacher_id && (!teacherId || c.class_teacher_id === teacherId)) {
+        const key = `${c.id}--class-teacher`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          assignments.push({
+            id: `asg-ct-cls-${c.id}`,
+            school_id: schoolId,
+            academic_year_id: 'ay-current',
+            teacher_id: c.class_teacher_id,
+            class_id: c.id,
+            class_name: c.name,
+            section_id: '',
+            subject_id: 'general',
+            subject_name: 'Class Teacher',
+            created_at: c.created_at || new Date().toISOString(),
+          });
+        }
+      }
+    });
+
+    sections.forEach((s) => {
+      if (s.class_teacher_id && (!teacherId || s.class_teacher_id === teacherId)) {
+        const key = `${s.class_id}-${s.id}-section-teacher`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const parentClass = classes.find((c) => c.id === s.class_id);
+          assignments.push({
+            id: `asg-ct-sec-${s.id}`,
+            school_id: schoolId,
+            academic_year_id: 'ay-current',
+            teacher_id: s.class_teacher_id,
+            class_id: s.class_id,
+            class_name: parentClass?.name || s.class_name || 'Class',
+            section_id: s.id,
+            section_name: s.name,
+            subject_id: 'general',
+            subject_name: `Class Teacher (Sec ${s.name})`,
+            created_at: s.created_at || new Date().toISOString(),
+          });
+        }
+      }
+    });
+
     return assignments;
   },
 
@@ -4265,15 +4320,37 @@ export const teacherService = {
 
 export const academicService = {
   async getClasses(schoolId: string): Promise<SchoolClass[]> {
-    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
+    let classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch(`/api/classes?schoolId=${encodeURIComponent(schoolId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            storageService.setItem(STORAGE_KEYS.CLASSES, json.data);
+            classes = json.data;
+          }
+        }
+      }
+    } catch {}
+
     const sections = await this.getSections(schoolId);
+    const rooms = storageService.getItem<SchoolRoom[]>(STORAGE_KEYS.ROOMS, INITIAL_ROOMS);
+    const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
 
     return classes
-      .map((c) => ({
-        ...c,
-        sections: sections.filter((s) => s.class_id === c.id),
-      }))
-      .sort((a, b) => a.sort_order - b.sort_order);
+      .map((c) => {
+        const rm = c.room_id ? rooms.find((r) => r.id === c.room_id) : undefined;
+        const ct = c.class_teacher_id ? teachers.find((t) => t.id === c.class_teacher_id) : undefined;
+        return {
+          ...c,
+          room_name: rm?.name || c.room_name,
+          default_room_number: rm?.room_number || c.default_room_number,
+          class_teacher_name: ct ? `${ct.first_name} ${ct.last_name}` : c.class_teacher_name,
+          sections: sections.filter((s) => s.class_id === c.id),
+        };
+      })
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   },
 
   async getClassById(id: string): Promise<SchoolClass | null> {
@@ -4282,8 +4359,7 @@ export const academicService = {
   },
 
   async createClass(schoolId: string, name: string, sortOrder: number, commonMonthlyFee?: number, generationDay = 1, dueDay = 10): Promise<SchoolClass> {
-    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-    const newClass: SchoolClass = {
+    let newClass: SchoolClass = {
       id: `cls-${Date.now().toString().slice(-4)}`,
       school_id: schoolId,
       name,
@@ -4295,12 +4371,40 @@ export const academicService = {
       monthly_fee_due_day: dueDay,
       new_student_charges: [],
     };
+
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch('/api/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newClass),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            newClass = { ...newClass, ...json.data };
+          }
+        }
+      }
+    } catch {}
+
+    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
     classes.push(newClass);
     storageService.setItem(STORAGE_KEYS.CLASSES, classes);
     return newClass;
   },
 
   async updateClass(id: string, data: Partial<SchoolClass>): Promise<SchoolClass> {
+    try {
+      if (typeof window !== 'undefined') {
+        await fetch(`/api/classes/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+      }
+    } catch {}
+
     const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
     const index = classes.findIndex((item) => item.id === id);
     if (index === -1) throw new Error('Class not found');
@@ -4311,9 +4415,9 @@ export const academicService = {
     classes[index] = {
       ...classes[index],
       ...data,
-      room_name: room?.name,
-      default_room_number: room?.room_number,
-      class_teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : undefined,
+      room_name: room?.name ?? classes[index].room_name,
+      default_room_number: room?.room_number ?? classes[index].default_room_number,
+      class_teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : classes[index].class_teacher_name,
     };
     storageService.setItem(STORAGE_KEYS.CLASSES, classes);
     return classes[index];
@@ -4321,6 +4425,19 @@ export const academicService = {
 
   async getSections(schoolId: string, classId?: string): Promise<Section[]> {
     let sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS).filter((s) => s.school_id === schoolId);
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch(`/api/sections?schoolId=${encodeURIComponent(schoolId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            storageService.setItem(STORAGE_KEYS.SECTIONS, json.data);
+            sections = json.data;
+          }
+        }
+      }
+    } catch {}
+
     if (classId) sections = sections.filter((s) => s.class_id === classId);
 
     const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
@@ -4333,7 +4450,7 @@ export const academicService = {
       const ct = teachers.find((t) => t.id === s.class_teacher_id);
       return {
         ...s,
-        class_name: cls?.name,
+        class_name: cls?.name || s.class_name,
         room_name: rm?.name || s.room_name,
         room_number: rm?.room_number || s.room_number,
         class_teacher_name: ct ? `${ct.first_name} ${ct.last_name}` : s.class_teacher_name,
@@ -4348,14 +4465,13 @@ export const academicService = {
     roomId?: string,
     classTeacherId?: string
   ): Promise<Section> {
-    const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS);
     const rooms = storageService.getItem<SchoolRoom[]>(STORAGE_KEYS.ROOMS, INITIAL_ROOMS);
     const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
 
     const targetRoom = rooms.find((r) => r.id === roomId);
     const targetTeacher = teachers.find((t) => t.id === classTeacherId);
 
-    const newSection: Section = {
+    let newSection: Section = {
       id: `sec-${Date.now().toString().slice(-4)}`,
       school_id: schoolId,
       class_id: classId,
@@ -4368,12 +4484,40 @@ export const academicService = {
       status: 'active',
       created_at: new Date().toISOString(),
     };
+
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch('/api/sections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSection),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            newSection = { ...newSection, ...json.data };
+          }
+        }
+      }
+    } catch {}
+
+    const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS);
     sections.push(newSection);
     storageService.setItem(STORAGE_KEYS.SECTIONS, sections);
     return newSection;
   },
 
   async updateSection(id: string, data: Partial<Section>): Promise<Section> {
+    try {
+      if (typeof window !== 'undefined') {
+        await fetch(`/api/sections/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+      }
+    } catch {}
+
     const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS);
     const index = sections.findIndex((s) => s.id === id);
     if (index === -1) throw new Error('Section not found');

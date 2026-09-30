@@ -165,6 +165,23 @@ export default function ClassesPage() {
     e.preventDefault();
     if (!selectedClassId) return;
 
+    if (selectedRoomId) {
+      for (const c of classes) {
+        if (c.id !== selectedClassId && c.room_id === selectedRoomId) {
+          toastError(`This room is already assigned to ${c.name}. A room cannot have two classes.`);
+          return;
+        }
+        if (c.sections) {
+          for (const s of c.sections) {
+            if ((!editingSection || s.id !== editingSection.id) && s.room_id === selectedRoomId) {
+              toastError(`This room is already assigned to ${c.name} (Section ${s.name}).`);
+              return;
+            }
+          }
+        }
+      }
+    }
+
     try {
       if (editingSection) {
         await academicService.updateSection(editingSection.id, {
@@ -194,7 +211,7 @@ export default function ClassesPage() {
       setSectionName('');
       setSelectedRoomId('');
       setSelectedClassTeacherId('');
-      loadClasses();
+      await loadClasses();
     } catch {
       toastError('Failed to save section');
     }
@@ -361,13 +378,13 @@ export default function ClassesPage() {
                     setSelectedClassId(c.id);
                     setEditingSection(null);
                     setSectionName('');
-                    setSelectedRoomId('');
-                    setSelectedClassTeacherId('');
+                    setSelectedRoomId(c.room_id || '');
+                    setSelectedClassTeacherId(c.class_teacher_id || '');
                     setIsSectionModalOpen(true);
                   }}
                   leftIcon={<Plus className="w-3 h-3 text-indigo-600" />}
                 >
-                  Add Section
+                  Configure / Add Section
                 </Button>
               </div>
             </div>
@@ -597,11 +614,35 @@ export default function ClassesPage() {
               className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
             >
               <option value="">No Room Assigned</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.room_number} - {r.name} ({r.type.toUpperCase()})
-                </option>
-              ))}
+              {rooms.map((r) => {
+                let occupiedMsg: string | null = null;
+                for (const c of classes) {
+                  if (c.id !== selectedClassId && c.room_id === r.id) {
+                    occupiedMsg = `Occupied by ${c.name}`;
+                    break;
+                  }
+                  if (c.sections) {
+                    for (const s of c.sections) {
+                      if ((!editingSection || s.id !== editingSection.id) && s.room_id === r.id) {
+                        occupiedMsg = `Occupied by ${c.name} (${s.name})`;
+                        break;
+                      }
+                    }
+                  }
+                  if (occupiedMsg) break;
+                }
+
+                return (
+                  <option
+                    key={r.id}
+                    value={r.id}
+                    disabled={Boolean(occupiedMsg && r.id !== selectedRoomId)}
+                    className={occupiedMsg ? 'text-slate-400' : ''}
+                  >
+                    {r.room_number} - {r.name} ({r.type.toUpperCase()}) {occupiedMsg ? `[${occupiedMsg}]` : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

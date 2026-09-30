@@ -17,6 +17,7 @@ import {
   Exam,
   ExamResult,
   SchoolClass,
+  ClassFeeItem,
   Student,
   StudentAttendance,
   TimetableEntry,
@@ -201,6 +202,89 @@ export default function ClassDetailsPage() {
       success('Class information updated');
     } catch {
       toastError('Failed to update class');
+    }
+  };
+
+  // Edit Class Modal State
+  const [isEditClassModalOpen, setIsEditClassModalOpen] = useState(false);
+  const [editClassName, setEditClassName] = useState('');
+  const [editClassSortOrder, setEditClassSortOrder] = useState('');
+  const [editClassStatus, setEditClassStatus] = useState<SchoolClass['status']>('active');
+
+  const handleOpenEditClassModal = () => {
+    if (!schoolClass) return;
+    setEditClassName(schoolClass.name);
+    setEditClassSortOrder(String(schoolClass.sort_order ?? '0'));
+    setEditClassStatus((schoolClass.status as SchoolClass['status']) || 'active');
+    setIsEditClassModalOpen(true);
+  };
+
+  const handleSaveClassModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!schoolClass || !editClassName.trim()) return;
+    try {
+      const updated = await academicService.updateClass(schoolClass.id, {
+        name: editClassName.trim(),
+        sort_order: Number(editClassSortOrder) || 0,
+        status: editClassStatus,
+      });
+      setSchoolClass({ ...schoolClass, ...updated });
+      setName(editClassName.trim());
+      setSortOrder(editClassSortOrder);
+      setIsEditClassModalOpen(false);
+      success('Class information updated successfully');
+    } catch {
+      toastError('Failed to update class');
+    }
+  };
+
+  // Edit Fee Modal State
+  const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
+  const [feeDraft, setFeeDraft] = useState<{
+    monthlyFee: string;
+    generationDay: string;
+    dueDay: string;
+    charges: ClassFeeItem[];
+  }>({
+    monthlyFee: '',
+    generationDay: '1',
+    dueDay: '10',
+    charges: [],
+  });
+
+  const handleOpenFeeModal = () => {
+    if (!schoolClass) return;
+    setFeeDraft({
+      monthlyFee: schoolClass.common_monthly_fee ? String(schoolClass.common_monthly_fee) : '',
+      generationDay: String(schoolClass.monthly_fee_generation_day || '1'),
+      dueDay: String(schoolClass.monthly_fee_due_day || '10'),
+      charges: schoolClass.new_student_charges ? [...schoolClass.new_student_charges] : [],
+    });
+    setIsFeeModalOpen(true);
+  };
+
+  const handleSaveFeeModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!schoolClass) return;
+    const generationDay = Number(feeDraft.generationDay);
+    const dueDay = Number(feeDraft.dueDay);
+    if (generationDay < 1 || generationDay > 28 || dueDay < 1 || dueDay > 28) {
+      toastError('Invoice generation day and payment due day must be between 1 and 28');
+      return;
+    }
+    const validCharges = feeDraft.charges.filter((item) => item.name.trim() && item.amount > 0);
+    try {
+      const updated = await academicService.updateClass(schoolClass.id, {
+        common_monthly_fee: Number(feeDraft.monthlyFee) || undefined,
+        monthly_fee_generation_day: generationDay,
+        monthly_fee_due_day: dueDay,
+        new_student_charges: validCharges,
+      });
+      setSchoolClass({ ...schoolClass, ...updated });
+      setIsFeeModalOpen(false);
+      success('Class fee configuration saved');
+    } catch {
+      toastError('Failed to update class fees');
     }
   };
 
@@ -410,17 +494,36 @@ export default function ClassDetailsPage() {
   return (
     <div className="space-y-6 text-left w-full">
       {/* Page Header */}
-      <div className="flex items-start gap-3">
-        <Link href="/admin/academics/classes">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-        </Link>
-        <div className="flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/admin/academics/classes">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-slate-900">{schoolClass.name}</h1>
             <StatusBadge status={schoolClass.status} />
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenFeeModal}
+            leftIcon={<IndianRupee className="w-4 h-4" />}
+          >
+            Edit Class Fees
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleOpenEditClassModal}
+            leftIcon={<Edit2 className="w-4 h-4" />}
+          >
+            Edit Class
+          </Button>
         </div>
       </div>
 
@@ -1019,23 +1122,41 @@ export default function ClassDetailsPage() {
       {/* TAB 6: FEES */}
       {activeTab === 'fees' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-5">
-          <h2 className="font-bold">Class Fee Configuration</h2>
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="text-xs text-slate-400 block">Common Monthly Fee</span>
-              <strong className="text-lg">
+              <h2 className="font-bold text-base text-slate-900">Class Fee Configuration</h2>
+              <p className="text-xs text-slate-500">Configure common monthly tuition and new admission charges for {schoolClass.name}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleOpenFeeModal}
+              leftIcon={<Edit2 className="w-4 h-4" />}
+            >
+              Edit Fee Configuration
+            </Button>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <span className="text-xs text-slate-500 block font-medium mb-1">Common Monthly Fee</span>
+              <strong className="text-xl text-slate-900">
                 {schoolClass.common_monthly_fee
                   ? `₹${schoolClass.common_monthly_fee.toLocaleString('en-IN')}`
                   : 'Not configured'}
               </strong>
             </div>
-            <div>
-              <span className="text-xs text-slate-400 block">Invoice Generation Day</span>
-              <strong>{schoolClass.monthly_fee_generation_day || 'Not configured'}</strong>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <span className="text-xs text-slate-500 block font-medium mb-1">Invoice Generation Day</span>
+              <strong className="text-xl text-slate-900">
+                {schoolClass.monthly_fee_generation_day ? `Day ${schoolClass.monthly_fee_generation_day} of month` : 'Not configured'}
+              </strong>
             </div>
-            <div>
-              <span className="text-xs text-slate-400 block">Payment Due Day</span>
-              <strong>{schoolClass.monthly_fee_due_day || 'Not configured'}</strong>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <span className="text-xs text-slate-500 block font-medium mb-1">Payment Due Day</span>
+              <strong className="text-xl text-slate-900">
+                {schoolClass.monthly_fee_due_day ? `Day ${schoolClass.monthly_fee_due_day} of month` : 'Not configured'}
+              </strong>
             </div>
           </div>
           <div>
@@ -1055,6 +1176,158 @@ export default function ClassDetailsPage() {
           </div>
         </section>
       )}
+
+      {/* Edit Class Modal */}
+      <Modal
+        isOpen={isEditClassModalOpen}
+        onClose={() => setIsEditClassModalOpen(false)}
+        title={`Edit Class: ${schoolClass.name}`}
+        description="Update class standard name, sort order, and active status"
+      >
+        <form onSubmit={handleSaveClassModal} className="space-y-4 text-left text-xs">
+          <Input
+            label="Class Name *"
+            required
+            value={editClassName}
+            onChange={(e) => setEditClassName(e.target.value)}
+          />
+          <Input
+            label="Display Order"
+            type="number"
+            value={editClassSortOrder}
+            onChange={(e) => setEditClassSortOrder(e.target.value)}
+          />
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Status</label>
+            <select
+              value={editClassStatus}
+              onChange={(e) => setEditClassStatus(e.target.value as any)}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditClassModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Class Fees Modal */}
+      <Modal
+        isOpen={isFeeModalOpen}
+        onClose={() => setIsFeeModalOpen(false)}
+        title={`Class Fees: ${schoolClass.name}`}
+        description="Configure common monthly tuition and one-time admission charges for this class."
+      >
+        <form onSubmit={handleSaveFeeModal} className="space-y-4 text-left text-xs">
+          <Input
+            label="Common Monthly Fee (₹)"
+            type="number"
+            min="0"
+            value={feeDraft.monthlyFee}
+            onChange={(e) => setFeeDraft({ ...feeDraft, monthlyFee: e.target.value })}
+            placeholder="e.g. 8000"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Generate Invoice On Day"
+              type="number"
+              min="1"
+              max="28"
+              value={feeDraft.generationDay}
+              onChange={(e) => setFeeDraft({ ...feeDraft, generationDay: e.target.value })}
+            />
+            <Input
+              label="Payment Due On Day"
+              type="number"
+              min="1"
+              max="28"
+              value={feeDraft.dueDay}
+              onChange={(e) => setFeeDraft({ ...feeDraft, dueDay: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <strong>New Student Charges</strong>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                onClick={() =>
+                  setFeeDraft({
+                    ...feeDraft,
+                    charges: [
+                      ...feeDraft.charges,
+                      { id: `cfi-${Date.now()}`, name: '', amount: 0, status: 'active' },
+                    ],
+                  })
+                }
+              >
+                + Add Charge
+              </Button>
+            </div>
+            {feeDraft.charges.length === 0 && (
+              <p className="rounded-lg bg-slate-50 p-3 text-slate-500">No joining or admission charges configured.</p>
+            )}
+            {feeDraft.charges.map((item, index) => (
+              <div key={item.id} className="grid grid-cols-[1fr_140px_auto] gap-2">
+                <input
+                  className="rounded-lg border px-3 py-2"
+                  placeholder="e.g. Admission Fee"
+                  value={item.name}
+                  onChange={(e) =>
+                    setFeeDraft({
+                      ...feeDraft,
+                      charges: feeDraft.charges.map((row, i) => (i === index ? { ...row, name: e.target.value } : row)),
+                    })
+                  }
+                />
+                <input
+                  className="rounded-lg border px-3 py-2"
+                  type="number"
+                  min="0"
+                  placeholder="Amount"
+                  value={item.amount || ''}
+                  onChange={(e) =>
+                    setFeeDraft({
+                      ...feeDraft,
+                      charges: feeDraft.charges.map((row, i) =>
+                        i === index ? { ...row, amount: Number(e.target.value) || 0 } : row
+                      ),
+                    })
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="xs"
+                  onClick={() =>
+                    setFeeDraft({ ...feeDraft, charges: feeDraft.charges.filter((_, i) => i !== index) })
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-3">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsFeeModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save Class Fees
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
