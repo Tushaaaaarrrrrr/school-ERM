@@ -5,6 +5,7 @@
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/auth-context';
 import {
   parentService,
@@ -67,14 +68,35 @@ import {
   HelpCircle,
   Building2,
   X,
+  LogOut,
+  Users,
+  Check,
+  ExternalLink,
+  Shield,
 } from 'lucide-react';
 import { CardSkeleton, TableSkeleton } from '@/components/ui/skeleton';
 
 export default function ParentPortalPage() {
-  const { currentUser, currentSchool } = useAuth();
+  const router = useRouter();
+  const { currentUser, currentSchool, currentYear, logout } = useAuth();
   const schoolId = currentSchool?.id || '';
   const parentId = currentUser?.parent_id || '';
   const { success, error: toastError } = useToast();
+
+  const [parentProfile, setParentProfile] = useState<ParentProfile | null>(null);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
+  useEffect(() => {
+    if (parentId) {
+      parentService.getParentById(parentId).then((p) => {
+        if (p) setParentProfile(p);
+      }).catch(() => {});
+    }
+  }, [parentId]);
 
   // Navigation tab: 'home' | 'attendance' | 'academics' | 'fees' | 'transport' | 'profile'
   const [activeTab, setActiveTab] = useState<'home' | 'attendance' | 'academics' | 'fees' | 'transport' | 'profile'>('home');
@@ -286,9 +308,42 @@ export default function ParentPortalPage() {
   const childAttendanceRate = childAttendance.length > 0 ? (presentAttendanceCount / childAttendance.length) * 100 : null;
   const unreadNotifCount = notifications.filter((n) => !n.read_at).length;
 
+  // Parent & Family Profile Details
+  const parentName =
+    parentProfile?.guardian_name ||
+    selectedChild?.guardian?.guardian_name ||
+    currentUser?.name ||
+    'Parent / Guardian';
+
+  const parentPhone =
+    parentProfile?.primary_phone ||
+    selectedChild?.guardian?.primary_phone ||
+    '';
+
+  const parentEmail =
+    parentProfile?.email ||
+    selectedChild?.guardian?.email ||
+    currentUser?.email ||
+    '';
+
+  const parentAddress =
+    parentProfile?.address ||
+    selectedChild?.guardian?.address ||
+    'Address on school record';
+
+  const fatherName =
+    parentProfile?.father_name ||
+    selectedChild?.guardian?.father_name ||
+    '';
+
+  const motherName =
+    parentProfile?.mother_name ||
+    selectedChild?.guardian?.mother_name ||
+    '';
+
   if (isLoadingChildren) {
     return (
-      <div className="max-w-4xl mx-auto p-8 text-left space-y-4">
+      <div className="w-full max-w-5xl mx-auto p-8 text-left space-y-4">
         <CardSkeleton />
         <CardSkeleton />
       </div>
@@ -308,39 +363,65 @@ export default function ParentPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 text-left max-w-5xl mx-auto pb-16">
-      {/* TOP HEADER: SCHOOL & CHILD SWITCHER */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 sm:px-6 py-3 shadow-2xs">
-        <div className="flex items-center justify-between gap-3">
-          {/* Child Switcher Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 hidden sm:inline">Viewing:</span>
-            <div className="relative">
-              <select
-                value={selectedChildId}
-                onChange={(e) => handleSelectChild(e.target.value)}
-                className="appearance-none bg-indigo-50/80 border border-indigo-200 text-indigo-950 text-xs font-bold rounded-xl pl-3 pr-8 py-2 outline-none focus:ring-2 focus:ring-indigo-300 shadow-2xs cursor-pointer"
-              >
-                {children.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.first_name} {c.last_name} ({c.current_enrollment?.class_name || 'Student'}{' '}
-                    {c.current_enrollment?.section_name ? `-${c.current_enrollment.section_name}` : ''})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-indigo-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+    <div className="min-h-screen h-[100dvh] overflow-y-auto overscroll-y-contain bg-slate-50 text-left w-full pb-16">
+      {/* TOP HEADER: SCHOOL, CHILD SWITCHER & PARENT PROFILE (FULL WIDTH) */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 xl:px-10 py-3 shadow-2xs w-full">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Left: School Crest & Portal Tag */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-900 text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0">
+              <Building2 className="w-5 h-5 text-indigo-200" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                  {currentSchool?.name || 'School ERP'}
+                </h1>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Parent Portal
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium">Family & Academic Management</p>
             </div>
           </div>
 
-          {/* Quick Actions: Call School & Notifications */}
-          <div className="flex items-center gap-2">
+          {/* Center: Child Switcher Dropdown */}
+          <div className="flex items-center gap-2 bg-indigo-50/70 border border-indigo-200/80 px-3 py-1.5 rounded-xl shadow-2xs">
+            <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+              {selectedChild.first_name[0]}
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 block leading-none">
+                Active Student
+              </span>
+              <div className="relative inline-block mt-0.5">
+                <select
+                  value={selectedChildId}
+                  onChange={(e) => handleSelectChild(e.target.value)}
+                  className="appearance-none bg-transparent text-indigo-950 text-xs font-extrabold pr-6 outline-none cursor-pointer focus:ring-0"
+                >
+                  {children.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.first_name} {c.last_name} ({c.current_enrollment?.class_name || 'Class'}{' '}
+                      {c.current_enrollment?.section_name ? `-${c.current_enrollment.section_name}` : ''})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-indigo-700 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Quick Actions + Parent Profile Badge */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <a
               href={schoolContactHref}
               aria-disabled={!schoolContactHref}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold shadow-2xs transition-all"
+              title="Call or email school administration"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>Contact School</span>
+              <span className="hidden md:inline">Contact School</span>
             </a>
 
             <button
@@ -355,18 +436,42 @@ export default function ParentPortalPage() {
                 </span>
               )}
             </button>
+
+            {/* Parent Profile Badge */}
+            <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block" />
+            <div className="flex items-center gap-2 pl-1">
+              <div className="w-9 h-9 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 font-extrabold text-xs flex items-center justify-center shrink-0">
+                {parentName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="hidden lg:flex flex-col text-left leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-900 truncate max-w-[140px]">{parentName}</span>
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded">
+                    Guardian
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-mono truncate max-w-[140px]">{parentPhone || parentEmail}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sign Out"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Minimal Navigation Bar */}
-        <div className="flex items-center gap-1 overflow-x-auto pt-3 mt-1 scrollbar-none text-xs font-semibold">
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-3 mt-2 border-t border-slate-100 scrollbar-none text-xs font-semibold">
           {[
-            { id: 'home', label: 'Home', icon: Home },
-            { id: 'attendance', label: 'Attendance', icon: Calendar },
-            { id: 'academics', label: 'Academics', icon: GraduationCap },
-            { id: 'fees', label: 'Fees', icon: IndianRupee },
-            { id: 'transport', label: 'Transport', icon: Bus },
-            { id: 'profile', label: 'Profile & Medical', icon: User },
+            { id: 'home', label: 'Home Overview', icon: Home },
+            { id: 'attendance', label: 'Attendance & Leaves', icon: Calendar },
+            { id: 'academics', label: 'Academics & Reports', icon: GraduationCap },
+            { id: 'fees', label: 'Fees & Receipts', icon: IndianRupee },
+            { id: 'transport', label: 'Bus & Transport', icon: Bus },
+            { id: 'profile', label: 'Family & Medical Profile', icon: User },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -374,7 +479,7 @@ export default function ParentPortalPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white font-bold shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -388,88 +493,229 @@ export default function ParentPortalPage() {
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 space-y-6">
+      <div className="w-full max-w-[1700px] mx-auto p-4 sm:p-6 lg:p-8 xl:p-10 space-y-6">
         {/* TAB 1: HOME DASHBOARD */}
         {activeTab === 'home' && (
           <div className="space-y-6">
-            {/* Student Header Card */}
-            <div className="bg-gradient-to-r from-indigo-900 to-indigo-800 text-white p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-14 h-14 rounded-full overflow-hidden bg-indigo-950 border-2 border-indigo-400/30 shrink-0">
-                  {selectedChild.photo_url ? (
-                    <img src={selectedChild.photo_url} alt={selectedChild.first_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center font-bold text-lg text-indigo-300">
-                      {selectedChild.first_name[0]}
-                      {selectedChild.last_name[0]}
-                    </div>
-                  )}
-                </div>
+            {/* HERO SECTION: DUAL-CARD (ACTIVE STUDENT + PARENT PROFILE) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Left Card: Active Student Profile (7 cols) */}
+              <div className="lg:col-span-7 bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900 text-white p-5 sm:p-6 rounded-2xl shadow-sm border border-indigo-800/40 flex flex-col justify-between">
                 <div>
-                  <h2 className="text-xl font-extrabold text-white">
-                    {selectedChild.first_name} {selectedChild.last_name}
-                  </h2>
-                  <p className="text-xs text-indigo-200 mt-0.5">
-                    {selectedChild.current_enrollment?.class_name} • Section{' '}
-                    {selectedChild.current_enrollment?.section_name ? `Section ${selectedChild.current_enrollment.section_name}` : 'No section'} • Roll #{' '}
-                    {selectedChild.current_enrollment?.roll_number || 'Not assigned'}
-                  </p>
+                  <div className="flex items-center justify-between pb-3 border-b border-indigo-800/50">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
+                        Active Student
+                      </span>
+                      <span className="text-xs text-indigo-300 font-medium">
+                        {currentYear?.name || 'Academic Session'}
+                      </span>
+                    </div>
+                    {children.length > 1 && (
+                      <span className="text-[11px] text-indigo-300 font-medium">
+                        {children.length} Siblings Enrolled
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-indigo-950 border-2 border-indigo-400/30 shrink-0 shadow-md">
+                      {selectedChild.photo_url ? (
+                        <img src={selectedChild.photo_url} alt={selectedChild.first_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-extrabold text-xl text-indigo-200">
+                          {selectedChild.first_name[0]}
+                          {selectedChild.last_name[0]}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                        {selectedChild.first_name} {selectedChild.last_name}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <span className="px-2 py-0.5 rounded-md bg-white/10 text-white text-xs font-bold border border-white/10">
+                          Class {selectedChild.current_enrollment?.class_name || '—'} • Section {selectedChild.current_enrollment?.section_name || 'A'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-200 text-xs font-semibold">
+                          Roll #{selectedChild.current_enrollment?.roll_number || '01'}
+                        </span>
+                        {selectedChild.registration_number && (
+                          <span className="px-2 py-0.5 rounded-md bg-white/5 text-slate-300 text-xs font-mono">
+                            Reg: {selectedChild.registration_number}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-indigo-800/50 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-indigo-200 text-xs font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Official school enrollment active</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold"
+                      onClick={() => setIsLeaveModalOpen(true)}
+                    >
+                      Request Leave
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<Plus className="w-3.5 h-3.5" />}
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                  onClick={() => setIsLeaveModalOpen(true)}
-                >
-                  Request Leave
-                </Button>
+              {/* Right Card: Parent & Guardian Profile (5 cols) */}
+              <div className="lg:col-span-5 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      <h3 className="font-bold text-slate-900 text-sm">Parent & Guardian Profile</h3>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <Check className="w-3 h-3 text-emerald-600" /> Verified Record
+                    </span>
+                  </div>
+
+                  <div className="mt-3.5 space-y-3">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 font-extrabold text-sm flex items-center justify-center shrink-0">
+                        {parentName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900 text-sm truncate">{parentName}</p>
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded shrink-0">
+                            Primary Guardian
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">{parentPhone || 'No phone recorded'}</p>
+                      </div>
+                      {parentPhone && (
+                        <a
+                          href={`tel:${parentPhone.replace(/\s+/g, '')}`}
+                          className="p-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                          title="Call Guardian Phone"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Email Address</span>
+                        <span className="font-medium text-slate-800 truncate block mt-0.5" title={parentEmail}>
+                          {parentEmail || 'On school file'}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Family Residence</span>
+                        <span className="font-medium text-slate-800 truncate block mt-0.5" title={parentAddress}>
+                          {parentAddress || 'On school file'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Emergency contacts verified</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<HeartPulse className="w-3.5 h-3.5 text-rose-600" />}
+                    onClick={() => setIsEmergencyModalOpen(true)}
+                  >
+                    Update Info
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Live School Operational Status Board */}
             <SchoolStatusBoard />
 
-            {/* 4 Summary KPI Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Attendance</span>
-                <span className="text-2xl font-extrabold text-emerald-700 mt-1 block">{childAttendanceRate === null ? 'No data' : `${childAttendanceRate.toFixed(1)}%`}</span>
-                <span className="text-[10px] text-slate-500">From recorded attendance</span>
+            {/* 4 Summary KPI Cards (Responsive Grid) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div
+                onClick={() => setActiveTab('attendance')}
+                className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-300 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Attendance Rate</span>
+                  <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                </div>
+                <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 mt-2 block">
+                  {childAttendanceRate === null ? 'No data' : `${childAttendanceRate.toFixed(1)}%`}
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  {presentAttendanceCount} present of {childAttendance.length} days
+                </span>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Fee Status</span>
-                <div className="text-2xl font-extrabold mt-1 block">
+              <div
+                onClick={() => setActiveTab('fees')}
+                className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-300 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Fee Status</span>
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 group-hover:bg-indigo-100 transition-colors">
+                    <IndianRupee className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl sm:text-3xl font-extrabold mt-2 block">
                   {totalBalanceDue > 0 ? (
                     <span className="text-rose-600">{formatCurrency(totalBalanceDue)}</span>
                   ) : (
                     <span className="text-emerald-700">All Paid</span>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500">
-                  {totalBalanceDue > 0 ? 'Pending dues' : 'No balance due'}
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  {totalBalanceDue > 0 ? 'Pending dues balance' : 'No balance due'}
                 </span>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Transport</span>
-                <span className="text-sm font-bold text-indigo-700 mt-1 block truncate">
+              <div
+                onClick={() => setActiveTab('transport')}
+                className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-300 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Transport</span>
+                  <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700 group-hover:bg-amber-100 transition-colors">
+                    <Bus className="w-4 h-4" />
+                  </div>
+                </div>
+                <span className="text-base sm:text-lg font-bold text-indigo-900 mt-2 block truncate">
                   {selectedChild.transport_assignment?.vehicle_name || 'Not assigned'}
                 </span>
-                <span className="text-[10px] text-slate-500 font-semibold">{selectedChild.transport_assignment ? 'Transport assigned' : 'No transport assignment'}</span>
+                <span className="text-[11px] text-slate-500 mt-1 block truncate">
+                  {selectedChild.transport_assignment?.stop_name ? `Stop: ${selectedChild.transport_assignment.stop_name}` : 'No transport assignment'}
+                </span>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Next Holiday</span>
-                <span className="text-sm font-bold text-slate-900 mt-1 block truncate">
-                  {holidays[0]?.name || 'No holiday scheduled'}
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Next Holiday</span>
+                  <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                </div>
+                <span className="text-base sm:text-lg font-bold text-slate-900 mt-2 block truncate">
+                  {holidays[0]?.name || 'Regular Schedule'}
                 </span>
-                <span className="text-[10px] text-indigo-600 font-semibold">
-                  {holidays[0]?.start_date ? formatDate(holidays[0].start_date) : 'No date available'}
+                <span className="text-[11px] text-indigo-600 font-semibold mt-1 block">
+                  {holidays[0]?.start_date ? formatDate(holidays[0].start_date) : 'No upcoming holiday'}
                 </span>
               </div>
             </div>
@@ -853,10 +1099,10 @@ export default function ParentPortalPage() {
         {/* TAB 6: PROFILE & MEDICAL / EMERGENCY */}
         {activeTab === 'profile' && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Student Profile & Emergency Records</h2>
-                <p className="text-xs text-slate-500">Sensitive medical notes, blood group, and emergency contact details</p>
+                <h2 className="text-base font-bold text-slate-900">Parent & Student Family Registry</h2>
+                <p className="text-xs text-slate-500">Official guardian contacts, residential records, and student emergency health info</p>
               </div>
               <Button
                 variant="outline"
@@ -868,51 +1114,160 @@ export default function ParentPortalPage() {
               </Button>
             </div>
 
-            {/* Emergency Info Card */}
-            <div className="bg-rose-50/40 p-5 rounded-2xl border border-rose-200 shadow-2xs space-y-4">
-              <div className="flex items-center gap-2">
-                <HeartPulse className="w-5 h-5 text-rose-600" />
-                <h3 className="font-bold text-rose-950 text-sm">Emergency & Medical Profile</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Card 1: Official Parent & Guardian Information */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-indigo-600" />
+                    <h3 className="font-bold text-slate-900 text-sm">Parent & Guardian Information</h3>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    Family Registry
+                  </span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Primary Guardian</span>
+                      <span className="font-extrabold text-slate-900 text-sm block mt-0.5">{parentName}</span>
+                      <span className="text-[10px] text-indigo-600 font-semibold mt-0.5 block">Authorized Legal Guardian</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Contact Phone</span>
+                      <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">{parentPhone || 'Not recorded'}</span>
+                      {parentPhone && (
+                        <a href={`tel:${parentPhone.replace(/\s+/g, '')}`} className="text-[10px] text-emerald-700 font-semibold hover:underline mt-0.5 inline-block">
+                          Click to Call
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Email Address</span>
+                      <span className="font-semibold text-slate-900 truncate block mt-0.5">{parentEmail || 'Not recorded'}</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Secondary Phone</span>
+                      <span className="font-mono font-semibold text-slate-900 block mt-0.5">
+                        {parentProfile?.secondary_phone || selectedChild.guardian?.secondary_phone || 'None recorded'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {(fatherName || motherName) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {fatherName && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Father&apos;s Name</span>
+                          <span className="font-semibold text-slate-900 block mt-0.5">{fatherName}</span>
+                        </div>
+                      )}
+                      {motherName && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Mother&apos;s Name</span>
+                          <span className="font-semibold text-slate-900 block mt-0.5">{motherName}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Residential Address</span>
+                    <span className="font-medium text-slate-800 block mt-0.5 leading-relaxed">{parentAddress || 'On school file'}</span>
+                  </div>
+
+                  <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                    <span className="text-[10px] uppercase font-bold text-indigo-700 block">Enrolled Children</span>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {children.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => handleSelectChild(c.id)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            c.id === selectedChild.id
+                              ? 'bg-indigo-600 text-white shadow-2xs'
+                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {c.first_name} {c.last_name} ({c.current_enrollment?.class_name || 'Class'})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              {/* Card 2: Student Emergency & Medical Record */}
+              <div className="bg-rose-50/40 p-6 rounded-2xl border border-rose-200/80 shadow-2xs space-y-4 flex flex-col justify-between">
                 <div>
-                  <span className="text-rose-700/80 font-bold uppercase text-[10px] block">Blood Group</span>
-                  <span className="font-extrabold text-slate-900 text-base">
-                    {selectedChild.emergency_info?.blood_group || 'Not recorded'}
-                  </span>
+                  <div className="flex items-center justify-between pb-3 border-b border-rose-200/60">
+                    <div className="flex items-center gap-2">
+                      <HeartPulse className="w-5 h-5 text-rose-600" />
+                      <h3 className="font-bold text-rose-950 text-sm">Student Emergency & Medical Profile</h3>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                      {selectedChild.first_name}&apos;s Record
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mt-3.5">
+                    <div className="p-3 bg-white/80 rounded-xl border border-rose-100">
+                      <span className="text-rose-700 font-bold uppercase text-[10px] block">Blood Group</span>
+                      <span className="font-extrabold text-slate-900 text-lg block mt-0.5">
+                        {selectedChild.emergency_info?.blood_group || 'Not recorded'}
+                      </span>
+                    </div>
+
+                    <div className="sm:col-span-2 p-3 bg-white/80 rounded-xl border border-rose-100">
+                      <span className="text-rose-700 font-bold uppercase text-[10px] block">Known Allergy Alert</span>
+                      <span className="font-semibold text-slate-900 text-xs block mt-0.5">
+                        {selectedChild.emergency_info?.allergies_alert || 'No known allergies reported'}
+                      </span>
+                    </div>
+
+                    <div className="sm:col-span-3 p-3 bg-white/80 rounded-xl border border-rose-100">
+                      <span className="text-rose-700 font-bold uppercase text-[10px] block">Emergency & Medical Notes</span>
+                      <span className="font-medium text-slate-700 text-xs block mt-0.5 leading-relaxed">
+                        {selectedChild.emergency_info?.medical_condition_note || 'No special medical conditions noted'}
+                      </span>
+                    </div>
+
+                    <div className="sm:col-span-2 p-3 bg-white/80 rounded-xl border border-rose-100">
+                      <span className="text-rose-700 font-bold uppercase text-[10px] block">Emergency Contact Person</span>
+                      <span className="font-bold text-slate-900 text-sm block mt-0.5">
+                        {selectedChild.emergency_info?.emergency_contact_name || selectedChild.guardian?.guardian_name || parentName} (
+                        {selectedChild.emergency_info?.emergency_contact_relationship || 'Parent'})
+                      </span>
+                      <span className="block font-mono text-slate-600 mt-0.5">
+                        {selectedChild.emergency_info?.emergency_contact_phone || selectedChild.guardian?.primary_phone || parentPhone}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-white/80 rounded-xl border border-rose-100">
+                      <span className="text-rose-700 font-bold uppercase text-[10px] block">Doctor / Clinic</span>
+                      <span className="text-slate-800 font-semibold block mt-0.5">
+                        {selectedChild.emergency_info?.doctor_clinic_contact || 'None specified'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <span className="text-rose-700/80 font-bold uppercase text-[10px] block">Known Allergy Alert</span>
-                  <span className="font-semibold text-slate-900 text-xs">
-                    {selectedChild.emergency_info?.allergies_alert || 'Not recorded'}
-                  </span>
-                </div>
-
-                <div className="sm:col-span-3">
-                  <span className="text-rose-700/80 font-bold uppercase text-[10px] block">Emergency Notes</span>
-                  <span className="font-medium text-slate-700 text-xs">
-                    {selectedChild.emergency_info?.medical_condition_note || 'Not recorded'}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-rose-700/80 font-bold uppercase text-[10px] block">Emergency Contact</span>
-                  <span className="font-bold text-slate-900">
-                    {selectedChild.emergency_info?.emergency_contact_name || selectedChild.guardian?.guardian_name} (
-                    {selectedChild.emergency_info?.emergency_contact_relationship || 'Relationship not recorded'})
-                  </span>
-                  <span className="block font-mono text-slate-600 mt-0.5">
-                    {selectedChild.emergency_info?.emergency_contact_phone || selectedChild.guardian?.primary_phone}
-                  </span>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <span className="text-rose-700/80 font-bold uppercase text-[10px] block">Doctor / Clinic</span>
-                  <span className="text-slate-700 font-medium">
-                    {selectedChild.emergency_info?.doctor_clinic_contact || 'Not recorded'}
-                  </span>
+                <div className="pt-3 border-t border-rose-200/60 flex items-center justify-between gap-2 mt-4">
+                  <span className="text-[11px] text-rose-800 font-medium">Visible to verified school staff & teachers</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<HeartPulse className="w-3.5 h-3.5 text-rose-600" />}
+                    onClick={() => setIsEmergencyModalOpen(true)}
+                  >
+                    Edit Medical Info
+                  </Button>
                 </div>
               </div>
             </div>
