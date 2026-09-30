@@ -58,6 +58,9 @@ interface StudentPassenger extends Student {
   isOnLeave?: boolean;
   leaveReason?: string;
   rfid_tag?: string;
+  avatar?: string;
+  profile_photo_url?: string;
+  image_url?: string;
 }
 
 interface ActivityLogItem {
@@ -66,6 +69,24 @@ interface ActivityLogItem {
   title: string;
   detail: string;
   type: 'boarded' | 'absent' | 'departed' | 'rfid' | 'info';
+}
+
+function formatEventTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  }
+  const match = value.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return value;
+  const hours = Number(match[1]);
+  const suffix = hours >= 12 ? 'pm' : 'am';
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${match[2]} ${suffix}`;
+}
+
+function studentPhotoUrl(student: StudentPassenger) {
+  return student.photo_url || student.profile_photo_url || student.image_url || (student.avatar?.startsWith('http') ? student.avatar : '');
 }
 
 export default function DriverPortalPage() {
@@ -152,14 +173,15 @@ export default function DriverPortalPage() {
 
         // Merge transport status & today's approved leave info onto students
         const mapped: StudentPassenger[] = (data.students || []).map((s) => {
-          const matchingEvt = (evts || []).find((e) => e.student_id === s.id && e.event_date === todayStr);
+          const targetEventType = activeShift === 'morning' ? 'picked_up' : 'dropped_off';
+          const matchingEvt = (evts || []).find((e) => e.student_id === s.id && e.event_date === todayStr && e.event_type === targetEventType);
           const matchingLeave = (todayLeaves || []).find((l) => l.student_id === s.id);
           const isStudentOnLeave = !!matchingLeave;
 
           return {
             ...s,
             pickup_status: (matchingEvt?.event_type as any) || (isStudentOnLeave ? 'not_riding' : 'pending'),
-            pickup_time: matchingEvt?.event_time,
+            pickup_time: formatEventTime(matchingEvt?.event_time),
             assignment_id: s.transport_assignment?.id || (s as any).assignment?.id,
             pickup_event_id: matchingEvt?.id,
             isOnLeave: isStudentOnLeave,
@@ -181,7 +203,7 @@ export default function DriverPortalPage() {
         setIsSyncing(false);
       }
     },
-    [currentUser, selectedStopId]
+    [currentUser, selectedStopId, activeShift]
   );
 
   // Initial mount & quiet background synchronization (NO aggressive 5s full reloads)
@@ -264,7 +286,7 @@ export default function DriverPortalPage() {
       title: evt.student_name || 'Student',
       detail:
         evt.event_type === 'picked_up'
-          ? `Boarded at ${evt.stop_name || 'Designated Stop'}`
+          ? `Picked up at ${evt.stop_name || 'Designated Stop'}`
           : evt.event_type === 'dropped_off'
           ? `Safely dropped off at ${evt.stop_name || 'Designated Stop'}`
           : 'Marked not present / absent by driver',
@@ -293,7 +315,7 @@ export default function DriverPortalPage() {
     if (!student || student.isOnLeave) return;
 
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit' });
+    const timeStr = now.toLocaleTimeString('en-IN', { hour12: true, hour: 'numeric', minute: '2-digit' }).toLowerCase();
 
     // Update state locally
     setStudents((prev) =>
@@ -308,7 +330,7 @@ export default function DriverPortalPage() {
         title: `${student.first_name} ${student.last_name}`,
         detail:
           eventType === 'picked_up'
-            ? 'Boarded at ' + (activeStop?.stop_name || 'Designated Stop')
+            ? 'Picked up at ' + (activeStop?.stop_name || 'Designated Stop')
             : eventType === 'dropped_off'
             ? 'Safely dropped off'
             : 'Marked not present / absent by driver',
@@ -348,7 +370,7 @@ export default function DriverPortalPage() {
 
     success(
       eventType === 'picked_up'
-        ? `${student.first_name} marked as Boarded`
+        ? `${student.first_name} marked as Picked Up`
         : eventType === 'dropped_off'
         ? `${student.first_name} marked as Dropped Off`
         : `${student.first_name} marked as Absent`
@@ -361,7 +383,7 @@ export default function DriverPortalPage() {
       prev.map((s) => (s.id === studentId ? { ...s, pickup_status: 'pending', pickup_time: undefined } : s))
     );
     try {
-      await transportService.revertTransportEvent(studentId);
+      await transportService.revertTransportEvent(studentId, undefined, activeShift === 'morning' ? 'picked_up' : 'dropped_off');
     } catch (err) {
       console.warn('Revert transport event error:', err);
     }
@@ -385,7 +407,7 @@ export default function DriverPortalPage() {
         activeShift === 'morning' ? 'picked_up' : 'dropped_off'
       );
     }
-    success(`Marked ${targetStudents.length} students as ${activeShift === 'morning' ? 'Boarded' : 'Dropped Off'}`);
+    success(`Marked ${targetStudents.length} students as ${activeShift === 'morning' ? 'Picked Up' : 'Dropped Off'}`);
   };
 
   // Switch route if assigned multiple
@@ -766,10 +788,10 @@ export default function DriverPortalPage() {
                 </div>
               )}
 
-              {/* Real Boarding Progress Bar */}
+              {/* Real Stop Progress Bar */}
               <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-700/60">
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-slate-400 font-semibold">Boarding Progress</span>
+                  <span className="text-slate-400 font-semibold">{activeShift === 'morning' ? 'Pickup' : 'Drop'} Progress</span>
                   <span className="font-mono font-bold text-white">
                     {totalBoarded} / {totalAssigned - totalOnLeave}{' '}
                     <span className="text-amber-400 font-normal">({completionPercentage}%)</span>
@@ -779,7 +801,7 @@ export default function DriverPortalPage() {
                   <div
                     className="bg-emerald-500 h-full transition-all duration-300"
                     style={{ width: `${totalAssigned > 0 ? (totalBoarded / totalAssigned) * 100 : 0}%` }}
-                    title="Boarded"
+                    title={activeShift === 'morning' ? 'Picked up' : 'Dropped'}
                   />
                   <div
                     className="bg-amber-400 h-full transition-all duration-300"
@@ -794,7 +816,7 @@ export default function DriverPortalPage() {
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 font-medium">
                   <span>{totalPending} remaining</span>
-                  <span>{totalBoarded} boarded</span>
+                  <span>{totalBoarded} {activeShift === 'morning' ? 'picked' : 'dropped'}</span>
                 </div>
               </div>
             </div>
@@ -873,7 +895,7 @@ export default function DriverPortalPage() {
 
                           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800 text-[11px]">
                             <span className="font-semibold text-slate-300">
-                              {sBoarded}/{stopStudents.length} Boarded
+                              {sBoarded}/{stopStudents.length} {activeShift === 'morning' ? 'Picked Up' : 'Dropped'}
                             </span>
                             <a
                               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -926,14 +948,14 @@ export default function DriverPortalPage() {
                   </p>
                 </div>
 
-                {/* Quick Batch Action: Mark All Remaining Boarded */}
+                {/* Quick Batch Action */}
                 {currentStopStudents.some((s) => !s.isOnLeave && s.pickup_status === 'pending') && (
                   <button
                     onClick={handleMarkAllAtActiveStop}
                     className="min-h-[48px] px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all shrink-0"
                   >
                     <CheckCheck className="w-5 h-5 stroke-[2.5]" />
-                    <span>Mark All Remaining Boarded</span>
+                    <span>Mark All Remaining {activeShift === 'morning' ? 'Picked Up' : 'Dropped'}</span>
                   </button>
                 )}
               </div>
@@ -989,7 +1011,7 @@ export default function DriverPortalPage() {
                         : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white'
                     }`}
                   >
-                    Boarded ({currentStopStudents.filter((s) => s.pickup_status === 'picked_up' || s.pickup_status === 'dropped_off').length})
+                    {activeShift === 'morning' ? 'Picked Up' : 'Dropped'} ({currentStopStudents.filter((s) => s.pickup_status === 'picked_up' || s.pickup_status === 'dropped_off').length})
                   </button>
                   <button
                     onClick={() => setStatusFilter('leave')}
@@ -1029,6 +1051,7 @@ export default function DriverPortalPage() {
                   const isBoarded =
                     std.pickup_status === 'picked_up' || std.pickup_status === 'dropped_off';
                   const isAbsent = std.pickup_status === 'not_riding' && !std.isOnLeave;
+                  const photoUrl = studentPhotoUrl(std);
 
                   return (
                     <article
@@ -1046,9 +1069,9 @@ export default function DriverPortalPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         {/* Student Identity */}
                         <div className="flex items-start gap-3.5 min-w-0">
-                          <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center font-black text-amber-300 text-lg uppercase shrink-0 border border-slate-600 overflow-hidden shadow-sm">
-                            {std.photo_url ? (
-                              <img src={std.photo_url} alt={std.first_name} className="w-full h-full object-cover" />
+                          <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center font-black text-amber-300 text-xl uppercase shrink-0 border border-slate-600 overflow-hidden shadow-sm">
+                            {photoUrl ? (
+                              <img src={photoUrl} alt={`${std.first_name} ${std.last_name}`} className="w-full h-full object-cover" />
                             ) : (
                               (std.first_name?.[0] || 'S')
                             )}
@@ -1065,7 +1088,7 @@ export default function DriverPortalPage() {
 
                               {isBoarded && (
                                 <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                  <Check className="w-3.5 h-3.5" /> Boarded {std.pickup_time ? `(${std.pickup_time})` : ''}
+                                  <Check className="w-3.5 h-3.5" /> {std.pickup_status === 'dropped_off' ? 'Dropped' : 'Picked'} {std.pickup_time ? `at ${std.pickup_time}` : ''}
                                 </span>
                               )}
                               {isAbsent && (
@@ -1136,7 +1159,7 @@ export default function DriverPortalPage() {
                                 className="min-h-[46px] px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
                               >
                                 <Check className="w-4 h-4 stroke-[3]" />
-                                <span>{activeShift === 'morning' ? 'Mark Boarded' : 'Mark Dropped'}</span>
+                                <span>{activeShift === 'morning' ? 'Mark Picked' : 'Mark Dropped'}</span>
                               </button>
                               <button
                                 onClick={() =>
@@ -1180,7 +1203,7 @@ export default function DriverPortalPage() {
                   <span className="text-[10px] text-slate-500">Commuters</span>
                 </div>
                 <div className="bg-emerald-950/40 border border-emerald-500/30 p-3 rounded-xl">
-                  <span className="text-[10px] font-bold text-emerald-400 block uppercase tracking-wider">Boarded Today</span>
+                  <span className="text-[10px] font-bold text-emerald-400 block uppercase tracking-wider">{activeShift === 'morning' ? 'Picked Today' : 'Dropped Today'}</span>
                   <div className="font-mono text-2xl font-black text-emerald-300 mt-1">{totalBoarded}</div>
                   <span className="text-[10px] text-emerald-400/80">{completionPercentage}% Completed</span>
                 </div>
@@ -1246,7 +1269,7 @@ export default function DriverPortalPage() {
               </h4>
               {combinedActivities.length === 0 ? (
                 <p className="text-xs text-slate-400 py-3 text-center">
-                  No boarding events recorded yet today.
+                  No transport events recorded yet today.
                 </p>
               ) : (
                 <div className="space-y-2 text-xs overflow-y-auto max-h-56 pr-1">
@@ -1314,7 +1337,7 @@ export default function DriverPortalPage() {
             <span className="text-xs sm:text-sm text-slate-200">
               Active stop: <strong className="text-white font-bold">{activeStop?.stop_name || 'Designated Stop'}</strong>{' '}
               <span className="text-slate-400">
-                ({currentStopStudents.filter((s) => s.pickup_status === 'pending' && !s.isOnLeave).length} awaiting boarding)
+                ({currentStopStudents.filter((s) => s.pickup_status === 'pending' && !s.isOnLeave).length} awaiting {activeShift === 'morning' ? 'pickup' : 'drop'})
               </span>
             </span>
           </div>

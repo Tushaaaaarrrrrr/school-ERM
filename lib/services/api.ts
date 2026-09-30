@@ -2493,8 +2493,14 @@ export const transportService = {
       INITIAL_STUDENT_TRANSPORT_EVENTS
     );
 
+    const cutoff = Date.now() - 48 * 60 * 60 * 1000;
     const targetDate = data.event_date || new Date().toISOString().split('T')[0];
-    list = list.filter((e) => !(e.student_id === data.student_id && e.event_date === targetDate));
+    list = list.filter((e) => {
+      const eventMs = new Date(e.created_at || `${e.event_date} ${e.event_time || ''}`).getTime();
+      const isOld = !isNaN(eventMs) && eventMs < cutoff;
+      const isSameEvent = e.student_id === data.student_id && e.event_date === targetDate && e.event_type === data.event_type;
+      return !isOld && !isSameEvent;
+    });
 
     let newEvent: StudentTransportEvent = {
       ...data,
@@ -2540,14 +2546,17 @@ export const transportService = {
     } catch (e) {}
     return storageService
       .getItem<StudentTransportEvent[]>(STORAGE_KEYS.STUDENT_TRANSPORT_EVENTS, INITIAL_STUDENT_TRANSPORT_EVENTS)
-      .filter((e) => e.school_id === schoolId && e.event_date === today);
+      .filter((e) => {
+        const eventMs = new Date(e.created_at || `${e.event_date} ${e.event_time || ''}`).getTime();
+        return e.school_id === schoolId && e.event_date === today && (isNaN(eventMs) || eventMs >= Date.now() - 48 * 60 * 60 * 1000);
+      });
   },
 
-  async revertTransportEvent(studentId: string, eventDate?: string): Promise<void> {
+  async revertTransportEvent(studentId: string, eventDate?: string, eventType?: StudentTransportEvent['event_type']): Promise<void> {
     const targetDate = eventDate || new Date().toISOString().split('T')[0];
     try {
       if (typeof window !== 'undefined') {
-        await fetch(`/api/transport-events?student_id=${encodeURIComponent(studentId)}&event_date=${targetDate}`, {
+        await fetch(`/api/transport-events?student_id=${encodeURIComponent(studentId)}&event_date=${targetDate}${eventType ? `&event_type=${eventType}` : ''}`, {
           method: 'DELETE',
         });
       }
@@ -2557,7 +2566,7 @@ export const transportService = {
       STORAGE_KEYS.STUDENT_TRANSPORT_EVENTS,
       INITIAL_STUDENT_TRANSPORT_EVENTS
     );
-    events = events.filter((e) => !(e.student_id === studentId && e.event_date === targetDate));
+    events = events.filter((e) => !(e.student_id === studentId && e.event_date === targetDate && (!eventType || e.event_type === eventType)));
     storageService.setItem(STORAGE_KEYS.STUDENT_TRANSPORT_EVENTS, events);
   },
 

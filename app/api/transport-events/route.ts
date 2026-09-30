@@ -11,7 +11,8 @@ export async function GET(request: Request) {
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     if (access.role === 'driver') {
       const assigned = await getAssignedDriverTransport(access.schoolId, access.context);
-      filters.vehicle_id = assigned.vehicle?.id || '__none__';
+      if (!assigned.vehicle) return NextResponse.json({ success: true, data: [] });
+      filters.vehicle_id = assigned.vehicle.id;
     }
     
     // @ts-ignore
@@ -46,6 +47,7 @@ export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);
     const studentId = url.searchParams.get('student_id');
+    const eventType = url.searchParams.get('event_type') || undefined;
     const eventDate = url.searchParams.get('event_date') || new Date().toISOString().split('T')[0];
     const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff']);
     if (!access.ok || !access.schoolId || !studentId) {
@@ -57,7 +59,7 @@ export async function DELETE(request: Request) {
     }
 
     // @ts-ignore
-    await serverDb.deleteTransportEvent(access.schoolId, studentId, eventDate);
+    await serverDb.deleteTransportEvent(access.schoolId, studentId, eventDate, eventType);
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

@@ -54,6 +54,7 @@ export async function GET(request: Request) {
       const stop = stops.find((s: any) => s.id === assignment?.stop_id);
       return {
         ...student,
+        photo_url: student.photo_url || (student as any).profile_photo_url || (student as any).image_url || ((student as any).avatar?.startsWith?.('http') ? (student as any).avatar : undefined),
         assignment,
         stop,
         transport_assignment: assignment,

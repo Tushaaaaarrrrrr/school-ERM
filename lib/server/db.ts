@@ -2110,6 +2110,7 @@ export const serverDb = {
   async getTransportEvents(schoolId: string, filters?: any): Promise<any[]> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
+      await this.deleteOldTransportEvents(schoolId);
       let query = supabase.from('student_transport_events').select('*').eq('school_id', schoolId);
       if (filters?.event_date) {
         query = query.eq('event_date', filters.event_date);
@@ -2127,6 +2128,7 @@ export const serverDb = {
   async createTransportEvent(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
+      await this.deleteOldTransportEvents(data.school_id);
       const payload: any = {
         school_id: data.school_id,
         event_type: data.event_type,
@@ -2158,16 +2160,29 @@ export const serverDb = {
     return data;
   },
 
-  async deleteTransportEvent(schoolId: string, studentId: string, eventDate?: string): Promise<void> {
+  async deleteTransportEvent(schoolId: string, studentId: string, eventDate?: string, eventType?: string): Promise<void> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(studentId)) {
       const date = eventDate || new Date().toISOString().split('T')[0];
-      await supabase
+      let query = supabase
         .from('student_transport_events')
         .delete()
         .eq('school_id', schoolId)
         .eq('student_id', studentId)
         .eq('event_date', date);
+      if (eventType) query = query.eq('event_type', eventType);
+      await query;
+    }
+  },
+
+  async deleteOldTransportEvents(schoolId: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      await supabase
+        .from('student_transport_events')
+        .delete()
+        .eq('school_id', schoolId)
+        .lt('created_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
     }
   },
 
