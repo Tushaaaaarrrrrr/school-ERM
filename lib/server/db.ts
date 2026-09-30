@@ -2107,10 +2107,17 @@ export const serverDb = {
     }
   },
 
-  async getTransportEvents(schoolId: string): Promise<any[]> {
+  async getTransportEvents(schoolId: string, filters?: any): Promise<any[]> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase.from('student_transport_events').select('*').eq('school_id', schoolId);
+      let query = supabase.from('student_transport_events').select('*').eq('school_id', schoolId);
+      if (filters?.event_date) {
+        query = query.eq('event_date', filters.event_date);
+      }
+      if (filters?.vehicle_id && isUuidString(filters.vehicle_id)) {
+        query = query.eq('vehicle_id', filters.vehicle_id);
+      }
+      const { data, error } = await query;
       if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
     }
@@ -2120,10 +2127,48 @@ export const serverDb = {
   async createTransportEvent(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data: created, error } = await supabase.from('student_transport_events').insert(data).select().single();
+      const payload: any = {
+        school_id: data.school_id,
+        event_type: data.event_type,
+        event_date: data.event_date || new Date().toISOString().split('T')[0],
+      };
+      if (isUuidString(data.id)) payload.id = data.id;
+      if (isUuidString(data.student_id)) payload.student_id = data.student_id;
+      if (isUuidString(data.transport_assignment_id)) payload.transport_assignment_id = data.transport_assignment_id;
+      if (isUuidString(data.vehicle_id)) payload.vehicle_id = data.vehicle_id;
+      if (isUuidString(data.route_id)) payload.route_id = data.route_id;
+      if (isUuidString(data.stop_id)) payload.stop_id = data.stop_id;
+      if (isUuidString(data.recorded_by)) payload.recorded_by = data.recorded_by;
+      if (data.notes) payload.notes = data.notes;
+      if (data.event_time) {
+        try {
+          const d = new Date(`${payload.event_date} ${data.event_time}`);
+          payload.event_time = !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString();
+        } catch {
+          payload.event_time = new Date().toISOString();
+        }
+      } else {
+        payload.event_time = new Date().toISOString();
+      }
+
+      const { data: created, error } = await supabase.from('student_transport_events').insert(payload).select().single();
       if (!error && created) return created;
+      if (error) console.error('Error creating transport event in Supabase:', error.message);
     }
     return data;
+  },
+
+  async deleteTransportEvent(schoolId: string, studentId: string, eventDate?: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    if (supabase && isUuidString(studentId)) {
+      const date = eventDate || new Date().toISOString().split('T')[0];
+      await supabase
+        .from('student_transport_events')
+        .delete()
+        .eq('school_id', schoolId)
+        .eq('student_id', studentId)
+        .eq('event_date', date);
+    }
   },
 
   async getTimetable(schoolId: string): Promise<any[]> {

@@ -2496,7 +2496,7 @@ export const transportService = {
     const targetDate = data.event_date || new Date().toISOString().split('T')[0];
     list = list.filter((e) => !(e.student_id === data.student_id && e.event_date === targetDate));
 
-    const newEvent: StudentTransportEvent = {
+    let newEvent: StudentTransportEvent = {
       ...data,
       id: `ste-${Date.now().toString().slice(-4)}`,
       event_date: targetDate,
@@ -2505,11 +2505,17 @@ export const transportService = {
 
     try {
       if (typeof window !== 'undefined') {
-        await fetch('/api/transport-events', {
+        const res = await fetch('/api/transport-events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newEvent),
         });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            newEvent = { ...newEvent, ...json.data };
+          }
+        }
       }
     } catch (e) {}
 
@@ -2539,6 +2545,14 @@ export const transportService = {
 
   async revertTransportEvent(studentId: string, eventDate?: string): Promise<void> {
     const targetDate = eventDate || new Date().toISOString().split('T')[0];
+    try {
+      if (typeof window !== 'undefined') {
+        await fetch(`/api/transport-events?student_id=${encodeURIComponent(studentId)}&event_date=${targetDate}`, {
+          method: 'DELETE',
+        });
+      }
+    } catch (e) {}
+
     let events = storageService.getItem<StudentTransportEvent[]>(
       STORAGE_KEYS.STUDENT_TRANSPORT_EVENTS,
       INITIAL_STUDENT_TRANSPORT_EVENTS
