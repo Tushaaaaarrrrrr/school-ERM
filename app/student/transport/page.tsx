@@ -76,7 +76,7 @@ export default function StudentTransportPage() {
   const driverPhone = driver?.phone || vehicle?.driver_phone || assignment?.driver_phone || '';
   const driverName = driver ? `${driver.first_name} ${driver.last_name}` : vehicle?.driver_name || assignment?.driver_name || 'Assigned Driver';
   const driverPhoto = driver?.photo_url && !driver.photo_url.includes('images.unsplash.com') ? driver.photo_url : null;
-  const cityName = assignment?.city || route?.city || 'Kolodihari';
+  const cityName = assignment?.city || route?.city || 'School Area';
 
   return (
     <div className="space-y-6 text-left w-full">

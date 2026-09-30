@@ -1794,7 +1794,11 @@ export const serverDb = {
         status: data.status || 'active',
       };
       if (isUuidString(data.id)) payload.id = data.id;
-      if (isUuidString(data.driver_id)) payload.driver_id = data.driver_id;
+      if (isUuidString(data.driver_id)) {
+        payload.driver_id = data.driver_id;
+        // Enforce 1 driver max per 1 vehicle across fleet: clear driver from any other vehicle
+        await supabase.from('vehicles').update({ driver_id: null }).eq('driver_id', payload.driver_id);
+      }
       if (isUuidString(data.helper_id)) payload.helper_id = data.helper_id;
 
       const { data: created, error } = await supabase.from('vehicles').insert(payload).select().single();
@@ -1841,6 +1845,10 @@ export const serverDb = {
       }
 
       if (isUuidString(targetId)) {
+        // Enforce 1 driver max per 1 vehicle: if driver is assigned, clear this driver from any other vehicle
+        if (payload.driver_id) {
+          await supabase.from('vehicles').update({ driver_id: null }).eq('driver_id', payload.driver_id).neq('id', targetId);
+        }
         const { data: updated, error } = await supabase.from('vehicles').update(payload).eq('id', targetId).select().single();
         if (!error && updated) {
           return {

@@ -32,11 +32,15 @@ import {
   Trash2,
   Search,
   Check,
-  Info,
   RotateCcw,
   Building2,
   Layers,
-  Sparkles,
+  Phone,
+  AlertCircle,
+  CheckCircle2,
+  Navigation,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import { FeatureGuard } from '@/components/layout/feature-guard';
 
@@ -63,8 +67,13 @@ export default function AdminTransportPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Search & Filter States
+  const [overviewSearch, setOverviewSearch] = useState('');
+  const [overviewRouteFilter, setOverviewRouteFilter] = useState('all');
+  const [overviewStatusFilter, setOverviewStatusFilter] = useState<'all' | 'picked_up' | 'pending' | 'not_riding'>('all');
+
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [studentSearchTable, setStudentSearchTable] = useState('');
+  const [tableRouteFilter, setTableRouteFilter] = useState('all');
   const [cityFilterTab, setCityFilterTab] = useState<string>('all');
 
   // Modals for Creation
@@ -97,10 +106,10 @@ export default function AdminTransportPage() {
     status: 'active' as Vehicle['status'],
   });
 
-  // Route Create Form State (City Select/Create -> Route Details -> Ordered Stops)
+  // Route Create Form State
   const [routeForm, setRouteForm] = useState({
     cityMode: 'existing' as 'existing' | 'new',
-    selectedCity: 'Kolodihari',
+    selectedCity: '',
     newCity: '',
     routeName: '',
     routeCode: '',
@@ -122,7 +131,7 @@ export default function AdminTransportPage() {
     stops: { id?: string; stop_name: string; city?: string; estimated_pickup_time: string; estimated_drop_time: string; stop_order: number }[];
   }>({
     cityMode: 'existing',
-    selectedCity: 'Kolodihari',
+    selectedCity: '',
     newCity: '',
     routeName: '',
     routeCode: '',
@@ -131,7 +140,7 @@ export default function AdminTransportPage() {
     stops: [],
   });
 
-  // Assign Student Form State (City -> Pickup Points workflow)
+  // Assign Student Form State
   const [assignForm, setAssignForm] = useState({
     studentId: '',
     city: '',
@@ -159,9 +168,6 @@ export default function AdminTransportPage() {
         if (st.city?.trim()) citySet.add(st.city.trim());
       });
     });
-    if (citySet.size === 0) {
-      citySet.add('Kolodihari');
-    }
     return Array.from(citySet);
   }, [routes]);
 
@@ -172,12 +178,18 @@ export default function AdminTransportPage() {
       map[c] = [];
     });
     routes.forEach((r) => {
-      const c = r.city || 'Kolodihari';
+      const c = r.city?.trim() || availableCities[0] || 'General';
       if (!map[c]) map[c] = [];
       map[c].push(r);
     });
     return map;
   }, [routes, availableCities]);
+
+  // Helper: Find which vehicle a driver is currently assigned to
+  const getAssignedVehicleForDriver = (driverId: string, excludeVehicleId?: string) => {
+    if (!driverId) return null;
+    return vehicles.find((v) => v.driver_id === driverId && v.id !== excludeVehicleId) || null;
+  };
 
   // Existing routes in currently selected city for modal
   const existingRoutesInSelectedCity = React.useMemo(() => {
@@ -188,7 +200,7 @@ export default function AdminTransportPage() {
 
   // Routes in selected city for Assign Student Modal
   const routesInSelectedCity = React.useMemo(() => {
-    if (!assignForm.city) return [];
+    if (!assignForm.city) return routes;
     return routes.filter((r) => (r.city || '').toLowerCase() === assignForm.city.toLowerCase());
   }, [routes, assignForm.city]);
 
@@ -206,7 +218,7 @@ export default function AdminTransportPage() {
 
   // Routes in edit city
   const routesInEditCity = React.useMemo(() => {
-    if (!editAssignForm.city) return [];
+    if (!editAssignForm.city) return routes;
     return routes.filter((r) => (r.city || '').toLowerCase() === editAssignForm.city.toLowerCase());
   }, [routes, editAssignForm.city]);
 
@@ -235,26 +247,59 @@ export default function AdminTransportPage() {
     });
   }, [students, studentSearchQuery]);
 
-  // Selected Student Object
+  // Selected Student Object in Modal
   const selectedStudent = React.useMemo(() => {
     return students.find((s) => s.id === assignForm.studentId) || null;
   }, [students, assignForm.studentId]);
 
-  // Filtered Assigned Commuters for Main Table
-  const filteredAssignments = React.useMemo(() => {
-    if (!studentSearchTable.trim()) return assignments;
-    const q = studentSearchTable.toLowerCase();
+  // Filtered Commuters for Live Status (Tab 1)
+  const filteredLiveAssignments = React.useMemo(() => {
     return assignments.filter((asg) => {
       const student = students.find((s) => s.id === asg.student_id);
-      const name = student ? `${student.first_name} ${student.last_name}`.toLowerCase() : '';
-      const reg = (student?.registration_number || '').toLowerCase();
-      const city = (asg.city || '').toLowerCase();
-      const veh = (asg.vehicle_name || '').toLowerCase();
-      const route = (asg.route_name || '').toLowerCase();
-      const stop = (asg.stop_name || '').toLowerCase();
-      return name.includes(q) || reg.includes(q) || city.includes(q) || veh.includes(q) || route.includes(q) || stop.includes(q);
+      const todayEvt = todayEvents.find((e) => e.student_id === asg.student_id);
+      const currentStatus = todayEvt ? todayEvt.event_type : 'pending';
+
+      if (overviewStatusFilter !== 'all' && currentStatus !== overviewStatusFilter) {
+        return false;
+      }
+      if (overviewRouteFilter !== 'all' && asg.route_id !== overviewRouteFilter) {
+        return false;
+      }
+      if (overviewSearch.trim()) {
+        const q = overviewSearch.toLowerCase();
+        const sName = student ? `${student.first_name} ${student.last_name}`.toLowerCase() : '';
+        const reg = (student?.registration_number || '').toLowerCase();
+        const stop = (asg.stop_name || '').toLowerCase();
+        const veh = (asg.vehicle_name || '').toLowerCase();
+        const city = (asg.city || '').toLowerCase();
+        if (!sName.includes(q) && !reg.includes(q) && !stop.includes(q) && !veh.includes(q) && !city.includes(q)) {
+          return false;
+        }
+      }
+      return true;
     });
-  }, [assignments, students, studentSearchTable]);
+  }, [assignments, students, todayEvents, overviewSearch, overviewRouteFilter, overviewStatusFilter]);
+
+  // Filtered Assigned Commuters for Main Table (Tab 4)
+  const filteredAssignments = React.useMemo(() => {
+    return assignments.filter((asg) => {
+      if (tableRouteFilter !== 'all' && asg.route_id !== tableRouteFilter) {
+        return false;
+      }
+      if (studentSearchTable.trim()) {
+        const q = studentSearchTable.toLowerCase();
+        const student = students.find((s) => s.id === asg.student_id);
+        const name = student ? `${student.first_name} ${student.last_name}`.toLowerCase() : '';
+        const reg = (student?.registration_number || '').toLowerCase();
+        const city = (asg.city || '').toLowerCase();
+        const veh = (asg.vehicle_name || '').toLowerCase();
+        const route = (asg.route_name || '').toLowerCase();
+        const stop = (asg.stop_name || '').toLowerCase();
+        return name.includes(q) || reg.includes(q) || city.includes(q) || veh.includes(q) || route.includes(q) || stop.includes(q);
+      }
+      return true;
+    });
+  }, [assignments, students, studentSearchTable, tableRouteFilter]);
 
   const loadTransportData = async () => {
     setIsLoading(true);
@@ -292,12 +337,22 @@ export default function AdminTransportPage() {
   // --------------------------------------------------------------------------
   const handleCreateVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Enforce 1 driver max per 1 vehicle
+    if (vehicleForm.driverId) {
+      const busy = getAssignedVehicleForDriver(vehicleForm.driverId);
+      if (busy) {
+        toastError(`This driver is already assigned to "${busy.vehicle_name}" (${busy.vehicle_number}). A driver can only be assigned to one vehicle at a time.`);
+        return;
+      }
+    }
+
     try {
       const d = drivers.find((drv) => drv.id === vehicleForm.driverId);
       await transportService.createVehicle({
         school_id: schoolId,
-        vehicle_number: vehicleForm.vehicleNumber,
-        vehicle_name: vehicleForm.vehicleName,
+        vehicle_number: vehicleForm.vehicleNumber.trim(),
+        vehicle_name: vehicleForm.vehicleName.trim(),
         type: vehicleForm.type,
         capacity: vehicleForm.capacity,
         driver_id: vehicleForm.driverId || undefined,
@@ -337,11 +392,22 @@ export default function AdminTransportPage() {
   const handleUpdateVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingVehicle) return;
+
+    // Enforce 1 driver max per 1 vehicle
+    if (editVehicleForm.driverId) {
+      const busy = getAssignedVehicleForDriver(editVehicleForm.driverId, editingVehicle.id);
+      if (busy) {
+        toastError(`This driver is already assigned to "${busy.vehicle_name}" (${busy.vehicle_number}). A driver can only be assigned to one vehicle at a time.`);
+        return;
+      }
+    }
+
     try {
       const d = drivers.find((drv) => drv.id === editVehicleForm.driverId);
       await transportService.updateVehicle(editingVehicle.id, {
-        vehicle_number: editVehicleForm.vehicleNumber,
-        vehicle_name: editVehicleForm.vehicleName,
+        school_id: schoolId,
+        vehicle_number: editVehicleForm.vehicleNumber.trim(),
+        vehicle_name: editVehicleForm.vehicleName.trim(),
         type: editVehicleForm.type,
         capacity: editVehicleForm.capacity,
         driver_id: editVehicleForm.driverId || undefined,
@@ -373,9 +439,9 @@ export default function AdminTransportPage() {
   // ROUTE & CITY CRUD HANDLERS
   // --------------------------------------------------------------------------
   const openCreateRouteModalForCity = (city?: string) => {
-    const initialCity = city || availableCities[0] || 'Kolodihari';
+    const initialCity = city || availableCities[0] || '';
     setRouteForm({
-      cityMode: 'existing',
+      cityMode: initialCity ? 'existing' : 'new',
       selectedCity: initialCity,
       newCity: '',
       routeName: '',
@@ -396,7 +462,7 @@ export default function AdminTransportPage() {
         : routeForm.newCity.trim();
 
     if (!effectiveCity) {
-      toastError('Please choose or enter a City name');
+      toastError('Please choose or enter a City / Area name');
       return;
     }
     if (!routeForm.routeName.trim()) {
@@ -439,7 +505,7 @@ export default function AdminTransportPage() {
     const existing = availableCities.includes(r.city || '');
     setEditRouteForm({
       cityMode: existing ? 'existing' : 'new',
-      selectedCity: existing ? (r.city || availableCities[0]) : (availableCities[0] || 'Kolodihari'),
+      selectedCity: existing ? (r.city || availableCities[0] || '') : (availableCities[0] || ''),
       newCity: existing ? '' : (r.city || ''),
       routeName: r.route_name,
       routeCode: r.route_code || '',
@@ -447,7 +513,7 @@ export default function AdminTransportPage() {
       status: (r.status as any) || 'active',
       stops: (r.stops || []).map((s, idx) => ({
         id: s.id,
-        city: s.city || r.city || 'Kolodihari',
+        city: s.city || r.city || '',
         stop_name: s.stop_name,
         estimated_pickup_time: s.estimated_pickup_time || '07:30 AM',
         estimated_drop_time: s.estimated_drop_time || '02:30 PM',
@@ -514,7 +580,7 @@ export default function AdminTransportPage() {
         : editRouteForm.newCity.trim();
 
     if (!effectiveCity) {
-      toastError('Please choose or enter a City name');
+      toastError('Please choose or enter a City / Area name');
       return;
     }
 
@@ -563,12 +629,12 @@ export default function AdminTransportPage() {
   };
 
   // --------------------------------------------------------------------------
-  // STUDENT ASSIGNMENT CRUD HANDLERS (CITY -> PICKUP POINT)
+  // STUDENT ASSIGNMENT CRUD HANDLERS
   // --------------------------------------------------------------------------
   const openAssignModal = () => {
     setStudentSearchQuery('');
-    const defaultCity = availableCities[0] || 'Kolodihari';
-    const cityRoutes = routes.filter((r) => (r.city || '').toLowerCase() === defaultCity.toLowerCase());
+    const defaultCity = availableCities[0] || '';
+    const cityRoutes = defaultCity ? routes.filter((r) => (r.city || '').toLowerCase() === defaultCity.toLowerCase()) : routes;
     const defaultRoute = cityRoutes[0] || routes[0] || null;
     const defaultStop = defaultRoute?.stops?.[0] || null;
 
@@ -593,25 +659,36 @@ export default function AdminTransportPage() {
       toastError('Please select a city / area');
       return;
     }
+    if (!assignForm.routeId) {
+      toastError('Please select a route');
+      return;
+    }
     if (!assignForm.stopId) {
       toastError('Please select a pickup point');
       return;
     }
 
     try {
+      const selectedRoute = routes.find((r) => r.id === assignForm.routeId);
+      const vehicleId = selectedRoute?.assigned_vehicle_id || assignForm.vehicleId || vehicles[0]?.id || '';
+
       await transportService.assignStudentTransport({
         school_id: schoolId,
         student_id: assignForm.studentId,
         city: assignForm.city,
-        vehicle_id: assignForm.vehicleId || vehicles[0]?.id || '',
-        route_id: assignForm.routeId || routes[0]?.id || '',
+        vehicle_id: vehicleId,
+        route_id: assignForm.routeId,
         stop_id: assignForm.stopId,
         pickup_enabled: assignForm.pickupEnabled,
         drop_enabled: true,
         status: 'active',
       });
 
-      success('Student assigned to pickup point');
+      if (!selectedRoute?.assigned_vehicle_id) {
+        success('Student assigned! Remember to link a vehicle to this route so drivers can see them.');
+      } else {
+        success('Student assigned to transport pickup point');
+      }
       setIsAssignStudentModalOpen(false);
       setStudentSearchQuery('');
       loadTransportData();
@@ -623,7 +700,7 @@ export default function AdminTransportPage() {
   const openEditAssignmentModal = (asg: StudentTransportAssignment) => {
     setEditingAssignment(asg);
     setEditAssignForm({
-      city: asg.city || availableCities[0] || 'Kolodihari',
+      city: asg.city || availableCities[0] || '',
       vehicleId: asg.vehicle_id,
       routeId: asg.route_id,
       stopId: asg.stop_id,
@@ -635,9 +712,12 @@ export default function AdminTransportPage() {
     e.preventDefault();
     if (!editingAssignment) return;
     try {
+      const targetRoute = routes.find((r) => r.id === editAssignForm.routeId);
+      const vehicleId = targetRoute?.assigned_vehicle_id || editAssignForm.vehicleId || vehicles[0]?.id || '';
+
       await transportService.updateStudentAssignment(editingAssignment.id, {
         city: editAssignForm.city,
-        vehicle_id: editAssignForm.vehicleId,
+        vehicle_id: vehicleId,
         route_id: editAssignForm.routeId,
         stop_id: editAssignForm.stopId,
         status: editAssignForm.status,
@@ -660,12 +740,12 @@ export default function AdminTransportPage() {
       success('Student commuter removed from transport');
       loadTransportData();
     } catch {
-      toastError('Failed to remove commuter');
+      toastError('Failed to remove assignment');
     }
   };
 
   // --------------------------------------------------------------------------
-  // LIVE EVENT OVERRIDE HANDLERS (ADMIN LIVE DASHBOARD)
+  // LIVE EVENT OVERRIDE HANDLERS
   // --------------------------------------------------------------------------
   const handleAdminRecordEvent = async (
     studentId: string,
@@ -710,161 +790,346 @@ export default function AdminTransportPage() {
 
   return (
     <FeatureGuard feature="transport">
-      <div className="space-y-6 text-left w-full">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-              <Bus className="w-6 h-6 text-indigo-600" /> Student Transport & Fleet Operations
+      <div className="space-y-6 text-left w-full max-w-[1600px] mx-auto pb-12">
+        {/* Modern Header Section */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+                Fleet & Logistics
+              </span>
+              <span className="text-xs text-slate-400 font-medium">• Live Control Center</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+              <Bus className="w-6 h-6 text-indigo-600 shrink-0" />
+              <span>Transport & Fleet Operations</span>
             </h1>
+            <p className="text-xs text-slate-500 max-w-2xl">
+              Monitor active morning & afternoon bus runs, manage fleet vehicles, configure stop routes, and assign student commuters.
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => openCreateRouteModalForCity()}>
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add City Route & Stops</span>
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={() => setIsVehicleModalOpen(true)}>
-              <Plus className="w-3.5 h-3.5" />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsVehicleModalOpen(true)}
+              className="text-xs font-semibold shadow-2xs hover:border-slate-300"
+            >
+              <Plus className="w-3.5 h-3.5 text-indigo-600" />
               <span>Add Vehicle</span>
             </Button>
 
-            <Button variant="primary" size="sm" onClick={openAssignModal}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openCreateRouteModalForCity()}
+              className="text-xs font-semibold shadow-2xs hover:border-slate-300"
+            >
+              <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Add Route & Stops</span>
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={openAssignModal}
+              className="text-xs font-semibold shadow-xs bg-indigo-600 hover:bg-indigo-700"
+            >
               <Users className="w-3.5 h-3.5" />
-              <span>Assign Student</span>
+              <span>Assign Commuter</span>
             </Button>
           </div>
         </div>
 
-        {/* KPI Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-semibold text-slate-400 block">Active Vehicles</span>
-            <span className="text-xl font-bold text-slate-900 mt-1">{dashboardStats.vehiclesActive}</span>
+        {/* Executive KPI Stats Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Fleet Vehicles</span>
+              <Bus className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-slate-900 tracking-tight">{dashboardStats.vehiclesActive}</span>
+              <span className="text-[11px] font-medium text-emerald-600">Active</span>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-semibold text-slate-400 block">Routes Running</span>
-            <span className="text-xl font-bold text-slate-900 mt-1">{dashboardStats.routesRunning}</span>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Active Routes</span>
+              <Navigation className="w-4 h-4 text-sky-600" />
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-slate-900 tracking-tight">{dashboardStats.routesRunning}</span>
+              <span className="text-[11px] font-medium text-slate-500">Configured</span>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-indigo-200 bg-indigo-50/20 shadow-2xs">
-            <span className="text-[11px] font-semibold text-indigo-700 block">Total Bus Students</span>
-            <span className="text-xl font-bold text-indigo-800 mt-1">{dashboardStats.totalStudents}</span>
+
+          <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-2xs space-y-2 bg-gradient-to-br from-indigo-50/40 to-white">
+            <div className="flex items-center justify-between text-indigo-600">
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Commuters</span>
+              <Users className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-indigo-950 tracking-tight">{dashboardStats.totalStudents}</span>
+              <span className="text-[11px] font-medium text-indigo-700">Enrolled</span>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-2xs">
-            <span className="text-[11px] font-semibold text-emerald-700 block">Picked Up Today</span>
-            <span className="text-xl font-bold text-emerald-800 mt-1">{dashboardStats.todayPickedUp}</span>
+
+          <div className="bg-white p-4 rounded-2xl border border-emerald-100 shadow-2xs space-y-2 bg-gradient-to-br from-emerald-50/40 to-white">
+            <div className="flex items-center justify-between text-emerald-600">
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Picked Up</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-emerald-950 tracking-tight">{dashboardStats.todayPickedUp}</span>
+              <span className="text-[11px] font-semibold text-emerald-600">Boarded</span>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
-            <span className="text-[11px] font-semibold text-rose-700 block">Not Riding</span>
-            <span className="text-xl font-bold text-rose-800 mt-1">{dashboardStats.todayNotRiding}</span>
+
+          <div className="bg-white p-4 rounded-2xl border border-amber-100 shadow-2xs space-y-2 bg-gradient-to-br from-amber-50/40 to-white">
+            <div className="flex items-center justify-between text-amber-600">
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Pending</span>
+              <Clock className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-amber-950 tracking-tight">{dashboardStats.todayPending}</span>
+              <span className="text-[11px] font-medium text-amber-700">Awaiting</span>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
-            <span className="text-[11px] font-semibold text-amber-700 block">Pending Pickup</span>
-            <span className="text-xl font-bold text-amber-800 mt-1">{dashboardStats.todayPending}</span>
+
+          <div className="bg-white p-4 rounded-2xl border border-rose-100 shadow-2xs space-y-2 bg-gradient-to-br from-rose-50/40 to-white">
+            <div className="flex items-center justify-between text-rose-600">
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Not Riding</span>
+              <AlertCircle className="w-4 h-4 text-rose-600" />
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-rose-950 tracking-tight">{dashboardStats.todayNotRiding}</span>
+              <span className="text-[11px] font-medium text-rose-700">Absent</span>
+            </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs
-          tabs={[
-            { id: 'overview', label: 'Today’s Live Status' },
-            { id: 'vehicles', label: 'Fleet & Vehicles' },
-            { id: 'routes', label: 'Cities, Routes & Stops' },
-            { id: 'students', label: 'Student Passenger List' },
-          ]}
-          activeTab={activeTab}
-          onChange={(tabId) => setActiveTab(tabId as any)}
-        />
+        {/* Tab Navigation */}
+        <div className="border-b border-slate-200">
+          <Tabs
+            tabs={[
+              { id: 'overview', label: `Today's Live Status (${assignments.length})` },
+              { id: 'vehicles', label: `Fleet & Vehicles (${vehicles.length})` },
+              { id: 'routes', label: `Routes & Stops (${routes.length})` },
+              { id: 'students', label: `Passenger Directory (${assignments.length})` },
+            ]}
+            activeTab={activeTab}
+            onChange={(tabId) => setActiveTab(tabId as any)}
+          />
+        </div>
 
         {/* =================================================================== */}
-        {/* TAB 1: OVERVIEW / TODAY'S LIVE RUN */}
+        {/* TAB 1: OVERVIEW / TODAY'S LIVE RUN                                  */}
         {/* =================================================================== */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-indigo-600" /> Morning Run Passenger Boarding Logs (Today)
-                </h3>
-                <span className="text-xs text-slate-400 font-medium">
-                  {assignments.length} Scheduled Commuters
-                </span>
+            {/* Live Filter & Controls Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOverviewStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    overviewStatusFilter === 'all'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All Commuters ({assignments.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewStatusFilter('picked_up')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    overviewStatusFilter === 'picked_up'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  Picked Up ({dashboardStats.todayPickedUp})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewStatusFilter('pending')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    overviewStatusFilter === 'pending'
+                      ? 'bg-amber-600 text-white shadow-2xs'
+                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  Pending ({dashboardStats.todayPending})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewStatusFilter('not_riding')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    overviewStatusFilter === 'not_riding'
+                      ? 'bg-rose-600 text-white shadow-2xs'
+                      : 'bg-rose-50 text-rose-800 hover:bg-rose-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                  Not Riding ({dashboardStats.todayNotRiding})
+                </button>
               </div>
 
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-[220px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search student, bus, stop..."
+                    value={overviewSearch}
+                    onChange={(e) => setOverviewSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                  />
+                </div>
+
+                <select
+                  value={overviewRouteFilter}
+                  onChange={(e) => setOverviewRouteFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 font-medium text-slate-700 focus:bg-white focus:outline-none"
+                >
+                  <option value="all">All Routes</option>
+                  {routes.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.route_name} ({r.route_code || 'RT'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Live Boarding Table */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100 uppercase tracking-wider text-[10px]">
+                  <thead className="bg-slate-50/90 text-slate-500 font-bold border-b border-slate-200/80 uppercase tracking-wider text-[10px]">
                     <tr>
-                      <th className="py-2.5 px-3">Student Name</th>
-                      <th className="py-2.5 px-3">City / Area</th>
-                      <th className="py-2.5 px-3">Assigned Vehicle</th>
-                      <th className="py-2.5 px-3">Pickup Stop</th>
-                      <th className="py-2.5 px-3">Today Status</th>
-                      <th className="py-2.5 px-3">Event Timestamp</th>
-                      <th className="py-2.5 px-3">Recorded By</th>
-                      <th className="py-2.5 px-3 text-right">Quick Override</th>
+                      <th className="py-3 px-4">Student Commuter</th>
+                      <th className="py-3 px-3">Pickup Stop & Route</th>
+                      <th className="py-3 px-3">Assigned Fleet Bus</th>
+                      <th className="py-3 px-3">Live Status</th>
+                      <th className="py-3 px-3">Recorded Time</th>
+                      <th className="py-3 px-3">Logged By</th>
+                      <th className="py-3 px-4 text-right">Quick Override</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {assignments.length === 0 ? (
+                    {filteredLiveAssignments.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400">
-                          No student commuters assigned yet. Click <strong>Assign Student</strong> to add commuters.
+                        <td colSpan={7} className="py-12 text-center text-slate-400">
+                          <Bus className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-xs font-medium text-slate-500">No commuter boarding records found.</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Adjust your search or filter above.</p>
                         </td>
                       </tr>
                     ) : (
-                      assignments.map((asg) => {
+                      filteredLiveAssignments.map((asg) => {
                         const student = students.find((s) => s.id === asg.student_id);
                         const todayEvt = todayEvents.find((e) => e.student_id === asg.student_id);
+                        const matchedVehicle = vehicles.find((v) => v.id === asg.vehicle_id);
 
                         return (
-                          <tr key={asg.id} className="hover:bg-slate-50/60 transition-colors">
-                            <td className="py-2.5 px-3">
-                              <Link href={`/admin/students/${asg.student_id}`} className="font-semibold text-slate-900 hover:text-indigo-600">
-                                {student?.first_name} {student?.last_name}
-                              </Link>
-                              <span className="text-[11px] font-mono text-slate-400 block">{student?.registration_number}</span>
+                          <tr key={asg.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0 uppercase">
+                                  {student?.first_name?.[0] || 'S'}{student?.last_name?.[0] || ''}
+                                </div>
+                                <div className="min-w-0">
+                                  <Link
+                                    href={`/admin/students/${asg.student_id}`}
+                                    className="font-bold text-slate-900 hover:text-indigo-600 block truncate"
+                                  >
+                                    {student?.first_name} {student?.last_name}
+                                  </Link>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono mt-0.5">
+                                    <span>{student?.registration_number}</span>
+                                    {student?.current_enrollment?.class_name && (
+                                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-sans font-semibold text-[10px]">
+                                        {student.current_enrollment.class_name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </td>
-                            <td className="py-2.5 px-3">
-                              <span className="font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
-                                {asg.city || 'Kolodihari'}
-                              </span>
+
+                            <td className="py-3 px-3">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                                  <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                  <span>{asg.stop_name || 'Designated Stop'}</span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                                  <span>{asg.route_name || 'Route'}</span>
+                                  <span>•</span>
+                                  <span className="font-mono text-indigo-700 font-semibold">{asg.estimated_pickup_time || '07:20 AM'}</span>
+                                </div>
+                              </div>
                             </td>
-                            <td className="py-2.5 px-3">
-                              <span className="font-semibold">{asg.vehicle_name}</span>
-                              <span className="text-[11px] font-mono text-slate-400 block">{asg.vehicle_number}</span>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span>{asg.stop_name}</span>
-                              <span className="text-[11px] text-slate-400 block">{asg.estimated_pickup_time}</span>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              {todayEvt ? (
-                                <span
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    todayEvt.event_type === 'picked_up'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-rose-100 text-rose-800'
-                                  }`}
-                                >
-                                  {todayEvt.event_type === 'picked_up' ? 'PICKED UP' : 'NOT PRESENT'}
-                                </span>
+
+                            <td className="py-3 px-3">
+                              {asg.vehicle_name ? (
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                    <Bus className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{asg.vehicle_name}</span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 font-mono">
+                                    {asg.vehicle_number || matchedVehicle?.vehicle_number || '—'}
+                                  </div>
+                                </div>
                               ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-semibold border border-amber-200">
+                                  <AlertCircle className="w-3 h-3" /> Unlinked Vehicle
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3">
+                              {todayEvt ? (
+                                todayEvt.event_type === 'picked_up' ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    PICKED UP
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
+                                    NOT PRESENT
+                                  </span>
+                                )
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                                  <Clock className="w-3 h-3 text-amber-700" />
                                   PENDING
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-slate-500">
+
+                            <td className="py-3 px-3 font-mono text-slate-500">
                               {todayEvt ? new Date(todayEvt.event_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                             </td>
-                            <td className="py-2.5 px-3">{todayEvt?.recorded_by_name || '—'}</td>
-                            <td className="py-2.5 px-3 text-right">
+
+                            <td className="py-3 px-3 font-medium text-slate-600">
+                              {todayEvt?.recorded_by_name || '—'}
+                            </td>
+
+                            <td className="py-3 px-4 text-right">
                               {todayEvt ? (
                                 <button
                                   onClick={() => handleAdminRevertEvent(asg.student_id)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                                   title="Reset status back to Pending"
                                 >
                                   <RotateCcw className="w-3 h-3" /> Reset
@@ -873,13 +1138,13 @@ export default function AdminTransportPage() {
                                 <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     onClick={() => handleAdminRecordEvent(asg.student_id, asg.vehicle_id, asg.stop_id, 'picked_up')}
-                                    className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                                    className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
                                   >
                                     <Check className="w-3 h-3 stroke-[3]" /> Mark Picked
                                   </button>
                                   <button
                                     onClick={() => handleAdminRecordEvent(asg.student_id, asg.vehicle_id, asg.stop_id, 'not_riding')}
-                                    className="px-2 py-1 text-[11px] font-bold bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 rounded-lg transition-colors"
+                                    className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 rounded-lg transition-colors cursor-pointer"
                                   >
                                     Not Present
                                   </button>
@@ -898,12 +1163,15 @@ export default function AdminTransportPage() {
         )}
 
         {/* =================================================================== */}
-        {/* TAB 2: FLEET & VEHICLES */}
+        {/* TAB 2: FLEET & VEHICLES                                             */}
         {/* =================================================================== */}
         {activeTab === 'vehicles' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500 font-medium">{vehicles.length} Registered Fleet Vehicles</p>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Registered School Fleet</h3>
+                <p className="text-xs text-slate-500">Each vehicle is operated by at most one licensed driver at a time.</p>
+              </div>
               <Button size="sm" variant="primary" onClick={() => setIsVehicleModalOpen(true)}>
                 <Plus className="w-3.5 h-3.5" /> Add Vehicle
               </Button>
@@ -911,93 +1179,175 @@ export default function AdminTransportPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {vehicles.length === 0 ? (
-                <div className="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
-                  No vehicles added to the fleet yet. Click <strong>Add Vehicle</strong> to register a school bus.
+                <div className="col-span-full bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
+                  <Bus className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-800">No Vehicles in Fleet</h4>
+                  <p className="text-xs text-slate-400">Click &quot;Add Vehicle&quot; to register your first school bus or mini van.</p>
                 </div>
               ) : (
-                vehicles.map((v) => (
-                  <div key={v.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                          <Bus className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900">{v.vehicle_name}</h3>
-                          <p className="text-[11px] font-mono text-slate-400">{v.vehicle_number}</p>
-                        </div>
-                      </div>
-                      <StatusBadge status={v.status} />
-                    </div>
+                vehicles.map((v) => {
+                  const assignedDriver = drivers.find((d) => d.id === v.driver_id);
+                  const driverName = v.driver_name || (assignedDriver ? `${assignedDriver.first_name} ${assignedDriver.last_name}` : null);
+                  const driverPhone = v.driver_phone || assignedDriver?.phone || null;
 
-                    <div className="space-y-2 text-xs text-slate-600 bg-slate-50/60 p-3 rounded-xl border border-slate-100">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Capacity:</span>
-                        <span className="font-semibold text-slate-800">{v.capacity || 40} Passengers</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Assigned Driver:</span>
-                        <span className="font-semibold text-indigo-700">
-                          {v.driver_name || (drivers.find((d) => d.id === v.driver_id) ? `${drivers.find((d) => d.id === v.driver_id)?.first_name} ${drivers.find((d) => d.id === v.driver_id)?.last_name}` : 'Unassigned')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Driver Contact:</span>
-                        <span className="font-mono text-slate-800">
-                          {v.driver_phone || (drivers.find((d) => d.id === v.driver_id)?.phone) || '—'}
-                        </span>
-                      </div>
-                    </div>
+                  // Active assigned commuters for this vehicle
+                  const vehicleAssignedCount = assignments.filter((a) => {
+                    if (a.status !== 'active') return false;
+                    if (a.vehicle_id === v.id) return true;
+                    const r = routes.find((rt) => rt.id === a.route_id);
+                    return r?.assigned_vehicle_id === v.id;
+                  }).length;
 
-                    {/* Actions: Edit & Delete */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditVehicleModal(v)}
-                        className="text-xs flex items-center gap-1"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Edit</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteVehicle(v)}
-                        className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 flex items-center gap-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete</span>
-                      </Button>
+                  const capacity = v.capacity || 40;
+                  const utilizationPct = Math.min(100, Math.round((vehicleAssignedCount / capacity) * 100));
+
+                  // Routes operated by this vehicle
+                  const operatingRoutes = routes.filter((r) => r.assigned_vehicle_id === v.id);
+
+                  return (
+                    <div
+                      key={v.id}
+                      className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all overflow-hidden flex flex-col justify-between"
+                    >
+                      {/* Card Header */}
+                      <div className="p-5 border-b border-slate-100 space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-base shadow-2xs">
+                              <Bus className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 tracking-tight">{v.vehicle_name}</h4>
+                              <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-mono font-bold text-slate-700 mt-0.5">
+                                {v.vehicle_number}
+                              </div>
+                            </div>
+                          </div>
+                          <StatusBadge status={v.status} />
+                        </div>
+
+                        {/* Capacity Utilization Progress Bar */}
+                        <div className="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-500 font-medium">Passenger Seating:</span>
+                            <span className="font-bold text-slate-900">
+                              {vehicleAssignedCount} / {capacity} seats ({utilizationPct}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                utilizationPct > 90 ? 'bg-rose-500' : utilizationPct > 70 ? 'bg-amber-500' : 'bg-indigo-600'
+                              }`}
+                              style={{ width: `${utilizationPct}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* Assigned Driver Box */}
+                        <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-100 space-y-1 text-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                            Assigned Driver (1 Max)
+                          </span>
+                          {driverName ? (
+                            <div className="flex items-center justify-between pt-0.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center uppercase">
+                                  {driverName[0]}
+                                </div>
+                                <span className="font-bold text-slate-900">{driverName}</span>
+                              </div>
+                              {driverPhone ? (
+                                <a
+                                  href={`tel:${driverPhone}`}
+                                  className="text-[11px] font-mono text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                  <span>{driverPhone}</span>
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 font-mono">—</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 text-[11px] font-semibold mt-1">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>No Driver Assigned • Click Edit to assign</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Linked Routes */}
+                        <div className="text-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                            Operating Routes ({operatingRoutes.length})
+                          </span>
+                          {operatingRoutes.length === 0 ? (
+                            <span className="text-[11px] text-slate-400 italic block">Not assigned to any routes yet</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {operatingRoutes.map((rt) => (
+                                <span
+                                  key={rt.id}
+                                  className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-semibold"
+                                >
+                                  {rt.route_name} ({rt.route_code || 'RT'})
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Actions Footer */}
+                      <div className="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditVehicleModal(v)}
+                          className="text-xs flex items-center gap-1 bg-white hover:bg-slate-50"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Edit</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteVehicle(v)}
+                          className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 flex items-center gap-1 bg-white"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         )}
 
         {/* =================================================================== */}
-        {/* TAB 3: CITIES, ROUTES & STOPS (ORGANIZED BY CITY) */}
+        {/* TAB 3: CITIES, ROUTES & STOPS                                       */}
         {/* =================================================================== */}
         {activeTab === 'routes' && (
           <div className="space-y-5">
-            {/* CITY SELECTOR & FILTER BAR */}
+            {/* City Selector Bar */}
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-900 block">Select City / Zone:</label>
-                  <span className="text-[11px] text-slate-400">
-                    {routes.length} routes configured across {availableCities.length} cities
+                  <label className="text-xs font-bold text-slate-900 block">Transport Zones & Cities</label>
+                  <span className="text-[11px] text-slate-500">
+                    {routes.length} routes configured across {availableCities.length} distinct service cities
                   </span>
                 </div>
               </div>
 
-              <div>
-                {/* CITY DROPDOWN */}
+              <div className="flex items-center gap-2">
                 <select
                   value={cityFilterTab}
                   onChange={(e) => setCityFilterTab(e.target.value)}
@@ -1013,12 +1363,18 @@ export default function AdminTransportPage() {
                     );
                   })}
                 </select>
+
+                <Button size="sm" variant="primary" onClick={() => openCreateRouteModalForCity()}>
+                  <Plus className="w-3.5 h-3.5" /> Add Route
+                </Button>
               </div>
             </div>
 
             {routes.length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
-                No routes configured yet. Click <strong>Add City Route & Stops</strong> at the top to create your first route.
+              <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
+                <Navigation className="w-10 h-10 text-slate-300 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-800">No Routes Configured</h4>
+                <p className="text-xs text-slate-400">Click &quot;Add Route&quot; to set up pickup points and assign a fleet vehicle.</p>
               </div>
             ) : (
               (cityFilterTab === 'all' ? availableCities : [cityFilterTab]).map((cityName) => {
@@ -1026,62 +1382,79 @@ export default function AdminTransportPage() {
                 if (cityRoutes.length === 0 && cityFilterTab === 'all') return null;
 
                 return (
-                  <div key={cityName} className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
+                  <div key={cityName} className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
                     {/* City Header */}
-                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                        <Building2 className="w-5 h-5" />
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900">{cityName}</h3>
+                          <span className="text-[11px] text-slate-400">{cityRoutes.length} active routes in this zone</span>
+                        </div>
                       </div>
-                      <h3 className="text-base font-bold text-slate-900">
-                        {cityName}
-                      </h3>
-                    </div>
 
-                    {cityRoutes.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                        No routes in {cityName} yet. Click <strong>+ Add Route in {cityName}</strong> above.
-                      </div>
-                    ) : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openCreateRouteModalForCity(cityName)}
+                        className="text-xs font-semibold"
+                      >
+                        <Plus className="w-3 h-3 text-indigo-600" />
+                        <span>Add Route in {cityName}</span>
+                      </Button>
+                    </div>
 
                     {/* Routes under this City */}
                     <div className="grid grid-cols-1 gap-4">
                       {cityRoutes.map((r) => {
                         const matchedVeh = vehicles.find((v) => v.id === r.assigned_vehicle_id);
+                        const assignedDriver = matchedVeh ? drivers.find((d) => d.id === matchedVeh.driver_id) : null;
+                        const driverName = matchedVeh?.driver_name || (assignedDriver ? `${assignedDriver.first_name} ${assignedDriver.last_name}` : null);
+                        const routeCommuterCount = assignments.filter((a) => a.route_id === r.id && a.status === 'active').length;
 
                         return (
-                          <div key={r.id} className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-3">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <div className="flex items-center gap-2">
+                          <div key={r.id} className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="text-sm font-bold text-slate-900">{r.route_name}</h4>
                                   <span className="text-[10px] font-mono font-bold bg-white text-slate-600 px-2 py-0.5 rounded border border-slate-200">
                                     {r.route_code || 'RT'}
                                   </span>
+                                  <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
+                                    {routeCommuterCount} Commuters
+                                  </span>
                                 </div>
+
                                 {matchedVeh ? (
-                                  <span className="text-xs text-indigo-700 font-semibold mt-1 flex items-center gap-1.5 flex-wrap">
-                                    <span>🚌 Assigned Bus: <strong>{matchedVeh.vehicle_name} ({matchedVeh.vehicle_number})</strong></span>
-                                    {(() => {
-                                      const drv = matchedVeh.driver_name || (drivers.find((d) => d.id === matchedVeh.driver_id) ? `${drivers.find((d) => d.id === matchedVeh.driver_id)?.first_name} ${drivers.find((d) => d.id === matchedVeh.driver_id)?.last_name}` : null);
-                                      return drv ? (
-                                        <span className="text-slate-500 font-medium">• Driver: <strong className="text-slate-800">{drv}</strong></span>
-                                      ) : null;
-                                    })()}
-                                  </span>
+                                  <div className="flex items-center gap-2 text-xs text-indigo-700 font-semibold pt-0.5 flex-wrap">
+                                    <span className="flex items-center gap-1">
+                                      <Bus className="w-3.5 h-3.5 text-indigo-600" />
+                                      <span>Bus: <strong>{matchedVeh.vehicle_name} ({matchedVeh.vehicle_number})</strong></span>
+                                    </span>
+                                    {driverName && (
+                                      <span className="text-slate-500 font-normal">
+                                        • Driver: <strong className="text-slate-800">{driverName}</strong>
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
-                                  <span className="text-[11px] text-amber-600 font-medium mt-1 block">
-                                    ⚠️ No Fleet Vehicle Assigned (Click Edit to link bus)
-                                  </span>
+                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 inline-flex mt-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                                    <span>No Fleet Vehicle Assigned (Driver Dashboards will not see this route)</span>
+                                  </div>
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <StatusBadge status={r.status || 'active'} />
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => openEditRouteModal(r)}
-                                  className="text-xs flex items-center gap-1 bg-white"
+                                  className="text-xs flex items-center gap-1 bg-white hover:bg-slate-50"
                                 >
                                   <Edit3 className="w-3 h-3 text-indigo-600" />
                                   <span>Edit</span>
@@ -1098,23 +1471,26 @@ export default function AdminTransportPage() {
                               </div>
                             </div>
 
-                            {/* Stops List */}
-                            <div className="space-y-1.5">
+                            {/* Stops Sequence */}
+                            <div className="space-y-2 pt-2 border-t border-slate-200/60">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                Pickup Points ({(r.stops || []).length} Stops):
+                                Pickup Points Sequence ({(r.stops || []).length} Stops):
                               </span>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
                                 {(r.stops || []).map((st, idx) => (
-                                  <div key={st.id || idx} className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs space-y-1 shadow-2xs">
-                                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                                      <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                  <div
+                                    key={st.id || idx}
+                                    className="p-3 rounded-xl bg-white border border-slate-200 text-xs space-y-1.5 shadow-2xs"
+                                  >
+                                    <div className="flex items-center gap-2 font-bold text-slate-900">
+                                      <span className="w-5 h-5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                        {idx + 1}
+                                      </span>
                                       <span className="truncate">{st.stop_name}</span>
                                     </div>
-                                    <div className="text-[11px] text-slate-500 flex justify-between">
-                                      <span>Pickup: <strong className="font-mono text-slate-700">{st.estimated_pickup_time}</strong></span>
-                                      {st.estimated_drop_time && (
-                                        <span>Drop: <strong className="font-mono text-slate-700">{st.estimated_drop_time}</strong></span>
-                                      )}
+                                    <div className="text-[11px] text-slate-500 flex justify-between font-mono bg-slate-50 px-2 py-1 rounded-md">
+                                      <span>Pickup: <strong>{st.estimated_pickup_time}</strong></span>
+                                      {st.estimated_drop_time && <span>Drop: <strong>{st.estimated_drop_time}</strong></span>}
                                     </div>
                                   </div>
                                 ))}
@@ -1132,39 +1508,57 @@ export default function AdminTransportPage() {
         )}
 
         {/* =================================================================== */}
-        {/* TAB 4: STUDENT PASSENGERS */}
+        {/* TAB 4: STUDENT PASSENGER LIST                                       */}
         {/* =================================================================== */}
         {activeTab === 'students' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h4 className="text-sm font-bold text-slate-900">Assigned Student Commuters</h4>
-              <div className="flex items-center gap-2">
-                <div className="relative">
+          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Enrolled Student Commuters</h4>
+                <p className="text-xs text-slate-500">Students registered for daily bus pickup and drop-off runs.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[220px]">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search student, city, or bus..."
+                    placeholder="Search commuter by name, reg, or stop..."
                     value={studentSearchTable}
                     onChange={(e) => setStudentSearchTable(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
                   />
                 </div>
+
+                <select
+                  value={tableRouteFilter}
+                  onChange={(e) => setTableRouteFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 font-medium text-slate-700 focus:bg-white focus:outline-none"
+                >
+                  <option value="all">All Routes</option>
+                  {routes.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.route_name}
+                    </option>
+                  ))}
+                </select>
+
                 <Button size="sm" variant="primary" onClick={openAssignModal}>
-                  + Assign New Student
+                  <Plus className="w-3.5 h-3.5" /> Assign Commuter
                 </Button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100 uppercase tracking-wider text-[10px]">
+                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="py-2.5 px-3">Student</th>
                     <th className="py-2.5 px-3">City / Area</th>
                     <th className="py-2.5 px-3">Vehicle & Driver</th>
                     <th className="py-2.5 px-3">Route</th>
                     <th className="py-2.5 px-3">Pickup Stop</th>
-                    <th className="py-2.5 px-3">Estimated Pickup</th>
+                    <th className="py-2.5 px-3">Expected Time</th>
                     <th className="py-2.5 px-3">Status</th>
                     <th className="py-2.5 px-3 text-right">Actions</th>
                   </tr>
@@ -1172,7 +1566,7 @@ export default function AdminTransportPage() {
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {filteredAssignments.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
                         {studentSearchTable ? `No student commuters found matching "${studentSearchTable}"` : 'No assigned student commuters yet'}
                       </td>
                     </tr>
@@ -1180,25 +1574,32 @@ export default function AdminTransportPage() {
                     filteredAssignments.map((asg) => {
                       const student = students.find((s) => s.id === asg.student_id);
                       return (
-                        <tr key={asg.id} className="hover:bg-slate-50/60">
-                          <td className="py-2.5 px-3 font-semibold">
-                            <Link href={`/admin/students/${asg.student_id}`} className="text-indigo-600 hover:underline">
-                              {student?.first_name} {student?.last_name}
-                            </Link>
-                            <span className="text-[11px] font-mono text-slate-400 block">{student?.registration_number}</span>
+                        <tr key={asg.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center uppercase shrink-0">
+                                {student?.first_name?.[0] || 'S'}
+                              </div>
+                              <div className="min-w-0">
+                                <Link href={`/admin/students/${asg.student_id}`} className="font-bold text-slate-900 hover:text-indigo-600 block truncate">
+                                  {student?.first_name} {student?.last_name}
+                                </Link>
+                                <span className="text-[10px] font-mono text-slate-400 block truncate">{student?.registration_number}</span>
+                              </div>
+                            </div>
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
-                              {asg.city || 'Kolodihari'}
+                              {asg.city || '—'}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 font-medium">
-                            <div>{asg.vehicle_name}</div>
+                            <div>{asg.vehicle_name || '—'}</div>
                             <span className="text-[11px] text-indigo-600 font-semibold block">{asg.driver_name || 'Driver'}</span>
                           </td>
-                          <td className="py-2.5 px-3">{asg.route_name}</td>
-                          <td className="py-2.5 px-3 font-semibold text-slate-800">{asg.stop_name}</td>
-                          <td className="py-2.5 px-3 font-mono text-indigo-700">{asg.estimated_pickup_time}</td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">{asg.route_name || '—'}</td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">{asg.stop_name || '—'}</td>
+                          <td className="py-2.5 px-3 font-mono text-indigo-700 font-bold">{asg.estimated_pickup_time || '07:20 AM'}</td>
                           <td className="py-2.5 px-3">
                             <StatusBadge status={asg.status} />
                           </td>
@@ -1206,14 +1607,14 @@ export default function AdminTransportPage() {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => openEditAssignmentModal(asg)}
-                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                                 title="Edit Assignment"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteAssignment(asg)}
-                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                 title="Remove from Transport"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1231,13 +1632,13 @@ export default function AdminTransportPage() {
         )}
 
         {/* =================================================================== */}
-        {/* CREATE VEHICLE MODAL */}
+        {/* CREATE VEHICLE MODAL (1 DRIVER 1 VEHICLE ENFORCED)                   */}
         {/* =================================================================== */}
         <Modal
           isOpen={isVehicleModalOpen}
           onClose={() => setIsVehicleModalOpen(false)}
           title="Add Vehicle to School Fleet"
-          description="Register school bus, van, or traveler"
+          description="Register school bus, mini van, or traveler with an assigned driver"
         >
           <form onSubmit={handleCreateVehicle} className="space-y-4 text-xs text-left">
             <div className="grid grid-cols-2 gap-3">
@@ -1246,32 +1647,32 @@ export default function AdminTransportPage() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. School Bus 1"
                   value={vehicleForm.vehicleName}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, vehicleName: e.target.value })}
-                  placeholder="e.g. School Bus 08"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">License Plate Number *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Registration / Plate No. *</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. DL-01-AB-1234"
                   value={vehicleForm.vehicleNumber}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, vehicleNumber: e.target.value })}
-                  placeholder="e.g. DL-01-AB-9988"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Vehicle Type</label>
                 <select
                   value={vehicleForm.type}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, type: e.target.value as any })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="bus">School Bus</option>
                   <option value="van">Mini Van</option>
@@ -1286,24 +1687,49 @@ export default function AdminTransportPage() {
                   min={5}
                   value={vehicleForm.capacity}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, capacity: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
                 />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                <select
+                  value={vehicleForm.status}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, status: e.target.value as any })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
+                >
+                  <option value="active">Active</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Assigned Driver</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-slate-700">Assigned Driver (1 Driver Max)</label>
+                <span className="text-[10px] text-slate-400">1 driver = 1 vehicle</span>
+              </div>
               <select
                 value={vehicleForm.driverId}
                 onChange={(e) => setVehicleForm({ ...vehicleForm, driverId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium focus:outline-none focus:border-indigo-500"
               >
-                <option value="">Select Driver</option>
-                {drivers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.first_name} {d.last_name} ({d.phone})
-                  </option>
-                ))}
+                <option value="">No Driver Assigned (Unassigned)</option>
+                {drivers.map((d) => {
+                  const assignedVeh = getAssignedVehicleForDriver(d.id);
+                  const isBusy = !!assignedVeh;
+                  return (
+                    <option
+                      key={d.id}
+                      value={d.id}
+                      disabled={isBusy}
+                      className={isBusy ? 'text-slate-400 bg-slate-50' : 'text-slate-900'}
+                    >
+                      {d.first_name} {d.last_name} {d.phone ? `(${d.phone})` : ''}
+                      {isBusy ? ` — [Already assigned to ${assignedVeh.vehicle_name} (${assignedVeh.vehicle_number})]` : ' — Available'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -1319,13 +1745,13 @@ export default function AdminTransportPage() {
         </Modal>
 
         {/* =================================================================== */}
-        {/* EDIT VEHICLE MODAL */}
+        {/* EDIT VEHICLE MODAL (1 DRIVER 1 VEHICLE ENFORCED)                     */}
         {/* =================================================================== */}
         <Modal
           isOpen={!!editingVehicle}
           onClose={() => setEditingVehicle(null)}
           title={`Edit Vehicle: ${editingVehicle?.vehicle_name || ''}`}
-          description="Update fleet details, capacity, and assigned driver"
+          description="Update fleet details, capacity, and driver assignment"
         >
           <form onSubmit={handleUpdateVehicle} className="space-y-4 text-xs text-left">
             <div className="grid grid-cols-2 gap-3">
@@ -1336,7 +1762,7 @@ export default function AdminTransportPage() {
                   required
                   value={editVehicleForm.vehicleName}
                   onChange={(e) => setEditVehicleForm({ ...editVehicleForm, vehicleName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
                 />
               </div>
               <div>
@@ -1346,7 +1772,7 @@ export default function AdminTransportPage() {
                   required
                   value={editVehicleForm.vehicleNumber}
                   onChange={(e) => setEditVehicleForm({ ...editVehicleForm, vehicleNumber: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold"
                 />
               </div>
             </div>
@@ -1357,7 +1783,7 @@ export default function AdminTransportPage() {
                 <select
                   value={editVehicleForm.type}
                   onChange={(e) => setEditVehicleForm({ ...editVehicleForm, type: e.target.value as any })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="bus">School Bus</option>
                   <option value="van">Mini Van</option>
@@ -1372,7 +1798,7 @@ export default function AdminTransportPage() {
                   min={5}
                   value={editVehicleForm.capacity}
                   onChange={(e) => setEditVehicleForm({ ...editVehicleForm, capacity: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
                 />
               </div>
               <div>
@@ -1380,7 +1806,7 @@ export default function AdminTransportPage() {
                 <select
                   value={editVehicleForm.status}
                   onChange={(e) => setEditVehicleForm({ ...editVehicleForm, status: e.target.value as any })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="active">Active</option>
                   <option value="maintenance">Maintenance</option>
@@ -1390,18 +1816,31 @@ export default function AdminTransportPage() {
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Assigned Driver</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-slate-700">Assigned Driver (1 Driver Max)</label>
+                <span className="text-[10px] text-slate-400">1 driver = 1 vehicle</span>
+              </div>
               <select
                 value={editVehicleForm.driverId}
                 onChange={(e) => setEditVehicleForm({ ...editVehicleForm, driverId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium focus:outline-none focus:border-indigo-500"
               >
-                <option value="">Select Driver</option>
-                {drivers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.first_name} {d.last_name} ({d.phone})
-                  </option>
-                ))}
+                <option value="">No Driver Assigned (Unassigned)</option>
+                {drivers.map((d) => {
+                  const assignedVeh = getAssignedVehicleForDriver(d.id, editingVehicle?.id);
+                  const isBusy = !!assignedVeh;
+                  return (
+                    <option
+                      key={d.id}
+                      value={d.id}
+                      disabled={isBusy}
+                      className={isBusy ? 'text-slate-400 bg-slate-50' : 'text-slate-900'}
+                    >
+                      {d.first_name} {d.last_name} {d.phone ? `(${d.phone})` : ''}
+                      {isBusy ? ` — [Already assigned to ${assignedVeh.vehicle_name} (${assignedVeh.vehicle_number})]` : ' — Available'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -1417,7 +1856,7 @@ export default function AdminTransportPage() {
         </Modal>
 
         {/* =================================================================== */}
-        {/* CREATE CITY ROUTE & PICKUP POINTS MODAL (CITY SELECTION -> ROUTE -> STOPS) */}
+        {/* CREATE ROUTE & PICKUP POINTS MODAL                                  */}
         {/* =================================================================== */}
         <Modal
           isOpen={isRouteModalOpen}
@@ -1455,7 +1894,7 @@ export default function AdminTransportPage() {
                 </div>
               </div>
 
-              {routeForm.cityMode === 'existing' ? (
+              {routeForm.cityMode === 'existing' && availableCities.length > 0 ? (
                 <div className="space-y-2">
                   <select
                     value={routeForm.selectedCity}
@@ -1469,7 +1908,6 @@ export default function AdminTransportPage() {
                     ))}
                   </select>
 
-                  {/* Show existing routes in this city */}
                   {existingRoutesInSelectedCity.length > 0 && (
                     <div className="p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-[11px] text-indigo-950">
                       <span className="font-bold block mb-1">Existing routes in {routeForm.selectedCity}:</span>
@@ -1487,13 +1925,13 @@ export default function AdminTransportPage() {
                 <div>
                   <input
                     type="text"
-                    required={routeForm.cityMode === 'new'}
-                    placeholder="Enter new city name (e.g. Ranchi, Patna, Sector 62)"
+                    required
+                    placeholder="Enter city or area name (e.g. Barrackpore, Khardaha)"
                     value={routeForm.newCity}
                     onChange={(e) => setRouteForm({ ...routeForm, newCity: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:border-indigo-500 font-semibold"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">This new city will be saved and available for all future routes & stops.</p>
+                  <p className="text-[11px] text-slate-400 mt-1">This city will be saved and available for all future routes & stops.</p>
                 </div>
               )}
             </div>
@@ -1513,8 +1951,8 @@ export default function AdminTransportPage() {
                     required
                     value={routeForm.routeName}
                     onChange={(e) => setRouteForm({ ...routeForm, routeName: e.target.value })}
-                    placeholder="e.g. Main Bazar Line"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                    placeholder="e.g. Barrackpore Express"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium"
                   />
                 </div>
                 <div>
@@ -1524,8 +1962,8 @@ export default function AdminTransportPage() {
                     required
                     value={routeForm.routeCode}
                     onChange={(e) => setRouteForm({ ...routeForm, routeCode: e.target.value })}
-                    placeholder="e.g. RT-01"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
+                    placeholder="e.g. BKP-01"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold"
                   />
                 </div>
               </div>
@@ -1535,7 +1973,7 @@ export default function AdminTransportPage() {
                 <select
                   value={routeForm.assignedVehicleId}
                   onChange={(e) => setRouteForm({ ...routeForm, assignedVehicleId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="">Select Fleet Vehicle (Optional)</option>
                   {vehicles.map((v) => {
@@ -1548,7 +1986,7 @@ export default function AdminTransportPage() {
                   })}
                 </select>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Vehicles can be assigned to multiple routes across morning & afternoon runs.
+                  Linking a vehicle allows the driver of that vehicle to view passengers on this route.
                 </p>
               </div>
             </div>
@@ -1563,7 +2001,7 @@ export default function AdminTransportPage() {
                 <button
                   type="button"
                   onClick={handleAddStopToCreateRoute}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200"
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Pickup Point
                 </button>
@@ -1578,7 +2016,7 @@ export default function AdminTransportPage() {
                     <input
                       type="text"
                       required
-                      placeholder="Stop Name (e.g. Gandhi Chowk)"
+                      placeholder="Stop Name (e.g. Gandhi More)"
                       value={st.stop_name}
                       onChange={(e) => {
                         const updated = [...routeForm.stops];
@@ -1613,7 +2051,7 @@ export default function AdminTransportPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveStopFromCreateRoute(idx)}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg"
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
                         title="Remove Stop"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1636,20 +2074,21 @@ export default function AdminTransportPage() {
         </Modal>
 
         {/* =================================================================== */}
-        {/* EDIT ROUTE & STOPS MODAL */}
+        {/* EDIT ROUTE & STOPS MODAL                                            */}
         {/* =================================================================== */}
         <Modal
           isOpen={!!editingRoute}
           onClose={() => setEditingRoute(null)}
           title={`Edit Route: ${editingRoute?.route_name || ''}`}
-          description="Update city, route details, and manage ordered pickup points"
+          description="Update city, route details, vehicle linking, and manage pickup points"
         >
           <form onSubmit={handleUpdateRoute} className="space-y-4 text-xs text-left">
-            {/* City Selection / Edit */}
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="font-semibold text-slate-700">City / Zone</label>
-                <div className="flex items-center bg-slate-200 p-0.5 rounded text-[10px] font-semibold">
+                <label className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-600" /> City / Zone *
+                </label>
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-semibold">
                   <button
                     type="button"
                     onClick={() => setEditRouteForm({ ...editRouteForm, cityMode: 'existing' })}
@@ -1666,16 +2105,16 @@ export default function AdminTransportPage() {
                       editRouteForm.cityMode === 'new' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600'
                     }`}
                   >
-                    New City
+                    + New City
                   </button>
                 </div>
               </div>
 
-              {editRouteForm.cityMode === 'existing' ? (
+              {editRouteForm.cityMode === 'existing' && availableCities.length > 0 ? (
                 <select
                   value={editRouteForm.selectedCity}
                   onChange={(e) => setEditRouteForm({ ...editRouteForm, selectedCity: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-semibold"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-semibold text-slate-800"
                 >
                   {availableCities.map((c) => (
                     <option key={c} value={c}>
@@ -1687,7 +2126,7 @@ export default function AdminTransportPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Enter city name"
+                  placeholder="Enter city or area name"
                   value={editRouteForm.newCity}
                   onChange={(e) => setEditRouteForm({ ...editRouteForm, newCity: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-semibold"
@@ -1703,7 +2142,7 @@ export default function AdminTransportPage() {
                   required
                   value={editRouteForm.routeName}
                   onChange={(e) => setEditRouteForm({ ...editRouteForm, routeName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium"
                 />
               </div>
               <div>
@@ -1713,7 +2152,7 @@ export default function AdminTransportPage() {
                   required
                   value={editRouteForm.routeCode}
                   onChange={(e) => setEditRouteForm({ ...editRouteForm, routeCode: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono font-semibold"
                 />
               </div>
             </div>
@@ -1726,7 +2165,7 @@ export default function AdminTransportPage() {
                   onChange={(e) => setEditRouteForm({ ...editRouteForm, assignedVehicleId: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
                 >
-                  <option value="">Select Vehicle (Optional)</option>
+                  <option value="">No Vehicle Assigned</option>
                   {vehicles.map((v) => {
                     const drv = v.driver_name || (drivers.find((d) => d.id === v.driver_id) ? `${drivers.find((d) => d.id === v.driver_id)?.first_name} ${drivers.find((d) => d.id === v.driver_id)?.last_name}` : null);
                     return (
@@ -1737,12 +2176,13 @@ export default function AdminTransportPage() {
                   })}
                 </select>
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Route Status</label>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
                 <select
                   value={editRouteForm.status}
                   onChange={(e) => setEditRouteForm({ ...editRouteForm, status: e.target.value as any })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -1750,18 +2190,19 @@ export default function AdminTransportPage() {
               </div>
             </div>
 
-            {/* Interactive Stops Management List */}
+            {/* Stops Management */}
             <div className="space-y-2 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
-                <label className="block font-bold text-slate-800">
-                  Pickup Points ({editRouteForm.stops.length})
+                <label className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-indigo-600" />
+                  Pickup Points & Timings ({editRouteForm.stops.length})
                 </label>
                 <button
                   type="button"
                   onClick={handleAddStopToEditRoute}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Stop
+                  <Plus className="w-3.5 h-3.5" /> Add Pickup Point
                 </button>
               </div>
 
@@ -1774,7 +2215,7 @@ export default function AdminTransportPage() {
                     <input
                       type="text"
                       required
-                      placeholder="Pickup Point Name"
+                      placeholder="Stop Name"
                       value={st.stop_name}
                       onChange={(e) => {
                         const updated = [...editRouteForm.stops];
@@ -1785,7 +2226,7 @@ export default function AdminTransportPage() {
                     />
                     <input
                       type="text"
-                      placeholder="Pickup (07:20 AM)"
+                      placeholder="Pickup"
                       value={st.estimated_pickup_time}
                       onChange={(e) => {
                         const updated = [...editRouteForm.stops];
@@ -1796,7 +2237,7 @@ export default function AdminTransportPage() {
                     />
                     <input
                       type="text"
-                      placeholder="Drop (02:30 PM)"
+                      placeholder="Drop"
                       value={st.estimated_drop_time}
                       onChange={(e) => {
                         const updated = [...editRouteForm.stops];
@@ -1809,7 +2250,7 @@ export default function AdminTransportPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveStopFromEditRoute(idx)}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg"
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
                         title="Remove Stop"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1832,13 +2273,13 @@ export default function AdminTransportPage() {
         </Modal>
 
         {/* =================================================================== */}
-        {/* ASSIGN STUDENT MODAL (CITY -> PICKUP POINT WORKFLOW) */}
+        {/* ASSIGN STUDENT MODAL (WITH PROMINENT VEHICLE STATUS)                 */}
         {/* =================================================================== */}
         <Modal
           isOpen={isAssignStudentModalOpen}
           onClose={() => setIsAssignStudentModalOpen(false)}
-          title="Assign Student to Pickup Point"
-          description="Choose student's city, then select available pickup point"
+          title="Assign Student to Transport Pickup Point"
+          description="Select a student, choose their city and route, then link them to a pickup stop"
         >
           <form onSubmit={handleAssignStudent} className="space-y-4 text-xs text-left">
             {/* 1. Searchable Student Selection */}
@@ -1851,7 +2292,7 @@ export default function AdminTransportPage() {
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search student by name, reg no, or class..."
+                  placeholder="Search student by name, registration no, or class..."
                   value={studentSearchQuery}
                   onChange={(e) => setStudentSearchQuery(e.target.value)}
                   className="w-full pl-8 pr-8 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-2xs"
@@ -1860,7 +2301,7 @@ export default function AdminTransportPage() {
                   <button
                     type="button"
                     onClick={() => setStudentSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 p-0.5"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                   >
                     ✕
                   </button>
@@ -1896,7 +2337,7 @@ export default function AdminTransportPage() {
                 </div>
               )}
 
-              <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl border border-slate-200 bg-slate-50/50 p-1.5">
+              <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-slate-200 bg-slate-50/50 p-1.5">
                 {filteredModalStudents.length === 0 ? (
                   <div className="text-center py-4 text-slate-400 text-xs">
                     No students found matching &quot;{studentSearchQuery}&quot;
@@ -1943,10 +2384,10 @@ export default function AdminTransportPage() {
               </div>
             </div>
 
-            {/* 2. Select City / Area */}
+            {/* 2. Choose City / Area */}
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                2. Choose Student&apos;s City / Zone <span className="text-rose-500">*</span>
+                2. Choose City / Area <span className="text-rose-500">*</span>
               </label>
               <select
                 required
@@ -1965,9 +2406,9 @@ export default function AdminTransportPage() {
                     vehicleId: firstRoute?.assigned_vehicle_id || assignForm.vehicleId || vehicles[0]?.id || '',
                   });
                 }}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-semibold text-slate-800"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-semibold text-slate-800"
               >
-                <option value="">Select City / Zone</option>
+                <option value="">Select City / Area</option>
                 {availableCities.map((c) => (
                   <option key={c} value={c}>
                     📍 {c}
@@ -1976,7 +2417,7 @@ export default function AdminTransportPage() {
               </select>
             </div>
 
-            {/* 3. Select Route in City + Add Route Button */}
+            {/* 3. Select Route in City */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block font-semibold text-slate-700">
@@ -1985,7 +2426,7 @@ export default function AdminTransportPage() {
                 <button
                   type="button"
                   onClick={() => openCreateRouteModalForCity(assignForm.city || undefined)}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200"
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200 cursor-pointer"
                 >
                   <Plus className="w-3 h-3" /> Add Route
                 </button>
@@ -1993,11 +2434,11 @@ export default function AdminTransportPage() {
 
               {routesInSelectedCity.length === 0 ? (
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
-                  <span>No routes in {assignForm.city || 'this city'}.</span>
+                  <span>No routes in {assignForm.city || 'this area'}.</span>
                   <button
                     type="button"
                     onClick={() => openCreateRouteModalForCity(assignForm.city || undefined)}
-                    className="font-bold underline text-indigo-700 hover:text-indigo-900"
+                    className="font-bold underline text-indigo-700 hover:text-indigo-900 cursor-pointer"
                   >
                     + Create Route
                   </button>
@@ -2017,7 +2458,7 @@ export default function AdminTransportPage() {
                       vehicleId: r?.assigned_vehicle_id || assignForm.vehicleId,
                     });
                   }}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="">Select Route</option>
                   {routesInSelectedCity.map((r) => (
@@ -2043,7 +2484,7 @@ export default function AdminTransportPage() {
                   required
                   value={assignForm.stopId}
                   onChange={(e) => setAssignForm({ ...assignForm, stopId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                 >
                   <option value="">Select Pickup Point</option>
                   {stopsInSelectedRoute.map((st) => (
@@ -2055,17 +2496,44 @@ export default function AdminTransportPage() {
               )}
             </div>
 
-            {/* Auto-selected Route Bus & Driver */}
+            {/* Auto-selected Route Bus & Driver Status Card */}
             {(() => {
               const selectedR = routes.find((r) => r.id === assignForm.routeId);
-              const matchedVeh = vehicles.find((v) => v.id === (selectedR?.assigned_vehicle_id || assignForm.vehicleId));
-              if (!matchedVeh) return null;
+              if (!selectedR) return null;
+              const matchedVeh = vehicles.find((v) => v.id === selectedR.assigned_vehicle_id);
+
+              if (matchedVeh) {
+                const assignedDriver = drivers.find((d) => d.id === matchedVeh.driver_id);
+                const dName = matchedVeh.driver_name || (assignedDriver ? `${assignedDriver.first_name} ${assignedDriver.last_name}` : null);
+                return (
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Bus className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <span className="font-bold text-emerald-950 block">
+                          Assigned Fleet Bus: {matchedVeh.vehicle_name} ({matchedVeh.vehicle_number})
+                        </span>
+                        <span className="text-[11px] text-emerald-700">
+                          Driver: {dName ? <strong>{dName}</strong> : <span className="italic">Unassigned</span>}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                      Driver Linked
+                    </span>
+                  </div>
+                );
+              }
+
               return (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Assigned Route Bus:</span>
-                  <span className="font-bold text-indigo-700">
-                    🚌 {matchedVeh.vehicle_name} ({matchedVeh.vehicle_number}){matchedVeh.driver_name ? ` • Driver: ${matchedVeh.driver_name}` : ''}
-                  </span>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>⚠️ Warning: Route Has No Vehicle Linked</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Route <strong>&quot;{selectedR.route_name}&quot;</strong> does not have a vehicle or driver assigned. Students assigned to this route will <strong>not appear on any driver&apos;s portal</strong> until you link a bus in &quot;Cities, Routes &amp; Stops&quot;.
+                  </p>
                 </div>
               );
             })()}
@@ -2082,7 +2550,7 @@ export default function AdminTransportPage() {
         </Modal>
 
         {/* =================================================================== */}
-        {/* EDIT ASSIGNMENT MODAL */}
+        {/* EDIT ASSIGNMENT MODAL                                               */}
         {/* =================================================================== */}
         <Modal
           isOpen={!!editingAssignment}
@@ -2092,7 +2560,7 @@ export default function AdminTransportPage() {
         >
           <form onSubmit={handleUpdateAssignment} className="space-y-4 text-xs text-left">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">City / Zone *</label>
+              <label className="block font-semibold text-slate-700 mb-1">City / Area *</label>
               <select
                 required
                 value={editAssignForm.city}
@@ -2110,8 +2578,9 @@ export default function AdminTransportPage() {
                     vehicleId: firstRoute?.assigned_vehicle_id || editAssignForm.vehicleId,
                   });
                 }}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-semibold"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-semibold"
               >
+                <option value="">Select City / Area</option>
                 {availableCities.map((c) => (
                   <option key={c} value={c}>
                     📍 {c}
@@ -2122,11 +2591,11 @@ export default function AdminTransportPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block font-semibold text-slate-700">Route in {editAssignForm.city} *</label>
+                <label className="block font-semibold text-slate-700">Route in {editAssignForm.city || 'Area'} *</label>
                 <button
                   type="button"
                   onClick={() => openCreateRouteModalForCity(editAssignForm.city || undefined)}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200"
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200 cursor-pointer"
                 >
                   <Plus className="w-3 h-3" /> Add Route
                 </button>
@@ -2145,7 +2614,7 @@ export default function AdminTransportPage() {
                     vehicleId: r?.assigned_vehicle_id || editAssignForm.vehicleId,
                   });
                 }}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
               >
                 <option value="">Select Route</option>
                 {routesInEditCity.map((r) => (
@@ -2162,7 +2631,7 @@ export default function AdminTransportPage() {
                 required
                 value={editAssignForm.stopId}
                 onChange={(e) => setEditAssignForm({ ...editAssignForm, stopId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
               >
                 <option value="">Select Stop</option>
                 {stopsInEditRoute.map((st) => (
@@ -2173,17 +2642,36 @@ export default function AdminTransportPage() {
               </select>
             </div>
 
-            {/* Auto-selected Route Bus & Driver */}
+            {/* Auto-selected Route Bus & Driver Status Card */}
             {(() => {
               const selectedR = routes.find((r) => r.id === editAssignForm.routeId);
-              const matchedVeh = vehicles.find((v) => v.id === (selectedR?.assigned_vehicle_id || editAssignForm.vehicleId));
-              if (!matchedVeh) return null;
+              if (!selectedR) return null;
+              const matchedVeh = vehicles.find((v) => v.id === selectedR.assigned_vehicle_id);
+
+              if (matchedVeh) {
+                const assignedDriver = drivers.find((d) => d.id === matchedVeh.driver_id);
+                const dName = matchedVeh.driver_name || (assignedDriver ? `${assignedDriver.first_name} ${assignedDriver.last_name}` : null);
+                return (
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Bus className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <span className="font-bold text-emerald-950 block">
+                          Assigned Fleet Bus: {matchedVeh.vehicle_name} ({matchedVeh.vehicle_number})
+                        </span>
+                        <span className="text-[11px] text-emerald-700">
+                          Driver: {dName ? <strong>{dName}</strong> : <span className="italic">Unassigned</span>}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Assigned Route Bus:</span>
-                  <span className="font-bold text-indigo-700">
-                    🚌 {matchedVeh.vehicle_name} ({matchedVeh.vehicle_number}){matchedVeh.driver_name ? ` • Driver: ${matchedVeh.driver_name}` : ''}
-                  </span>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                  <span className="font-bold block">⚠️ Notice: Route has no vehicle assigned</span>
+                  <span className="text-[11px] text-amber-700 block">Link a vehicle in &quot;Cities, Routes &amp; Stops&quot; so drivers can see this student.</span>
                 </div>
               );
             })()}
@@ -2193,7 +2681,7 @@ export default function AdminTransportPage() {
               <select
                 value={editAssignForm.status}
                 onChange={(e) => setEditAssignForm({ ...editAssignForm, status: e.target.value as any })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>

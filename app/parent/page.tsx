@@ -1043,7 +1043,7 @@ export default function ParentPortalPage() {
                       <Building2 className="w-3 h-3 text-indigo-500" /> City / Zone
                     </span>
                     <span className="font-bold text-indigo-700 text-sm block">
-                      {selectedChild.transport_assignment.city || 'Kolodihari'}
+                      {selectedChild.transport_assignment.city || 'School Area'}
                     </span>
                     <span className="text-[11px] text-slate-500 font-medium block">
                       Route: {selectedChild.transport_assignment.route_name || 'Main Route'}
