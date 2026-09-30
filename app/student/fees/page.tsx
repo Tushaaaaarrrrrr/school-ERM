@@ -64,9 +64,6 @@ export default function StudentFeesPage() {
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
           <IndianRupee className="w-6 h-6 text-indigo-600" /> Fee Statements & Official Receipts
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Download and print your official 1/4 A4 fee receipts, view monthly dues, and extra charges
-        </p>
       </div>
 
       {isLoading ? (

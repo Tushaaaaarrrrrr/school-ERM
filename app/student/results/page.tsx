@@ -38,9 +38,6 @@ export default function StudentResultsPage() {
     <div className="space-y-6 text-left w-full">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academic Results & Grades</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Official published examination performance reports
-        </p>
       </div>
 
       {isLoading ? (
@@ -51,7 +48,6 @@ export default function StudentResultsPage() {
         <div className="bg-white p-12 text-center rounded-xl border border-slate-200 text-slate-500">
           <Award className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-sm font-semibold text-slate-900 mb-1">No published results available</p>
-          <p className="text-xs text-slate-400">Exam scores will appear here once officially published by your teachers.</p>
         </div>
       ) : (
         <div className="space-y-4">

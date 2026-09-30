@@ -6,16 +6,18 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
-import { timetableService, subjectService } from '@/lib/services/api';
-import { TimetableEntry, Subject } from '@/lib/types';
+import { timetableService, subjectService, studentService } from '@/lib/services/api';
+import { TimetableEntry, Subject, Student } from '@/lib/types';
 import { formatTime, getDayName } from '@/lib/utils/formatters';
-import { CalendarDays, BookOpen, Clock, MapPin } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function StudentClassesPage() {
-  const { currentSchool } = useAuth();
-  const schoolId = currentSchool?.id || 'sch-001';
+  const { currentSchool, currentUser } = useAuth();
+  const schoolId = currentSchool?.id || '';
+  const studentId = currentUser?.student_id || currentUser?.id;
 
+  const [student, setStudent] = useState<Student | null>(null);
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,8 +26,14 @@ export default function StudentClassesPage() {
     async function loadStudentSchedule() {
       setIsLoading(true);
       try {
+        const std = studentId ? await studentService.getStudentById(studentId).catch(() => null) : null;
+        setStudent(std);
+
+        const classId = std?.current_enrollment?.class_id || 'cls-08';
+        const sectionId = std?.current_enrollment?.section_id || 'sec-8a';
+
         const [ttList, subList] = await Promise.all([
-          timetableService.getTimetable(schoolId, { classId: 'cls-08', sectionId: 'sec-8a' }),
+          timetableService.getTimetable(schoolId, { classId, sectionId }),
           subjectService.getSubjects(schoolId),
         ]);
         setEntries(ttList);
@@ -38,17 +46,19 @@ export default function StudentClassesPage() {
     }
 
     loadStudentSchedule();
-  }, [schoolId]);
+  }, [schoolId, studentId]);
 
   const days = [1, 2, 3, 4, 5, 6];
+
+  const classSubtitle = student?.current_enrollment
+    ? `${student.current_enrollment.class_name} • Section ${student.current_enrollment.section_name} — Enrolled subjects and timetable`
+    : 'Enrolled subjects and timetable';
 
   return (
     <div className="space-y-6 text-left w-full">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Classes & Weekly Schedule</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Class 8 • Section A — Enrolled subjects and timetable
-        </p>
+        <p className="text-xs text-slate-500 mt-0.5">{classSubtitle}</p>
       </div>
 
       {/* Enrolled Subjects List */}
