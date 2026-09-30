@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
+import { getAssignedDriverTransport } from '@/lib/server/driver-access';
 
 export async function GET(request: Request) {
   try {
@@ -8,6 +9,10 @@ export async function GET(request: Request) {
     const filters = Object.fromEntries(url.searchParams.entries());
     const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    if (access.role === 'driver') {
+      const assigned = await getAssignedDriverTransport(access.schoolId, access.context);
+      filters.vehicle_id = assigned.vehicle?.id || '__none__';
+    }
     
     // @ts-ignore
     const data = await serverDb.getTransportEvents(access.schoolId, filters);
@@ -22,6 +27,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const access = await requireSchoolAccess(body.school_id, ['school_admin', 'driver', 'staff']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    if (access.role === 'driver') {
+      const assigned = await getAssignedDriverTransport(access.schoolId, access.context);
+      if (!assigned.vehicle || body.vehicle_id !== assigned.vehicle.id || !assigned.routes.some((r: any) => r.id === body.route_id)) {
+        return NextResponse.json({ success: false, error: 'Driver is not assigned to this route.' }, { status: 403 });
+      }
+    }
     
     // @ts-ignore
     const data = await serverDb.createTransportEvent({ ...body, school_id: access.schoolId });
@@ -39,6 +50,10 @@ export async function DELETE(request: Request) {
     const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff']);
     if (!access.ok || !access.schoolId || !studentId) {
       return NextResponse.json({ success: false, error: 'Forbidden or missing parameters' }, { status: 400 });
+    }
+    if (access.role === 'driver') {
+      const assigned = await getAssignedDriverTransport(access.schoolId, access.context);
+      if (!assigned.vehicle) return NextResponse.json({ success: false, error: 'Driver is not assigned to an active route.' }, { status: 403 });
     }
 
     // @ts-ignore

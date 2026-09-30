@@ -1,49 +1,40 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
+import { getAssignedDriverTransport } from '@/lib/server/driver-access';
 
 export async function GET(request: Request) {
   try {
-    const access = await requireSchoolAccess(null, ['driver', 'staff', 'school_admin']);
+    const access = await requireSchoolAccess(null, ['driver', 'school_admin']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     
     const schoolId = access.schoolId;
     const ctx = access.context as any;
-    const userEmail = ctx.user?.email || ctx.profile?.email;
     
     // Get all staff, vehicles, routes, stops, assignments, students for this school
-    const [staffList, vehicles, routes, stops, assignments, students] = await Promise.all([
-      serverDb.getStaff(schoolId),
-      // @ts-ignore
-      serverDb.getVehicles(schoolId),
-      // @ts-ignore
-      serverDb.getTransportRoutes(schoolId),
+    const [{ driver, vehicle, routes: driverRoutes }, stops, assignments, students] = await Promise.all([
+      access.role === 'driver'
+        ? getAssignedDriverTransport(schoolId, ctx)
+        : (async () => {
+            const [vehicles, routes] = await Promise.all([
+              // @ts-ignore
+              serverDb.getVehicles(schoolId),
+              // @ts-ignore
+              serverDb.getTransportRoutes(schoolId),
+            ]);
+            const vehicle = vehicles[0] || null;
+            return { driver: null, vehicle, routes: vehicle ? routes.filter((r: any) => r.assigned_vehicle_id === vehicle.id || r.vehicle_id === vehicle.id) : [] };
+          })(),
       // @ts-ignore
       serverDb.getTransportStops(schoolId),
       // @ts-ignore
       serverDb.getTransportAssignments(schoolId),
       serverDb.getStudents(schoolId),
     ]);
-    
-    // Find the driver staff record by email (case-insensitive) or user profile ID
-    const driver = staffList.find(s => 
-      (userEmail && s.email?.toLowerCase().trim() === userEmail.toLowerCase().trim()) ||
-      (s.id === ctx.user?.id) ||
-      (s.auth_user_id && s.auth_user_id === ctx.user?.id)
-    ) || null;
 
-    const driverName = driver ? `${driver.first_name} ${driver.last_name}`.trim().toLowerCase() : (ctx.user?.name || '').trim().toLowerCase();
-    
-    // Find vehicle assigned to this driver by UUID, email, employee number, or full name
-    const vehicle = vehicles.find((v: any) => {
-      if (driver && v.driver_id && (v.driver_id === driver.id || v.driver_id === driver.employee_number)) return true;
-      if (userEmail && v.driver_id && v.driver_id.toLowerCase().trim() === userEmail.toLowerCase().trim()) return true;
-      if (driverName && v.driver_name && v.driver_name.toLowerCase().trim() === driverName) return true;
-      return false;
-    }) || null;
-    
-    // Find routes assigned to this vehicle OR directly to this driver
-    const driverRoutes = vehicle ? routes.filter((r: any) => r.assigned_vehicle_id === vehicle.id || (r.vehicle_id && r.vehicle_id === vehicle.id)) : [];
+    if (access.role === 'driver' && (!driver || !vehicle || driverRoutes.length === 0)) {
+      return NextResponse.json({ success: false, error: 'Driver is not assigned to an active route.' }, { status: 403 });
+    }
     
     // Find stops for those routes
     const routeIds = driverRoutes.map((r: any) => r.id);
