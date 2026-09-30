@@ -88,6 +88,5 @@ async function handleEmailCheck(
     available: result.available,
     normalizedEmail: result.normalizedEmail,
     error: result.error,
-    existingRecord: result.existingRecord,
   });
 }

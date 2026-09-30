@@ -122,7 +122,7 @@ export function GoogleEmailInput({
             setServerError(null);
             onValidationChangeRef.current?.(true, true, false);
           } else {
-            setServerError(res.error || 'Not Available');
+            setServerError(res.error || 'Email already in use');
             setServerMessage(null);
             onValidationChangeRef.current?.(true, false, false);
           }
@@ -131,7 +131,7 @@ export function GoogleEmailInput({
         if (activeCheckEmailRef.current === emailToCheck) {
           setIsChecking(false);
           setIsAvailable(false);
-          setServerError('Not Available');
+          setServerError('Email already in use');
           onValidationChangeRef.current?.(true, false, false);
         }
       }

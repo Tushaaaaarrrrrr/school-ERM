@@ -9720,7 +9720,7 @@ export const emailValidationService = {
       return {
         isValid: true,
         isAvailable: false,
-        error: `This email is already registered as the Administrator login account for "${matchedSchool.name}" (${matchedSchool.code}).`,
+        error: 'Email already in use',
       };
     }
 
@@ -9732,7 +9732,7 @@ export const emailValidationService = {
       return {
         isValid: true,
         isAvailable: false,
-        error: `This email is already assigned to Teacher "${matchedTeacher.first_name} ${matchedTeacher.last_name}". A user cannot have conflicting roles.`,
+        error: 'Email already in use',
       };
     }
 
@@ -9744,7 +9744,7 @@ export const emailValidationService = {
       return {
         isValid: true,
         isAvailable: false,
-        error: `This email is already assigned to Staff member "${matchedStaff.first_name} ${matchedStaff.last_name}" (${matchedStaff.staff_type}).`,
+        error: 'Email already in use',
       };
     }
 

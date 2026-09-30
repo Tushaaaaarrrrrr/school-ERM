@@ -86,12 +86,7 @@ export async function checkEmailRegistry(
       valid: true,
       available: false,
       normalizedEmail,
-      error: `This email is reserved as Platform Super Administrator. It cannot be registered for school administrator login.`,
-      existingRecord: {
-        type: 'profile',
-        name: 'Platform Super Admin',
-        role: 'Super Admin',
-      },
+      error: 'Email already in use',
     };
   }
 
@@ -116,42 +111,23 @@ export async function checkEmailRegistry(
             valid: true,
             available: false,
             normalizedEmail,
-            error: `This email is already assigned as Platform Super Administrator (${p.display_name || p.email}).`,
-            existingRecord: {
-              type: 'profile',
-              name: p.display_name,
-              role: 'Super Admin',
-              status: p.status,
-            },
+            error: 'Email already in use',
           };
         }
 
         // Check active membership
         const { data: memberships } = await adminClient
           .from('school_memberships')
-          .select('*, schools(name, code)')
+          .select('id, status')
           .eq('user_id', p.id)
           .eq('status', 'active');
 
         if (memberships && memberships.length > 0) {
-          const m = memberships[0];
-          const schoolName = (m.schools as any)?.name || 'another school';
-          const schoolCode = (m.schools as any)?.code || '';
-          const roleDisplay = String(m.role || p.role || 'Member').replace('_', ' ');
-
           return {
             valid: true,
             available: false,
             normalizedEmail,
-            error: `This email is already active as ${roleDisplay} in ${schoolName} ${schoolCode ? `(${schoolCode})` : ''}. A single email cannot have conflicting roles.`,
-            existingRecord: {
-              type: 'membership',
-              name: p.display_name,
-              role: roleDisplay,
-              schoolName,
-              schoolCode,
-              status: m.status,
-            },
+            error: 'Email already in use',
           };
         }
       }
@@ -169,15 +145,7 @@ export async function checkEmailRegistry(
         valid: true,
         available: false,
         normalizedEmail,
-        error: `This Google email is already registered as the Administrator login account for "${existingSchoolWithAdmin.name}" (${existingSchoolWithAdmin.code}).`,
-        existingRecord: {
-          type: 'membership',
-          name: existingSchoolWithAdmin.admin_name || existingSchoolWithAdmin.name,
-          role: 'School Administrator',
-          schoolName: existingSchoolWithAdmin.name,
-          schoolCode: existingSchoolWithAdmin.code,
-          status: existingSchoolWithAdmin.status,
-        },
+        error: 'Email already in use',
       };
     }
 
@@ -192,15 +160,7 @@ export async function checkEmailRegistry(
           valid: true,
           available: false,
           normalizedEmail,
-          error: `This email is already assigned to Teacher "${existingTeacher.first_name} ${existingTeacher.last_name}" in ${school.name} (${school.code}).`,
-          existingRecord: {
-            type: 'teacher',
-            name: `${existingTeacher.first_name} ${existingTeacher.last_name}`,
-            role: 'Teacher',
-            schoolName: school.name,
-            schoolCode: school.code,
-            status: existingTeacher.status,
-          },
+          error: 'Email already in use',
         };
       }
 
@@ -214,15 +174,7 @@ export async function checkEmailRegistry(
           valid: true,
           available: false,
           normalizedEmail,
-          error: `This email is already assigned to Staff member "${existingStaff.first_name} ${existingStaff.last_name}" (${existingStaff.staff_type}) in ${school.name} (${school.code}).`,
-          existingRecord: {
-            type: 'staff',
-            name: `${existingStaff.first_name} ${existingStaff.last_name}`,
-            role: `Staff (${existingStaff.staff_type})`,
-            schoolName: school.name,
-            schoolCode: school.code,
-            status: existingStaff.status,
-          },
+          error: 'Email already in use',
         };
       }
 
@@ -239,15 +191,7 @@ export async function checkEmailRegistry(
             valid: true,
             available: false,
             normalizedEmail,
-            error: `This email is already linked to Student "${existingStudent.first_name} ${existingStudent.last_name}" (${existingStudent.registration_number}) in ${school.name}.`,
-            existingRecord: {
-              type: 'student',
-              name: `${existingStudent.first_name} ${existingStudent.last_name}`,
-              role: 'Student / Parent',
-              schoolName: school.name,
-              schoolCode: school.code,
-              status: existingStudent.status,
-            },
+            error: 'Email already in use',
           };
         }
       }
