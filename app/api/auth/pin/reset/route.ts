@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const { targetType, targetId, newPin } = await request.json();
+    const { targetType, targetId, newPin, removePin } = await request.json();
     if (!targetType || !targetId) {
       return NextResponse.json({ success: false, error: 'Target parameters required' }, { status: 400 });
     }
@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     await serverDb.unlockAndResetPin({
       targetType,
       targetId,
-      newPin,
+      newPin: newPin || undefined,
+      removePin: removePin === true,
       unlockedByName: context.user?.name || (isSuperAdmin ? 'Super Admin' : 'School Admin'),
     });
     return NextResponse.json({ success: true, message: 'PIN updated and account unlocked successfully.' });

@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { clientIp, consume, tooManyRequests } from '@/lib/server/rate-limit';
 import { serverDb } from '@/lib/server/db';
 import { stripSchoolSecrets, studentLoginProfile } from '@/lib/server/sanitize';
 
 export async function GET(request: Request) {
   try {
+    const retryAfter = consume(`lookup:${clientIp(request)}`, 60, 60_000);
+    if (retryAfter > 0) return tooManyRequests(retryAfter);
     const { searchParams } = new URL(request.url);
     const identifier = (searchParams.get('identifier') || '')
       .trim()

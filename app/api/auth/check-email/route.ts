@@ -4,10 +4,13 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
+import { clientIp, consume, tooManyRequests } from '@/lib/server/rate-limit';
 import { checkEmailRegistry, validateGmailDomain } from '@/lib/server/email-registry';
 
 export async function GET(request: Request) {
   try {
+    const retryAfter = consume(`check-email:${clientIp(request)}`, 30, 60_000);
+    if (retryAfter > 0) return tooManyRequests(retryAfter);
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email') || '';
     const excludeUserId = searchParams.get('excludeUserId') || undefined;
@@ -34,6 +37,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const retryAfter = consume(`check-email:${clientIp(request)}`, 30, 60_000);
+    if (retryAfter > 0) return tooManyRequests(retryAfter);
     const body = await request.json().catch(() => ({}));
     const { email, excludeUserId, excludeEmail, excludeSchoolId, targetSchoolId, targetRole } = body;
 

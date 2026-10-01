@@ -22,6 +22,15 @@ function secureRandomInt(maxExclusive: number): number {
   return values[0] % maxExclusive;
 }
 
+// True when no real Supabase backend is configured (local demo). Shared demo passwords are only allowed then.
+export function isDemoEnvironment(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return !url || !key || url.includes('demo.supabase.co') || url.includes('your-project-id') || key === 'demo-anon-key';
+}
+
+export class RateLimitError extends Error {}
+
 // ilike treats % and _ as wildcards; escape them so lookups only match the exact value (case-insensitively).
 export function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);

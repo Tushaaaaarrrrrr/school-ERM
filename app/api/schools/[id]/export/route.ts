@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { stripSchoolSecrets } from '@/lib/server/sanitize';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
 
@@ -31,7 +32,7 @@ export async function GET(
           teachers: teachers.length,
         },
       },
-      school,
+      school: stripSchoolSecrets(school),
       teachers,
     };
 

@@ -92,7 +92,8 @@ export interface Staff {
   driving_license_number?: string;
   license_expiry?: string;
   driving_license_expiry?: string;
-  security_pin?: string;
+  security_pin?: string | null;
+  has_pin?: boolean;
   pin_failed_attempts?: number;
   is_pin_locked?: boolean;
   created_at: string;
@@ -296,7 +297,8 @@ export interface School {
   pending_deletion_until?: string;
   admin_email?: string;
   admin_name?: string;
-  admin_pin?: string; // 5-digit PIN configured strictly by Super Admin
+  admin_pin?: string | null; // scrypt hash (legacy rows may still be a plain 5-digit PIN)
+  has_admin_pin?: boolean;
   admin_pin_failed_attempts?: number;
   is_admin_pin_locked?: boolean;
   security_question?: string;
@@ -471,7 +473,8 @@ export interface Teacher {
   assigned_classes?: { class_name: string; section_name?: string }[];
   monthly_salary?: number;
   salary?: number;
-  security_pin?: string;
+  security_pin?: string | null;
+  has_pin?: boolean;
   pin_failed_attempts?: number;
   is_pin_locked?: boolean;
   status: GeneralStatus;

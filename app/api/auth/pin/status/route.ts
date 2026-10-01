@@ -11,7 +11,7 @@ export async function POST() {
       return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const { pin: _pin, ...status } = await serverDb.getUserPinStatus(user);
+    const { pin: _pin, holderId: _holderId, ...status } = await serverDb.getUserPinStatus(user);
     return NextResponse.json({ success: true, data: status });
   } catch (err: unknown) {
     return NextResponse.json(

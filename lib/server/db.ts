@@ -46,6 +46,7 @@ import {
 } from '@/lib/services/mock-data';
 import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
 import { isSuperAdminEmail } from '@/lib/server/super-admin';
+import { hashIfPlain, hashSecret, hasConfiguredPin, isHashedSecret, verifySecret } from '@/lib/server/secrets';
 import { createClient } from '@supabase/supabase-js';
 
 // Global singleton for server-side state persistence across all requests & instances
@@ -100,6 +101,30 @@ function cleanAdminEmailsString(val?: string): string {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
     .join(', ');
+}
+
+function withPinFlag<T>(record: T): T {
+  if (!record || typeof record !== 'object') return record;
+  const { security_pin, ...rest } = record as Record<string, any>;
+  return { ...rest, has_pin: hasConfiguredPin(security_pin) } as T;
+}
+
+async function preparePinInput<T>(input: T): Promise<T> {
+  const { has_pin: _hasPin, ...rest } = input as Record<string, any>;
+  if (typeof rest.security_pin === 'string') {
+    const clean = rest.security_pin.trim();
+    rest.security_pin = clean ? await hashIfPlain(clean) : null;
+  }
+  return rest as T;
+}
+
+async function prepareSchoolSecretsInput<T>(input: T): Promise<T> {
+  const { has_admin_pin: _hasPin, ...rest } = input as Record<string, any>;
+  if (typeof rest.admin_pin === 'string') {
+    const clean = rest.admin_pin.trim();
+    rest.admin_pin = clean ? await hashIfPlain(clean) : null;
+  }
+  return rest as T;
 }
 
 function schoolDatabaseFields(school: Partial<School>) {
@@ -409,6 +434,7 @@ export const serverDb = {
   },
 
   async createSchool(school: School): Promise<School> {
+    school = await prepareSchoolSecretsInput(school);
     const validation = validateSchoolCodeFormat(school.code);
     if (!validation.isValid) {
       throw new Error(validation.error || 'Invalid school code format');
@@ -522,6 +548,7 @@ export const serverDb = {
   },
 
   async updateSchool(id: string, updates: Partial<School>): Promise<School> {
+    updates = await prepareSchoolSecretsInput(updates);
     if (updates.code) {
       const validation = validateSchoolCodeFormat(updates.code);
       if (!validation.isValid) {
@@ -776,59 +803,93 @@ export const serverDb = {
   // --------------------------------------------------------------------------
   // SERVER-SIDE 5-DIGIT PIN SECURITY & LOCKOUT
   // --------------------------------------------------------------------------
+  async findPinHolder(kind: 'teacher' | 'staff', user: UserPersona): Promise<any | null> {
+    const directId = kind === 'teacher' ? user.teacher_id : user.staff_id;
+    const email = user.email?.trim().toLowerCase();
+    const matches = (r: any) =>
+      (!user.school_id || r.school_id === user.school_id) &&
+      (r.id === directId || r.id === user.id || (!!email && r.email?.trim().toLowerCase() === email));
+    const supabase = getSupabaseAdmin();
+    if (supabase && user.school_id) {
+      const { data, error } = await supabase.from(kind === 'teacher' ? 'teachers' : 'staff').select('*').eq('school_id', user.school_id);
+      const row = !error && data ? data.find(matches) : undefined;
+      if (row) return row;
+    }
+    const db = initServerDb();
+    return ((kind === 'teacher' ? db.teachers : db.staff) as any[]).find(matches) || null;
+  },
+
+  async savePinHolder(kind: 'teacher' | 'staff', id: string, fields: Record<string, unknown>): Promise<void> {
+    try {
+      if (kind === 'teacher') await this.updateTeacher(id, fields as Partial<Teacher>);
+      else await this.updateStaff(id, fields as Partial<Staff>);
+    } catch (err) {
+      console.error(`PIN state: database update failed for ${kind} ${id}, keeping in-memory copy only`, err);
+      const db = initServerDb();
+      const list = (kind === 'teacher' ? db.teachers : db.staff) as any[];
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx !== -1) list[idx] = { ...list[idx], ...fields };
+    }
+  },
+
   async getUserPinStatus(user: UserPersona): Promise<{
     hasPin: boolean;
     isLocked: boolean;
     failedAttempts: number;
     maxAttempts: number;
     pin?: string;
+    holderId?: string;
   }> {
     const maxAttempts = 5;
-    if (user.role === 'super_admin') {
-      return { hasPin: false, isLocked: false, failedAttempts: 0, maxAttempts };
-    }
-
     if (user.role === 'school_admin' && user.school_id) {
       const school = await this.getSchoolById(user.school_id);
-      const rawPin = school?.admin_pin?.trim();
-      const hasPin = Boolean(rawPin && rawPin.length === 5);
+      const pin = school?.admin_pin || undefined;
       return {
-        hasPin,
+        hasPin: hasConfiguredPin(pin),
         isLocked: school?.is_admin_pin_locked || false,
         failedAttempts: school?.admin_pin_failed_attempts || 0,
         maxAttempts,
-        pin: hasPin ? rawPin : undefined,
+        pin,
       };
     }
 
-    const db = initServerDb();
-    if (user.role === 'teacher') {
-      const tch = db.teachers.find((t) => t.id === user.teacher_id || t.id === user.id || t.email === user.email);
-      const rawPin = tch?.security_pin?.trim();
-      const hasPin = Boolean(rawPin && rawPin.length === 5);
+    const kind = user.role === 'teacher' ? 'teacher' : ['staff', 'driver'].includes(user.role) ? 'staff' : null;
+    if (kind) {
+      const holder = await this.findPinHolder(kind, user);
+      const pin = holder?.security_pin || undefined;
       return {
-        hasPin,
-        isLocked: tch?.is_pin_locked || false,
-        failedAttempts: tch?.pin_failed_attempts || 0,
+        hasPin: hasConfiguredPin(pin),
+        isLocked: holder?.is_pin_locked || false,
+        failedAttempts: holder?.pin_failed_attempts || 0,
         maxAttempts,
-        pin: hasPin ? rawPin : undefined,
-      };
-    }
-
-    if (['staff', 'driver'].includes(user.role)) {
-      const stf = db.staff.find((s) => s.id === user.staff_id || s.id === user.id || s.email === user.email);
-      const rawPin = stf?.security_pin?.trim();
-      const hasPin = Boolean(rawPin && rawPin.length === 5);
-      return {
-        hasPin,
-        isLocked: stf?.is_pin_locked || false,
-        failedAttempts: stf?.pin_failed_attempts || 0,
-        maxAttempts,
-        pin: hasPin ? rawPin : undefined,
+        pin,
+        holderId: holder?.id,
       };
     }
 
     return { hasPin: false, isLocked: false, failedAttempts: 0, maxAttempts };
+  },
+
+  async recordPinState(
+    user: UserPersona,
+    holderId: string | undefined,
+    state: { failedAttempts: number; locked: boolean; rehashedPin?: string }
+  ): Promise<void> {
+    if (user.role === 'school_admin' && user.school_id) {
+      await this.updateSchool(user.school_id, {
+        admin_pin_failed_attempts: state.failedAttempts,
+        is_admin_pin_locked: state.locked,
+        ...(state.rehashedPin && { admin_pin: state.rehashedPin }),
+      });
+      return;
+    }
+    const kind = user.role === 'teacher' ? 'teacher' : ['staff', 'driver'].includes(user.role) ? 'staff' : null;
+    if (!kind || !holderId) return;
+    await this.savePinHolder(kind, holderId, {
+      pin_failed_attempts: state.failedAttempts,
+      is_pin_locked: state.locked,
+      ...(state.rehashedPin && { security_pin: state.rehashedPin }),
+    });
   },
 
   async verifyPin(
@@ -859,51 +920,19 @@ export const serverDb = {
       };
     }
 
-    const isMatch = enteredPin.trim() === (status.pin || '').trim();
-    const db = initServerDb();
-
-    if (isMatch) {
-      // Clear failed attempts on server
-      if (user.role === 'school_admin' && user.school_id) {
-        await this.updateSchool(user.school_id, { admin_pin_failed_attempts: 0, is_admin_pin_locked: false });
-      } else if (user.role === 'teacher') {
-        const idx = db.teachers.findIndex((t) => t.id === user.teacher_id || t.id === user.id || (!!user.email && t.email === user.email));
-        if (idx !== -1) {
-          db.teachers[idx].pin_failed_attempts = 0;
-          db.teachers[idx].is_pin_locked = false;
-        }
-      } else if (['staff', 'driver'].includes(user.role)) {
-        const idx = db.staff.findIndex((s) => s.id === user.staff_id || s.id === user.id || (!!user.email && s.email === user.email));
-        if (idx !== -1) {
-          db.staff[idx].pin_failed_attempts = 0;
-          db.staff[idx].is_pin_locked = false;
-        }
-      }
+    const cleanPin = enteredPin.trim();
+    if (await verifySecret(cleanPin, status.pin)) {
+      await this.recordPinState(user, status.holderId, {
+        failedAttempts: 0,
+        locked: false,
+        rehashedPin: isHashedSecret(status.pin) ? undefined : await hashSecret(cleanPin),
+      });
       return { success: true, isLocked: false, remainingAttempts: maxAttempts };
     }
 
-    // Increment failed attempts on server
     const newCount = status.failedAttempts + 1;
     const shouldLock = newCount >= maxAttempts;
-
-    if (user.role === 'school_admin' && user.school_id) {
-      await this.updateSchool(user.school_id, {
-        admin_pin_failed_attempts: newCount,
-        is_admin_pin_locked: shouldLock,
-      });
-    } else if (user.role === 'teacher') {
-      const idx = db.teachers.findIndex((t) => t.id === user.teacher_id || t.id === user.id || (!!user.email && t.email === user.email));
-      if (idx !== -1) {
-        db.teachers[idx].pin_failed_attempts = newCount;
-        db.teachers[idx].is_pin_locked = shouldLock;
-      }
-    } else if (['staff', 'driver'].includes(user.role)) {
-      const idx = db.staff.findIndex((s) => s.id === user.staff_id || s.id === user.id || (!!user.email && s.email === user.email));
-      if (idx !== -1) {
-        db.staff[idx].pin_failed_attempts = newCount;
-        db.staff[idx].is_pin_locked = shouldLock;
-      }
-    }
+    await this.recordPinState(user, status.holderId, { failedAttempts: newCount, locked: shouldLock });
 
     if (shouldLock) {
       return {
@@ -926,35 +955,29 @@ export const serverDb = {
     };
   },
 
+  /** No newPin and no removePin keeps the existing PIN and only unlocks the account. */
   async unlockAndResetPin(params: {
     targetType: 'school_admin' | 'teacher' | 'staff' | 'profile';
     targetId: string;
     newPin?: string;
+    removePin?: boolean;
     unlockedByName?: string;
   }): Promise<void> {
-    const pinToSet = params.newPin?.trim() || undefined;
-    const db = initServerDb();
+    const cleanPin = params.newPin?.trim();
+    const pin = params.removePin ? null : cleanPin ? await hashSecret(cleanPin) : undefined;
 
     if (params.targetType === 'school_admin') {
       await this.updateSchool(params.targetId, {
-        admin_pin: pinToSet,
+        ...(pin !== undefined && { admin_pin: pin }),
         admin_pin_failed_attempts: 0,
         is_admin_pin_locked: false,
       });
-    } else if (params.targetType === 'teacher') {
-      const idx = db.teachers.findIndex((t) => t.id === params.targetId);
-      if (idx !== -1) {
-        db.teachers[idx].security_pin = pinToSet;
-        db.teachers[idx].pin_failed_attempts = 0;
-        db.teachers[idx].is_pin_locked = false;
-      }
-    } else if (params.targetType === 'staff') {
-      const idx = db.staff.findIndex((s) => s.id === params.targetId);
-      if (idx !== -1) {
-        db.staff[idx].security_pin = pinToSet;
-        db.staff[idx].pin_failed_attempts = 0;
-        db.staff[idx].is_pin_locked = false;
-      }
+    } else if (params.targetType === 'teacher' || params.targetType === 'staff') {
+      await this.savePinHolder(params.targetType, params.targetId, {
+        ...(pin !== undefined && { security_pin: pin }),
+        pin_failed_attempts: 0,
+        is_pin_locked: false,
+      });
     }
   },
 
@@ -973,7 +996,7 @@ export const serverDb = {
         }
       }
       const { data, error } = await query;
-      if (!error && data) return data as Teacher[];
+      if (!error && data) return (data as Teacher[]).map(withPinFlag);
     }
     const db = initServerDb();
     let res = (db.teachers || []).filter((item: any) => item.school_id === schoolId);
@@ -982,10 +1005,11 @@ export const serverDb = {
         res = res.filter((item: any) => item[key] === filters[key]);
       }
     }
-    return res as Teacher[];
+    return (res as Teacher[]).map(withPinFlag);
   },
 
   async createTeacher(data: Teacher): Promise<Teacher> {
+    data = await preparePinInput(data);
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const payload: any = { ...data };
@@ -1011,24 +1035,25 @@ export const serverDb = {
     const db = initServerDb();
     if (!db.teachers) db.teachers = [];
     db.teachers.unshift(data);
-    return data;
+    return withPinFlag(data);
   },
 
   async updateTeacher(id: string, updates: Partial<Teacher>): Promise<Teacher> {
+    updates = await preparePinInput(updates);
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const { data, error } = await supabase.from('teachers').update(updates).eq('id', id).select().single();
       if (error) throw new Error(`Database teacher update failed: ${error.message}`);
-      if (data) return data as Teacher;
+      if (data) return withPinFlag(data as Teacher);
     }
     const db = initServerDb();
     if (!db.teachers) db.teachers = [];
     const idx = db.teachers.findIndex((item: any) => item.id === id);
     if (idx !== -1) {
       db.teachers[idx] = { ...db.teachers[idx], ...updates };
-      return db.teachers[idx];
+      return withPinFlag(db.teachers[idx]);
     }
-    return updates as Teacher;
+    return withPinFlag(updates as Teacher);
   },
 
   async deleteTeacher(id: string): Promise<boolean> {
@@ -1057,7 +1082,7 @@ export const serverDb = {
         }
       }
       const { data, error } = await query;
-      if (!error && data) return data as Staff[];
+      if (!error && data) return (data as Staff[]).map(withPinFlag);
     }
     const db = initServerDb();
     let res = (db.staff || []).filter((item: any) => item.school_id === schoolId);
@@ -1066,10 +1091,11 @@ export const serverDb = {
         res = res.filter((item: any) => item[key] === filters[key]);
       }
     }
-    return res as Staff[];
+    return (res as Staff[]).map(withPinFlag);
   },
 
   async createStaff(data: Staff): Promise<Staff> {
+    data = await preparePinInput(data);
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const payload: any = { ...data };
@@ -1099,10 +1125,11 @@ export const serverDb = {
     const db = initServerDb();
     if (!db.staff) db.staff = [];
     db.staff.unshift(data);
-    return data;
+    return withPinFlag(data);
   },
 
   async updateStaff(id: string, updates: Partial<Staff>): Promise<Staff> {
+    updates = await preparePinInput(updates);
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -1111,7 +1138,7 @@ export const serverDb = {
         delete payload.id;
         const { data, error } = await supabase.from('staff').update(payload).eq('id', id).select().single();
         if (error) throw new Error(`Database staff update failed: ${error.message}`);
-        if (data) return data as Staff;
+        if (data) return withPinFlag(data as Staff);
       }
     }
     const db = initServerDb();
@@ -1119,9 +1146,9 @@ export const serverDb = {
     const idx = db.staff.findIndex((item: any) => item.id === id);
     if (idx !== -1) {
       db.staff[idx] = { ...db.staff[idx], ...updates };
-      return db.staff[idx];
+      return withPinFlag(db.staff[idx]);
     }
-    return updates as Staff;
+    return withPinFlag(updates as Staff);
   },
 
   async deleteStaff(id: string): Promise<boolean> {

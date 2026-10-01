@@ -139,6 +139,8 @@ import {
   validateImageFileContent,
   generateSafeStoragePath,
   generateSecurePin,
+  isDemoEnvironment,
+  RateLimitError,
 } from '@/lib/utils/security';
 import { validateSchoolCodeFormat, sanitizeSchoolCode } from '@/lib/utils/school-code';
 
@@ -9432,19 +9434,21 @@ export const pinSecurityService = {
   async unlockAndResetPin(params: {
     targetType: 'school_admin' | 'teacher' | 'staff' | 'profile';
     targetId: string;
-    newPin?: string; // If empty or undefined, clears PIN
+    newPin?: string; // Empty keeps the current PIN and only unlocks
+    removePin?: boolean;
     unlockedByName?: string;
   }): Promise<void> {
     const pinToSet = params.newPin?.trim() || undefined;
 
     if (pinToSet && !/^\d{5}$/.test(pinToSet)) {
-      throw new Error('Security PIN must be exactly 5 numeric digits (0-9). Leave blank to remove PIN.');
+      throw new Error('Security PIN must be exactly 5 numeric digits (0-9).');
     }
 
     // 0. Post to Server API first
     if (typeof window !== 'undefined') {
+      let res: Response | null = null;
       try {
-        await fetch('/api/auth/pin/reset', {
+        res = await fetch('/api/auth/pin/reset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...params, newPin: pinToSet }),
@@ -9452,13 +9456,20 @@ export const pinSecurityService = {
       } catch (e) {
         console.warn('Fallback to local PIN reset:', e);
       }
+      if (res && [400, 401, 403].includes(res.status)) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'You are not allowed to change this PIN.');
+      }
     }
+
+    const changesPin = Boolean(params.removePin || pinToSet);
+    const localPin = params.removePin ? undefined : pinToSet;
 
     if (params.targetType === 'school_admin') {
       const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
       const idx = schools.findIndex((s) => s.id === params.targetId);
       if (idx !== -1) {
-        schools[idx].admin_pin = pinToSet;
+        if (changesPin) schools[idx].admin_pin = localPin;
         schools[idx].admin_pin_failed_attempts = 0;
         schools[idx].is_admin_pin_locked = false;
         storageService.setItem(STORAGE_KEYS.SCHOOLS, schools);
@@ -9467,7 +9478,7 @@ export const pinSecurityService = {
       const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
       const idx = teachers.findIndex((t) => t.id === params.targetId);
       if (idx !== -1) {
-        teachers[idx].security_pin = pinToSet;
+        if (changesPin) teachers[idx].security_pin = localPin;
         teachers[idx].pin_failed_attempts = 0;
         teachers[idx].is_pin_locked = false;
         storageService.setItem(STORAGE_KEYS.TEACHERS, teachers);
@@ -9476,7 +9487,7 @@ export const pinSecurityService = {
       const staffList = storageService.getItem<Staff[]>(STORAGE_KEYS.STAFF, INITIAL_STAFF);
       const idx = staffList.findIndex((s) => s.id === params.targetId);
       if (idx !== -1) {
-        staffList[idx].security_pin = pinToSet;
+        if (changesPin) staffList[idx].security_pin = localPin;
         staffList[idx].pin_failed_attempts = 0;
         staffList[idx].is_pin_locked = false;
         storageService.setItem(STORAGE_KEYS.STAFF, staffList);
@@ -9487,7 +9498,7 @@ export const pinSecurityService = {
     const profiles = storageService.getItem<Profile[]>(STORAGE_KEYS.PROFILES, []);
     const pIdx = profiles.findIndex((p) => p.id === params.targetId || p.email === params.targetId);
     if (pIdx !== -1) {
-      profiles[pIdx].security_pin = pinToSet;
+      if (changesPin) profiles[pIdx].security_pin = localPin;
       profiles[pIdx].pin_failed_attempts = 0;
       profiles[pIdx].is_pin_locked = false;
       storageService.setItem(STORAGE_KEYS.PROFILES, profiles);
@@ -9640,12 +9651,12 @@ export const userPasswordService = {
       map['superadmin@schoolerp.com'] = cleanPass;
     }
 
-    storageService.setItem(STORAGE_KEYS.USER_PASSWORDS, map);
+    if (isDemoEnvironment()) storageService.setItem(STORAGE_KEYS.USER_PASSWORDS, map);
 
     // Sync to server-side persistent store (.data/passwords.json)
     try {
       if (typeof window !== 'undefined') {
-        await fetch('/api/auth/password', {
+        const res = await fetch('/api/auth/password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -9656,9 +9667,14 @@ export const userPasswordService = {
             isSuperAdmin: isSuper,
           }),
         });
+        if (!res.ok && !isDemoEnvironment()) {
+          const data = await res.json().catch(() => ({}));
+          return { success: false, error: data.error || 'Could not save your password. Please try again.' };
+        }
       }
     } catch (e) {
       console.warn('Server password synchronization notice:', e);
+      if (!isDemoEnvironment()) return { success: false, error: 'Could not reach the server to save your password.' };
     }
 
     return { success: true };
@@ -9713,11 +9729,11 @@ export const userPasswordService = {
       loginKey = user.login_id?.toLowerCase() || '';
     }
 
-    // 1. Check local storage cache
-    const customPass = map[userKey] || (emailKey && map[emailKey]) || (loginKey && map[loginKey]);
-    if (customPass) {
-      if (customPass === attempt) return true;
-    }
+    const demo = isDemoEnvironment();
+
+    // 1. Local browser store (demo mode only; production verifies on the server)
+    const customPass = demo ? map[userKey] || (emailKey && map[emailKey]) || (loginKey && map[loginKey]) : undefined;
+    if (customPass && customPass === attempt) return true;
 
     // 2. Check server-side password API
     try {
@@ -9731,18 +9747,17 @@ export const userPasswordService = {
             password: attempt,
           }),
         });
+        if (res.status === 429) {
+          const data = await res.json().catch(() => ({}));
+          throw new RateLimitError(data.error || 'Too many attempts. Please try again later.');
+        }
         if (res.ok) {
           const data = await res.json();
-          if (data.valid) {
-            // Cache valid password locally
-            if (emailKey) map[emailKey] = attempt;
-            if (userKey) map[userKey] = attempt;
-            storageService.setItem(STORAGE_KEYS.USER_PASSWORDS, map);
-            return true;
-          }
+          if (data.valid) return true;
         }
       }
     } catch (e) {
+      if (e instanceof RateLimitError) throw e;
       console.warn('Server password verification check warning:', e);
     }
 
@@ -9763,7 +9778,7 @@ export const userPasswordService = {
       loginKey === 'jdps-103' ||
       loginKey === 'jdps-101';
 
-    if (isSeededDemoUser) {
+    if (demo && isSeededDemoUser) {
       if (attempt === 'password' || attempt === 'admin123' || attempt === 'student123' || attempt === 'demo' || attempt === '123456') {
         return true;
       }

@@ -322,7 +322,7 @@ export default function TeachersPage() {
 
   const handleOpenTeacherPinModal = (teacher: Teacher) => {
     setSelectedTeacherForPin(teacher);
-    setTeacherPinInput(teacher.security_pin || '');
+    setTeacherPinInput('');
     setIsPinModalOpen(true);
   };
 
@@ -331,7 +331,7 @@ export default function TeachersPage() {
     if (!selectedTeacherForPin) return;
     const trimmedPin = teacherPinInput.trim();
     if (trimmedPin.length > 0 && !/^\d{5}$/.test(trimmedPin)) {
-      toastError('Security PIN must be exactly 5 numeric digits (0-9) or left blank to remove');
+      toastError('Security PIN must be exactly 5 numeric digits (0-9), or left blank to keep the current PIN');
       return;
     }
 
@@ -346,7 +346,7 @@ export default function TeachersPage() {
       if (trimmedPin.length === 5) {
         success(`Updated 5-digit PIN for ${selectedTeacherForPin.first_name} ${selectedTeacherForPin.last_name}. Account unlocked!`);
       } else {
-        success(`Removed PIN requirement for ${selectedTeacherForPin.first_name} ${selectedTeacherForPin.last_name}. Account unlocked!`);
+        success(`Account unlocked for ${selectedTeacherForPin.first_name} ${selectedTeacherForPin.last_name}. Existing PIN unchanged.`);
       }
       setIsPinModalOpen(false);
       setSelectedTeacherForPin(null);
@@ -366,6 +366,7 @@ export default function TeachersPage() {
         targetType: 'teacher',
         targetId: selectedTeacherForPin.id,
         newPin: undefined,
+        removePin: true,
         unlockedByName: currentUser?.name || 'School Principal',
       });
       success(`Security PIN removed for ${selectedTeacherForPin.first_name}. Teacher can now log in without a PIN.`);
@@ -1040,8 +1041,8 @@ export default function TeachersPage() {
             maxLength={5}
             value={teacherPinInput}
             onChange={(e) => setTeacherPinInput(e.target.value.replace(/\D/g, '').slice(0, 5))}
-            placeholder="e.g. 12345 (Leave blank if no PIN)"
-            helperText="Optional. If set, teacher must enter this 5-digit PIN to access portal. Leave blank for immediate access without PIN."
+            placeholder="Enter a new 5-digit PIN"
+            helperText={selectedTeacherForPin?.has_pin ? "A PIN is set. Leave blank to keep it and just unlock, or use Remove PIN to turn it off." : "Optional. If set, the teacher must enter this 5-digit PIN to access the portal."}
           />
 
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-start gap-2">
@@ -1052,7 +1053,7 @@ export default function TeachersPage() {
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
-            {selectedTeacherForPin?.security_pin ? (
+            {selectedTeacherForPin?.has_pin ? (
               <Button
                 type="button"
                 variant="danger"

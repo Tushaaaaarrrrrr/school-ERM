@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/auth-context';
 import { authService, passkeyService } from '@/lib/services/api';
 import { UserPersona } from '@/lib/types';
+import { RateLimitError } from '@/lib/utils/security';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
@@ -214,8 +215,8 @@ export default function LoginPage() {
         setError(errorMsg);
         toastError(errorMsg);
       }
-    } catch {
-      const errorMsg = 'An unexpected error occurred during sign-in.';
+    } catch (err) {
+      const errorMsg = err instanceof RateLimitError ? err.message : 'An unexpected error occurred during sign-in.';
       setError(errorMsg);
       toastError(errorMsg);
     } finally {

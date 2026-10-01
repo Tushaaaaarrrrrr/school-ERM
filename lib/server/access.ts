@@ -371,7 +371,9 @@ export async function resolveAccessContext(supabase: any, user: any) {
             auth_user_id: user.id,
             updated_at: new Date().toISOString(),
           }).eq('id', p.id);
-        } catch {}
+        } catch (err) {
+          console.error('Access: failed to link parent profile to auth user', err);
+        }
 
         const parentPersona: UserPersona = {
           id: profile.id,
@@ -503,11 +505,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
       .split(',')
       .map((e: string) => e.trim().toLowerCase())
       .filter(Boolean);
-    const genericAdmin = `admin@${s.code.toLowerCase()}.edu.in`;
-    const isSchoolAdmin =
-      adminEmails.includes(email) ||
-      email === genericAdmin ||
-      (s.id === 'sch-001' && (email === 'admin@delhipublic.edu.in' || email.startsWith('admin@')));
+    const isSchoolAdmin = adminEmails.includes(email);
 
     if (isSchoolAdmin) {
       try {
@@ -524,7 +522,9 @@ export async function resolveAccessContext(supabase: any, user: any) {
           school_id: s.id,
           updated_at: new Date().toISOString(),
         }).eq('id', profile.id);
-      } catch {}
+      } catch (err) {
+        console.error('Access: failed to sync school admin membership', err);
+      }
 
       const adminPersona: UserPersona = {
         id: profile.id,

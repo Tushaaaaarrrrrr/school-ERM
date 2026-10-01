@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const context = await getAccessContext();
     if (!context.authenticated) return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
-    const schools = context.state === 'SUPER_ADMIN' ? await serverDb.getSchools() : context.state === 'ACTIVE_SCHOOL_USER' && context.user?.school_id ? [stripSchoolSecrets(await serverDb.getSchoolById(context.user.school_id))].filter(Boolean) : [];
+    const schools = context.state === 'SUPER_ADMIN' ? (await serverDb.getSchools()).map(stripSchoolSecrets) : context.state === 'ACTIVE_SCHOOL_USER' && context.user?.school_id ? [stripSchoolSecrets(await serverDb.getSchoolById(context.user.school_id))].filter(Boolean) : [];
     return NextResponse.json({ success: true, data: schools });
   } catch (err: unknown) {
     return NextResponse.json(
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     const newSchool = await serverDb.createSchool(body as School);
-    return NextResponse.json({ success: true, data: newSchool });
+    return NextResponse.json({ success: true, data: stripSchoolSecrets(newSchool) });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Failed to create school';
     const isConflict = errorMessage.toLowerCase().includes('already registered') || errorMessage.toLowerCase().includes('duplicate');

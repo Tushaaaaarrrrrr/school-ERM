@@ -61,7 +61,6 @@ export const INITIAL_SCHOOLS: School[] = [
     status: 'active',
     admin_name: 'lkiitmng2428',
     admin_email: 'lkiitmng2428@gmail.com',
-    admin_pin: '12345',
     admin_pin_failed_attempts: 0,
     is_admin_pin_locked: false,
     enabled_features: DEFAULT_SCHOOL_FEATURES,

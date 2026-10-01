@@ -4,11 +4,14 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
+import { clientIp, consume, tooManyRequests } from '@/lib/server/rate-limit';
 import { serverDb } from '@/lib/server/db';
 import { validateSchoolCodeFormat, sanitizeSchoolCode } from '@/lib/utils/school-code';
 
 export async function GET(request: Request) {
   try {
+    const retryAfter = consume(`check-code:${clientIp(request)}`, 30, 60_000);
+    if (retryAfter > 0) return tooManyRequests(retryAfter);
     const { searchParams } = new URL(request.url);
     const rawCode = searchParams.get('code') || '';
     const excludeId = searchParams.get('excludeId') || undefined;
@@ -25,6 +28,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const retryAfter = consume(`check-code:${clientIp(request)}`, 30, 60_000);
+    if (retryAfter > 0) return tooManyRequests(retryAfter);
     const body = await request.json().catch(() => ({}));
     const rawCode = body.code || '';
     const excludeId = body.excludeId || undefined;

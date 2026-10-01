@@ -125,7 +125,8 @@ export async function middleware(request: NextRequest) {
     }
 
     return response;
-  } catch {
+  } catch (err) {
+    console.error('Middleware: access check failed, redirecting to /join', err);
     return NextResponse.redirect(new URL('/join', request.url));
   }
 }
