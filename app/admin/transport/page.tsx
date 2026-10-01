@@ -22,6 +22,7 @@ import { Modal } from '@/components/ui/modal';
 import { StatusBadge } from '@/components/ui/badge';
 import { Tabs } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import {
   Bus,
   Plus,
@@ -425,7 +426,7 @@ export default function AdminTransportPage() {
   };
 
   const handleDeleteVehicle = async (v: Vehicle) => {
-    if (!confirm(`Are you sure you want to delete ${v.vehicle_name} (${v.vehicle_number})?`)) return;
+    if (!confirmDeleteTwice(`${v.vehicle_name} (${v.vehicle_number})`)) return;
     try {
       await transportService.deleteVehicle(v.id);
       success('Vehicle removed from fleet');
@@ -618,7 +619,7 @@ export default function AdminTransportPage() {
   };
 
   const handleDeleteRoute = async (r: TransportRoute) => {
-    if (!confirm(`Are you sure you want to delete Route "${r.route_name}"?`)) return;
+    if (!confirmDeleteTwice(`Route "${r.route_name}"`)) return;
     try {
       await transportService.deleteRoute(r.id);
       success('Route removed');
@@ -734,7 +735,7 @@ export default function AdminTransportPage() {
   const handleDeleteAssignment = async (asg: StudentTransportAssignment) => {
     const student = students.find((s) => s.id === asg.student_id);
     const sName = student ? `${student.first_name} ${student.last_name}` : 'this student';
-    if (!confirm(`Are you sure you want to remove ${sName} from transport?`)) return;
+    if (!confirmDeleteTwice(`${sName} from transport`)) return;
     try {
       await transportService.deleteStudentAssignment(asg.id);
       success('Student commuter removed from transport');

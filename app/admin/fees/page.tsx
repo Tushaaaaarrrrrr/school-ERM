@@ -33,6 +33,7 @@ import { Modal } from '@/components/ui/modal';
 import { InvoiceStatusBadge } from '@/components/ui/badge';
 import { SearchFilterBar } from '@/components/ui/search-filter-bar';
 import { FeeReceipt, BatchFourUpReceipts } from '@/components/receipt/fee-receipt';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { exportCollectionsToCsv } from '@/lib/utils/export';
@@ -367,7 +368,7 @@ export default function FeesManagementPage() {
   };
 
   const handleCancelBulkBatch = async (batchId: string) => {
-    if (!confirm('Are you sure you want to cancel this bulk charge batch? All unpaid charges will be cancelled.')) return;
+    if (!confirmDeleteTwice('this bulk charge batch and its unpaid charges')) return;
     try {
       await bulkChargeService.cancelBulkChargeBatch(batchId, currentUser?.id, currentUser?.name);
       success('Bulk charge batch cancelled successfully');

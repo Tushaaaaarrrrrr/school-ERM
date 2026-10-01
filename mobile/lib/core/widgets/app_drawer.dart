@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import 'app_svg_icon.dart';
+import 'user_avatar.dart';
 import '../../data/services/auth_service.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -136,14 +137,7 @@ class AppDrawer extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.primaryLight,
-                    child: Text(
-                      user.name.isNotEmpty ? user.name[0] : 'U',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
-                  ),
+                  UserAvatar(name: user.name, imageUrl: user.avatarUrl, radius: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(

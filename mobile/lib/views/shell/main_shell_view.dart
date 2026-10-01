@@ -18,6 +18,7 @@ import '../teacher/teacher_timetable_view.dart';
 
 // Student & Parent Views
 import '../parent_student/student_home_view.dart';
+import '../parent/parent_home_view.dart';
 import '../parent_student/student_results_view.dart';
 import '../parent_student/student_fees_view.dart';
 import '../parent_student/student_transport_view.dart';
@@ -192,9 +193,16 @@ class _MainShellViewState extends State<MainShellView> with WidgetsBindingObserv
           const TeacherTimetableView(),
         ];
       case UserRole.student:
-      case UserRole.parent:
         return [
           StudentHomeView(onTabSelected: _onTabSelected),
+          const StudentResultsView(),
+          const StudentFeesView(),
+          const StudentTransportView(),
+          const StudentProfileView(),
+        ];
+      case UserRole.parent:
+        return [
+          ParentHomeView(onTabSelected: _onTabSelected),
           const StudentResultsView(),
           const StudentFeesView(),
           const StudentTransportView(),

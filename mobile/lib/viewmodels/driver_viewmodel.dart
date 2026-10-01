@@ -1,10 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../data/models/transport_model.dart';
-import '../data/services/mock_data.dart';
 
 class DriverViewModel extends ChangeNotifier {
-  final TransportRouteModel _route = MockData.sampleRoute;
-  final Set<String> _boardedStudents = {'stu_1', 'stu_2'};
+  final TransportRouteModel _route = TransportRouteModel.empty;
+  final Set<String> _boardedStudents = {};
 
   TransportRouteModel get route => _route;
   Set<String> get boardedStudents => _boardedStudents;

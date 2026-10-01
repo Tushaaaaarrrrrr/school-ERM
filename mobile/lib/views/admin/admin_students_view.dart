@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
-import '../../data/services/mock_data.dart';
+import '../../core/widgets/user_avatar.dart';
+import '../../data/models/student_model.dart';
+import '../../data/services/api_client.dart';
 import 'student_detail_sheet.dart';
 
 class AdminStudentsView extends StatefulWidget {
@@ -15,14 +17,31 @@ class AdminStudentsView extends StatefulWidget {
 class _AdminStudentsViewState extends State<AdminStudentsView> {
   String _searchQuery = '';
   String _selectedClass = 'All Classes';
+  List<StudentModel> _students = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStudents();
+  }
+
+  Future<void> _loadStudents() async {
+    try {
+      final list = await ApiClient.getStudents();
+      if (mounted) setState(() { _students = list; _isLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _students = []; _isLoading = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final allStudents = MockData.studentsClass10A;
-    final filtered = allStudents.where((s) {
+    final filtered = _students.where((s) {
       final matchesSearch = s.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           s.admissionNumber.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesSearch;
+      final matchesClass = _selectedClass == 'All Classes' || s.className.toLowerCase().contains(_selectedClass.toLowerCase());
+      return matchesSearch && matchesClass;
     }).toList();
 
     return SingleChildScrollView(
@@ -94,7 +113,32 @@ class _AdminStudentsViewState extends State<AdminStudentsView> {
           const SizedBox(height: 10),
 
           // Student Roster
-          ListView.separated(
+          if (_isLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+          else if (filtered.isEmpty)
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      AppSvgIcon('graduation_cap', size: 36, color: AppColors.textMuted),
+                      SizedBox(height: 12),
+                      Text('No Students Found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      SizedBox(height: 4),
+                      Text('Enrolled students will appear here.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: filtered.length,
@@ -109,18 +153,7 @@ class _AdminStudentsViewState extends State<AdminStudentsView> {
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AppColors.primaryLight,
-                          child: Text(
-                            student.rollNumber,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
+                        UserAvatar(name: student.rollNumber, imageUrl: student.photoUrl, radius: 18),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

@@ -15,6 +15,7 @@ import { StatusBadge } from '@/components/ui/badge';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import { SessionTransitionModal } from '@/components/academic/session-transition-modal';
 import { UserPasswordCard } from '@/components/auth/user-password-modal';
 import { DEFAULT_WEEKLY_HOURS } from '@/lib/utils/school-timing';
@@ -141,12 +142,7 @@ export default function SchoolSettingsPage() {
   }, [schoolId]);
 
   const handleReverseTransition = async (batch: AcademicYearTransitionBatch) => {
-    if (
-      !confirm(
-        `Are you sure you want to reverse the session transition for ${batch.target_academic_year_name}? All newly generated enrollments will be removed and students will be reverted to previous session rosters.`
-      )
-    )
-      return;
+    if (!confirmDeleteTwice(`session transition for ${batch.target_academic_year_name}`)) return;
 
     setIsReversingBatchId(batch.id);
     try {

@@ -90,7 +90,7 @@ class StudentHomeView extends StatelessWidget {
                 child: _ActionCard(
                   icon: 'bus',
                   title: 'Bus Transport',
-                  subtitle: 'Live Route 4 Tracking',
+                  subtitle: 'Live ${student.busRouteNumber ?? 'Bus'} Tracking',
                   onTap: () => onTabSelected?.call(3),
                 ),
               ),

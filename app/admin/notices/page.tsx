@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import { Bell, Plus, Trash2, Calendar, Users, Eye } from 'lucide-react';
 import { CardSkeleton } from '@/components/ui/skeleton';
 
@@ -94,6 +95,7 @@ export default function SchoolNoticesPage() {
   };
 
   const handleDeleteNotice = async (id: string) => {
+    if (!confirmDeleteTwice('this notice')) return;
     try {
       await noticeService.deleteNotice(id);
       success('Notice deleted');

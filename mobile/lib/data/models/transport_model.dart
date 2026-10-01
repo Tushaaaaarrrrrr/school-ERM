@@ -28,4 +28,13 @@ class TransportRouteModel {
     required this.currentStatus,
     required this.stops,
   });
+
+  static const empty = TransportRouteModel(
+    routeNumber: 'No Route Assigned',
+    vehicleNumber: 'N/A',
+    driverName: 'Not Assigned',
+    driverPhone: '',
+    currentStatus: 'Standby',
+    stops: [],
+  );
 }

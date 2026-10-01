@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 enum UserRole {
   superAdmin,
   schoolAdmin,
@@ -44,17 +46,18 @@ class UserModel {
   }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final roleName = (json['role'] as String? ?? 'student').replaceAll('_', '').toLowerCase();
     return UserModel(
       id: json['id'] as String,
       email: json['email'] as String? ?? '',
       name: json['name'] as String? ?? '',
       role: UserRole.values.firstWhere(
-        (r) => r.name == json['role'] || r.toString().split('.').last == json['role'],
+        (r) => r.name.toLowerCase() == roleName,
         orElse: () => UserRole.student,
       ),
       schoolId: json['school_id'] as String? ?? '',
-      schoolName: json['school_name'] as String? ?? 'Delhi Public Academy',
-      schoolCode: json['school_code'] as String? ?? 'DPA',
+      schoolName: json['school_name'] as String? ?? '',
+      schoolCode: json['school_code'] as String? ?? '',
       avatarUrl: json['avatar_url'] as String?,
       loginId: json['login_id'] as String?,
     );
@@ -71,4 +74,10 @@ class UserModel {
     'avatar_url': avatarUrl,
     'login_id': loginId,
   };
+
+  String toJsonString() => jsonEncode(toJson());
+
+  factory UserModel.fromJsonString(String value) {
+    return UserModel.fromJson(jsonDecode(value) as Map<String, dynamic>);
+  }
 }

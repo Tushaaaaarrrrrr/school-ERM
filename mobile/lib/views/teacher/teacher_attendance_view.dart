@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/attendance_model.dart';
 import '../../viewmodels/teacher_viewmodel.dart';
@@ -112,18 +113,7 @@ class TeacherAttendanceView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AppColors.primaryLight,
-                          child: Text(
-                            student.rollNumber,
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        UserAvatar(name: student.rollNumber, imageUrl: student.photoUrl, radius: 18),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

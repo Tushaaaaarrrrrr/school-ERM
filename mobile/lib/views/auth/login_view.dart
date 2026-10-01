@@ -2,11 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
-import '../../data/models/user_model.dart';
 import '../../data/services/auth_service.dart';
 
-class LoginView extends StatelessWidget {
+class LoginView extends StatefulWidget {
   const LoginView({super.key});
+
+  @override
+  State<LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<LoginView> {
+  final _identifier = TextEditingController();
+  final _password = TextEditingController();
+  bool _showPassword = false;
+
+  @override
+  void dispose() {
+    _identifier.dispose();
+    _password.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,105 +71,148 @@ class LoginView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 40),
-
-              // 1-Click Role Switcher Demo Cards (Uses vector SVG icons!)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+              OutlinedButton(
+                onPressed: authService.isLoading
+                    ? null
+                    : authService.continueWithGoogle,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: AppColors.border),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        AppSvgIcon('shield_check', size: 16, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Text(
-                          '1-CLICK PERSONA LOGIN',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _PersonaTile(
-                      iconName: 'teacher',
-                      title: 'Teacher Portal',
-                      subtitle: 'Mark Attendance, Marks & Schedule',
-                      isSelected: authService.currentUser.role == UserRole.teacher,
-                      onTap: () => authService.switchPersona(UserRole.teacher),
-                    ),
-                    const SizedBox(height: 8),
-                    _PersonaTile(
-                      iconName: 'graduation_cap',
-                      title: 'Student Portal',
-                      subtitle: 'Results, Fees, Timetable & Bus',
-                      isSelected: authService.currentUser.role == UserRole.student,
-                      onTap: () => authService.switchPersona(UserRole.student),
-                    ),
-                    const SizedBox(height: 8),
-                    _PersonaTile(
-                      iconName: 'bus',
-                      title: 'Bus Driver Portal',
-                      subtitle: 'Route Stops & Student Boarding',
-                      isSelected: authService.currentUser.role == UserRole.driver,
-                      onTap: () => authService.switchPersona(UserRole.driver),
-                    ),
-                    const SizedBox(height: 8),
-                    _PersonaTile(
-                      iconName: 'shield_check',
-                      title: 'Parent Portal',
-                      subtitle: 'Fee Invoices, Report Cards & Tracking',
-                      isSelected: authService.currentUser.role == UserRole.parent,
-                      onTap: () => authService.switchPersona(UserRole.parent),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-              // Standard Credentials Login Form
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Registration ID or Email',
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: AppSvgIcon('teacher', size: 18, color: AppColors.textMuted),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: AppSvgIcon('shield_check', size: 18, color: AppColors.textMuted),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              ElevatedButton(
-                onPressed: () {
-                  authService.login('demo', 'password');
-                },
-                child: Row(
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Enter as ${authService.currentUser.roleDisplayName}'),
-                    const SizedBox(width: 8),
-                    const AppSvgIcon('dashboard', size: 16, color: Colors.white),
+                    _GoogleMark(),
+                    SizedBox(width: 10),
+                    Text('Continue with Google',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
                   ],
                 ),
+              ),
+              const SizedBox(height: 18),
+              const Row(
+                children: [
+                  Expanded(child: Divider(color: AppColors.border)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('OR SIGN IN WITH CREDENTIALS',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textMuted,
+                            fontWeight: FontWeight.w800)),
+                  ),
+                  Expanded(child: Divider(color: AppColors.border)),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              TextField(
+                controller: _identifier,
+                keyboardType: TextInputType.text,
+                autocorrect: false,
+                enabled: !_showPassword && !authService.isLoading,
+                decoration: const InputDecoration(
+                  labelText: 'Email, Registration ID or School Code',
+                  hintText: 'Enter your login ID',
+                  prefixIcon: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: AppSvgIcon('teacher',
+                        size: 18, color: AppColors.textMuted),
+                  ),
+                ),
+              ),
+              if (_showPassword) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: authService.isLoading
+                        ? null
+                        : () => setState(() {
+                              _showPassword = false;
+                              _password.clear();
+                            }),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Change login ID'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: _password,
+                  obscureText: true,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Enter your account password',
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: AppSvgIcon('shield_check',
+                          size: 18, color: AppColors.textMuted),
+                    ),
+                  ),
+                ),
+              ],
+              if (authService.error != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.dangerLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: AppColors.danger, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          authService.error!,
+                          style: const TextStyle(
+                              color: AppColors.danger, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: authService.isLoading
+                    ? null
+                    : () {
+                        final id = _identifier.text.trim();
+                        if (id.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Please enter your email, registration ID or school code.')),
+                          );
+                          return;
+                        }
+                        if (!_showPassword) {
+                          setState(() => _showPassword = true);
+                          return;
+                        }
+                        final pass = _password.text;
+                        if (pass.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Please enter your password.')),
+                          );
+                          return;
+                        }
+                        authService.login(
+                          id,
+                          pass,
+                        );
+                      },
+                child: Text(authService.isLoading
+                    ? 'Signing in...'
+                    : (_showPassword ? 'Sign In' : 'Next')),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -173,80 +231,15 @@ class LoginView extends StatelessWidget {
   }
 }
 
-class _PersonaTile extends StatelessWidget {
-  final String iconName;
-  final String title;
-  final String subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _PersonaTile({
-    required this.iconName,
-    required this.title,
-    required this.subtitle,
-    required this.isSelected,
-    required this.onTap,
-  });
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryLight : AppColors.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: AppSvgIcon(
-                iconName,
-                size: 18,
-                color: isSelected ? Colors.white : AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const AppSvgIcon('sparkles', size: 16, color: AppColors.primary),
-          ],
-        ),
-      ),
-    );
+    return const Text('G',
+        style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF4285F4)));
   }
 }

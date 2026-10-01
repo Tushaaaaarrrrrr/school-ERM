@@ -128,7 +128,7 @@ class StudentProfileView extends StatelessWidget {
                   child: Row(
                     children: [
                       QrImageView(
-                        data: 'STUDENT:Rahul Verma:DPA-001:ADM-2024-8821',
+                        data: 'STUDENT:${user.name}:${user.loginId ?? user.id}',
                         version: QrVersions.auto,
                         size: 60.0,
                       ),

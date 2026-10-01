@@ -2,13 +2,52 @@ import type { UserPersona, UserRole } from '@/lib/types';
 import { requireIdentity, getServiceSupabase } from './auth';
 import { serverDb } from './db';
 import { validateGmailDomain } from './email-registry';
+import { cookies } from 'next/headers';
 
 export type AccessState = 'SUPER_ADMIN' | 'ACTIVE_SCHOOL_USER' | 'PENDING_ACCESS_REQUEST' | 'NO_SCHOOL_ACCESS' | 'DISABLED' | 'REVOKED';
 
 export async function getAccessContext() {
   const { supabase, user } = await requireIdentity();
-  if (!user) return { authenticated: false as const };
+  if (!user) {
+    const cookieUser = await getCookieSessionUser();
+    if (cookieUser) {
+      const school = cookieUser.school_id ? await serverDb.getSchoolById(cookieUser.school_id) : null;
+      return {
+        authenticated: true as const,
+        state: cookieUser.role === 'super_admin' ? 'SUPER_ADMIN' as AccessState : 'ACTIVE_SCHOOL_USER' as AccessState,
+        user: cookieUser,
+        school,
+        profile: cookieUser,
+      };
+    }
+    return { authenticated: false as const };
+  }
   return resolveAccessContext(supabase, user);
+}
+
+async function getCookieSessionUser(): Promise<UserPersona | null> {
+  try {
+    const rawCookie = (await cookies()).get('school_erp_session')?.value;
+    if (!rawCookie) return null;
+    let raw = rawCookie.trim();
+    if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.slice(1, -1);
+    try { raw = decodeURIComponent(raw); } catch {}
+    const parsed = JSON.parse(raw);
+    if (!parsed?.id || !parsed?.role) return null;
+    return {
+      id: String(parsed.id),
+      name: String(parsed.name || 'User'),
+      email: String(parsed.email || ''),
+      role: parsed.role as UserRole,
+      school_id: parsed.school_id,
+      school_name: parsed.school_name,
+      school_code: parsed.school_code,
+      login_id: parsed.login_id,
+      permissions: parsed.permissions || [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function resolveAccessContext(supabase: any, user: any) {

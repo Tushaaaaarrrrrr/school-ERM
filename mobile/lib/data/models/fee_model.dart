@@ -20,4 +20,23 @@ class FeeInvoiceModel {
   });
 
   double get dueBalance => amount - paidAmount;
+
+  factory FeeInvoiceModel.fromJson(Map<String, dynamic> json) {
+    final status = (json['status'] as String? ?? '').toLowerCase();
+    return FeeInvoiceModel(
+      id: json['id'] as String? ?? '',
+      invoiceNumber: json['invoice_number'] as String? ?? '',
+      month: json['month'] as String? ?? json['month_year'] as String? ?? '',
+      amount: (json['amount'] as num? ?? json['total_amount'] as num? ?? 0).toDouble(),
+      paidAmount: (json['paid_amount'] as num? ?? 0).toDouble(),
+      dueDate: DateTime.tryParse(json['due_date'] as String? ?? '') ?? DateTime.now(),
+      status: status == 'paid'
+          ? FeeInvoiceStatus.paid
+          : status == 'partial'
+              ? FeeInvoiceStatus.partial
+              : status == 'overdue'
+                  ? FeeInvoiceStatus.overdue
+                  : FeeInvoiceStatus.pending,
+    );
+  }
 }

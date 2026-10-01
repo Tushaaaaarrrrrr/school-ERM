@@ -31,11 +31,11 @@ class TeacherHomeView extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: StatCard(
                   title: 'Today Classes',
-                  value: '4 Periods',
-                  subtitle: 'Maths & Science',
+                  value: '${teacherVM.todayPeriodCount} Periods',
+                  subtitle: 'No timetable published',
                   iconName: 'calendar',
                 ),
               ),
@@ -145,104 +145,35 @@ class TeacherHomeView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          const _ScheduleCard(
-            time: '08:30 - 09:15 AM',
-            subject: 'Mathematics',
-            className: 'Class 10 - Section A',
-            room: 'Room 204 (Aryabhatta Block)',
-          ),
-          const SizedBox(height: 8),
-          const _ScheduleCard(
-            time: '09:15 - 10:00 AM',
-            subject: 'Physics Lab',
-            className: 'Class 9 - Section B',
-            room: 'Science Lab 2',
-          ),
-          const SizedBox(height: 8),
-          const _ScheduleCard(
-            time: '11:00 - 11:45 AM',
-            subject: 'Advanced Algebra',
-            className: 'Class 11 - Section A',
-            room: 'Room 302',
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppColors.border),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Center(
+                child: Column(
+                  children: [
+                    AppSvgIcon('calendar', size: 36, color: AppColors.textMuted),
+                    SizedBox(height: 12),
+                    Text(
+                      'No Schedule Assigned',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Your real timetable will appear here once it is published by the administrator.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ScheduleCard extends StatelessWidget {
-  final String time;
-  final String subject;
-  final String className;
-  final String room;
-
-  const _ScheduleCard({
-    required this.time,
-    required this.subject,
-    required this.className,
-    required this.room,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  const AppSvgIcon('calendar', size: 16, color: AppColors.primary),
-                  const SizedBox(height: 4),
-                  Text(
-                    time.split(' ')[0],
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    subject,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$className • $room',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

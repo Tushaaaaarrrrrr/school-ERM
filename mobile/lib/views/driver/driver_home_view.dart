@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../data/services/auth_service.dart';
 import '../../viewmodels/driver_viewmodel.dart';
 
@@ -28,6 +29,10 @@ class DriverHomeView extends StatelessWidget {
               style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
+        ),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: UserAvatar(name: auth.currentUser.name, imageUrl: auth.currentUser.avatarUrl, radius: 18),
         ),
         actions: [
           IconButton(

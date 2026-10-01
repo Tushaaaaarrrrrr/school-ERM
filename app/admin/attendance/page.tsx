@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/modal';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/components/ui/toast';
 import { formatDate, formatTime } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import {
   CalendarCheck,
   Users,
@@ -343,6 +344,7 @@ export default function AdminAttendancePage() {
   };
 
   const handleDeleteHoliday = async (id: string) => {
+    if (!confirmDeleteTwice('this holiday')) return;
     try {
       await holidayService.deleteHoliday(id);
       success('Holiday removed');

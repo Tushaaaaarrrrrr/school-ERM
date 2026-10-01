@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { formatTime, getDayName } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import {
   CalendarDays,
   Plus,
@@ -267,7 +268,7 @@ export default function TimetablePage() {
   };
 
   const handleDeleteSlot = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this slot from the schedule?')) return;
+    if (!confirmDeleteTwice('this timetable slot')) return;
     try {
       await timetableService.deleteTimetableEntry(id);
       success('Period removed from schedule');
@@ -700,4 +701,3 @@ export default function TimetablePage() {
     </div>
   );
 }
-

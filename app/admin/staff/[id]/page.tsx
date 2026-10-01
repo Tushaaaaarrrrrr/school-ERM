@@ -35,6 +35,7 @@ import { TemporaryAssignmentModal } from '@/components/payroll/temporary-assignm
 import { DateInput } from '@/components/ui/date-input';
 import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/context/auth-context';
 import {
@@ -203,7 +204,7 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
   };
 
   const handleDeleteAdjustment = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this salary adjustment?')) return;
+    if (!confirmDeleteTwice('this salary adjustment')) return;
     try {
       await salaryAdjustmentService.deleteAdjustment(id, currentUser || undefined);
       success('Salary adjustment deleted successfully');

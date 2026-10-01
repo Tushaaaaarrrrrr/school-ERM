@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
-import '../../data/services/mock_data.dart';
+import '../../data/models/student_model.dart';
 import '../../viewmodels/driver_viewmodel.dart';
 
 class DriverBoardingView extends StatelessWidget {
@@ -12,7 +12,7 @@ class DriverBoardingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DriverViewModel>();
-    final students = MockData.studentsClass10A;
+    const List<StudentModel> students = [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -40,6 +40,37 @@ class DriverBoardingView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+
+          if (students.isEmpty)
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Center(
+                  child: Column(
+                    children: [
+                      AppSvgIcon('bus', size: 40, color: AppColors.textMuted),
+                      SizedBox(height: 12),
+                      Text(
+                        'No Students on Route',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Student boarding manifest will appear here once route is dispatched.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
 
           ListView.separated(
             shrinkWrap: true,

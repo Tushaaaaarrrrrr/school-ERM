@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import {
   Palmtree,
   Plus,
@@ -150,6 +151,7 @@ export default function SchoolHolidaysPage() {
   };
 
   const handleDeleteHoliday = async (h: SchoolHoliday) => {
+    if (!confirmDeleteTwice(`holiday "${h.name}"`)) return;
     try {
       await holidayService.deleteHoliday(
         h.id,

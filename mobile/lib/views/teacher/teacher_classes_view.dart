@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../viewmodels/teacher_viewmodel.dart';
 import '../admin/student_detail_sheet.dart';
 
@@ -41,16 +42,16 @@ class TeacherClassesView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Class 10 - Section A',
-                          style: TextStyle(
+                        Text(
+                          vm.selectedClass,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          '${students.length} Enrolled Students • Room 204',
+                          '${students.length} enrolled students',
                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
@@ -100,18 +101,7 @@ class TeacherClassesView extends StatelessWidget {
                     padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppColors.primaryLight,
-                          child: Text(
-                            student.rollNumber,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
+                        UserAvatar(name: student.rollNumber, imageUrl: student.photoUrl, radius: 20),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(

@@ -32,6 +32,7 @@ import { Modal } from '@/components/ui/modal';
 import { StatusBadge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
 import { formatTime, getDayName } from '@/lib/utils/formatters';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import {
   ArrowLeft,
   BookOpen,
@@ -421,7 +422,7 @@ export default function ClassDetailsPage() {
 
   // Delete slot
   const handleDeleteSlot = async (slotId: string) => {
-    if (!confirm('Are you sure you want to remove this period from the schedule?')) return;
+    if (!confirmDeleteTwice('this class period')) return;
     try {
       await timetableService.deleteTimetableEntry(slotId);
       success('Period removed from schedule');

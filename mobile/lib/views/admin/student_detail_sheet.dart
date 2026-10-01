@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../data/models/student_model.dart';
 import 'student_billing_history_sheet.dart';
 
@@ -319,14 +320,7 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.white,
-                child: Text(
-                  s.rollNumber,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
-                ),
-              ),
+              UserAvatar(name: s.rollNumber, imageUrl: s.photoUrl, radius: 26),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -418,19 +412,11 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                _InfoRow(label: 'Gender', value: s.gender),
-                const Divider(height: 12),
-                const _InfoRow(label: 'Date of Birth', value: '14 Aug 2010 (Age: 16)'),
-                const Divider(height: 12),
-                const _InfoRow(label: 'Blood Group', value: 'B+ Positive'),
-                const Divider(height: 12),
-                const _InfoRow(label: 'School House', value: 'Tagore House (Blue)'),
+                _InfoRow(label: 'Gender', value: s.gender.isNotEmpty ? s.gender : 'Not Specified'),
                 const Divider(height: 12),
                 _InfoRow(label: 'Father / Guardian', value: parent),
                 const Divider(height: 12),
                 _InfoRow(label: 'Parent Phone', value: phone),
-                const Divider(height: 12),
-                const _InfoRow(label: 'Residential Address', value: 'B-42, Lajpat Nagar Part 2, New Delhi - 110024'),
               ],
             ),
           ),
@@ -450,11 +436,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                _InfoRow(label: 'Route Line', value: s.busRouteNumber ?? 'Route 4 (South Delhi Line)'),
+                _InfoRow(label: 'Route Line', value: s.busRouteNumber ?? 'Not Assigned'),
                 const Divider(height: 12),
-                _InfoRow(label: 'Bus Stop Name', value: s.busStopName ?? 'Lajpat Nagar Gate 2 (07:55 AM)'),
-                const Divider(height: 12),
-                const _InfoRow(label: 'Bus Driver', value: 'Gurmeet Singh (+91 98765 00112)'),
+                _InfoRow(label: 'Bus Stop Name', value: s.busStopName ?? 'Not Assigned'),
               ],
             ),
           ),

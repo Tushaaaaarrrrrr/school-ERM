@@ -2,14 +2,38 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
-import '../../data/services/mock_data.dart';
+import '../../data/models/notice_model.dart';
+import '../../data/services/api_client.dart';
 
-class AdminNoticesView extends StatelessWidget {
+class AdminNoticesView extends StatefulWidget {
   const AdminNoticesView({super.key});
 
   @override
+  State<AdminNoticesView> createState() => _AdminNoticesViewState();
+}
+
+class _AdminNoticesViewState extends State<AdminNoticesView> {
+  List<NoticeModel> _notices = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotices();
+  }
+
+  Future<void> _loadNotices() async {
+    try {
+      final list = await ApiClient.getNotices();
+      if (mounted) setState(() { _notices = list; _isLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _notices = []; _isLoading = false; });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final notices = MockData.schoolNotices;
+    final notices = _notices;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -78,7 +102,32 @@ class AdminNoticesView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          ListView.separated(
+          if (_isLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+          else if (notices.isEmpty)
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      AppSvgIcon('bell', size: 36, color: AppColors.textMuted),
+                      SizedBox(height: 12),
+                      Text('No Announcements Yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      SizedBox(height: 4),
+                      Text('Published circulars and school alerts will appear here.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: notices.length,

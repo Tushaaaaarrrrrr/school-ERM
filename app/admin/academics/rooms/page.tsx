@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/modal';
 import { StatusBadge } from '@/components/ui/badge';
 import { SearchFilterBar } from '@/components/ui/search-filter-bar';
 import { useToast } from '@/components/ui/toast';
+import { confirmDeleteTwice } from '@/lib/utils/delete-confirm';
 import {
   Building,
   Plus,
@@ -137,7 +138,7 @@ export default function RoomsPage() {
   };
 
   const handleDeleteRoom = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this room record?')) return;
+    if (!confirmDeleteTwice('this room record')) return;
     try {
       await roomService.deleteRoom(id);
       success('Room deleted');
