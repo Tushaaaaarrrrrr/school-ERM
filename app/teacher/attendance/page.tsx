@@ -47,7 +47,6 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function TeacherAttendancePage() {
   const { currentUser, currentSchool, currentYear } = useAuth();
-  const teacherId = currentUser?.teacher_id || 'tch-001';
   const schoolId = currentSchool?.id || 'sch-001';
   const yearId = currentYear?.id || 'ay-2026';
   const { success, error: toastError } = useToast();
@@ -98,7 +97,8 @@ export default function TeacherAttendancePage() {
     async function loadAssignments() {
       setIsLoading(true);
       try {
-        const list = await teacherService.getAssignments(schoolId, teacherId);
+        const teacher = await teacherService.getTeacherForUser(currentUser, schoolId);
+        const list = teacher ? await teacherService.getAssignments(schoolId, teacher.id) : [];
         setAssignments(list);
         if (list.length > 0) {
           setSelectedAsgId(list[0].id);
@@ -110,7 +110,7 @@ export default function TeacherAttendancePage() {
       }
     }
     loadAssignments();
-  }, [schoolId, teacherId]);
+  }, [schoolId, currentUser]);
 
   // Load Students, Existing Attendance, Holidays & Approved Leaves for the Selected Date
   const loadAttendanceSheet = async () => {
@@ -234,7 +234,7 @@ export default function TeacherAttendancePage() {
         asg.section_id,
         attendanceDate,
         records,
-        currentUser?.id || teacherId,
+        currentUser?.id || asg.teacher_id,
         `${currentUser?.name || asg.teacher_name || 'Class Teacher'} (Teacher)`
       );
 
@@ -284,6 +284,7 @@ export default function TeacherAttendancePage() {
     if (!directLeaveStudentId) return;
 
     const targetStudent = students.find((s) => s.id === directLeaveStudentId);
+    const asg = assignments.find((a) => a.id === selectedAsgId);
 
     setIsGrantingLeave(true);
     try {
@@ -296,7 +297,7 @@ export default function TeacherAttendancePage() {
         partial_start_time: directLeaveType === 'partial_day' ? directLeaveStartTime : undefined,
         partial_end_time: directLeaveType === 'partial_day' ? directLeaveEndTime : undefined,
         reason: directLeaveReason,
-        granterId: currentUser?.id || teacherId,
+        granterId: currentUser?.id || asg?.teacher_id || '',
         granterName: currentUser?.name || 'Class Teacher',
         granterRole: 'teacher',
         student_name: targetStudent ? `${targetStudent.first_name} ${targetStudent.last_name}` : undefined,

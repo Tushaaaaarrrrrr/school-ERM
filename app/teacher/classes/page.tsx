@@ -35,7 +35,6 @@ function TeacherClassesContent() {
   const sectionIdParam = searchParams.get('sectionId');
 
   const { currentUser, currentSchool } = useAuth();
-  const teacherId = currentUser?.teacher_id || 'tch-001';
   const schoolId = currentSchool?.id || 'sch-001';
 
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
@@ -52,7 +51,13 @@ function TeacherClassesContent() {
     async function loadAssignments() {
       setIsLoading(true);
       try {
-        const list = await teacherService.getAssignments(schoolId, teacherId);
+        const teacher = await teacherService.getTeacherForUser(currentUser, schoolId);
+        if (!teacher) {
+          setAssignments([]);
+          setSelectedAsgId('');
+          return;
+        }
+        const list = await teacherService.getAssignments(schoolId, teacher.id);
         setAssignments(list);
 
         let activeId = list[0]?.id || '';
@@ -69,7 +74,7 @@ function TeacherClassesContent() {
     }
 
     loadAssignments();
-  }, [schoolId, teacherId, classIdParam, sectionIdParam]);
+  }, [schoolId, currentUser, classIdParam, sectionIdParam]);
 
   useEffect(() => {
     if (!selectedAsgId) return;

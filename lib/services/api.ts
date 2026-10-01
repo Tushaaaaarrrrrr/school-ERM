@@ -4139,6 +4139,36 @@ export const teacherService = {
   },
 
   async getAssignments(schoolId: string, teacherId?: string): Promise<TeacherAssignment[]> {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams({ schoolId });
+        if (teacherId) params.set('teacherId', teacherId);
+        const res = await fetch(`/api/teacher-assignments?${params.toString()}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (res.ok && json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const [classes, sections, subjects] = await Promise.all([
+            academicService.getClasses(schoolId),
+            academicService.getSections(schoolId),
+            subjectService.getSubjects(schoolId),
+          ]);
+          return json.data.map((asg: TeacherAssignment) => {
+            const cls = classes.find((c) => c.id === asg.class_id);
+            const sec = sections.find((s) => s.id === asg.section_id);
+            const sub = subjects.find((s) => s.id === asg.subject_id);
+            return {
+              ...asg,
+              class_name: asg.class_name || cls?.name,
+              section_name: asg.section_name || sec?.name,
+              subject_name: asg.subject_name || sub?.name,
+              room_number: asg.room_number || sec?.room_number,
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('API teacher assignments fetch fallback:', e);
+    }
+
     const [teachers, classes, sections] = await Promise.all([
       this.getTeachers(schoolId),
       academicService.getClasses(schoolId),
@@ -4225,6 +4255,22 @@ export const teacherService = {
 
     teachers[index].assignments = teachers[index].assignments || [];
     teachers[index].assignments.push(fullAsg);
+
+    try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch('/api/teacher-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fullAsg),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'Could not save assignment to database.');
+        Object.assign(fullAsg, json.data);
+      }
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('Could not save assignment to database.');
+    }
+
     storageService.setItem(STORAGE_KEYS.TEACHERS, teachers);
 
     authLogService.logEvent({
@@ -4252,6 +4298,11 @@ export const teacherService = {
 
     const removedAsg = (teachers[index].assignments || []).find((a) => a.id === assignmentId);
     teachers[index].assignments = (teachers[index].assignments || []).filter((a) => a.id !== assignmentId);
+    if (typeof window !== 'undefined' && removedAsg) {
+      const res = await fetch(`/api/teacher-assignments/${assignmentId}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) throw new Error(json.error || 'Could not remove assignment from database.');
+    }
     storageService.setItem(STORAGE_KEYS.TEACHERS, teachers);
 
     authLogService.logEvent({

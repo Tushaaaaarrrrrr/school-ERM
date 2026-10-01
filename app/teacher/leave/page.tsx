@@ -14,7 +14,6 @@ import { formatDate } from '@/lib/utils/formatters';
 export default function MyTeacherLeavePage() {
   const { currentSchool, currentUser } = useAuth();
   const schoolId = currentSchool?.id || '';
-  const teacherId = currentUser?.teacher_id;
   const { success, error } = useToast();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [leaves, setLeaves] = useState<TeacherLeave[]>([]);
@@ -24,13 +23,18 @@ export default function MyTeacherLeavePage() {
   const [form, setForm] = useState({ leaveType: 'full_day' as LeaveType, startDate: today, endDate: today, returnDate: today, reason: '' });
 
   const load = async () => {
-    if (!schoolId || !teacherId) return;
-    const [profile, leaveList, history] = await Promise.all([teacherService.getTeacherById(teacherId), teacherWorkforceService.getLeaves(schoolId, { teacherId }), teacherWorkforceService.getAttendance(schoolId, { teacherId })]);
+    if (!schoolId) return;
+    const profile = await teacherService.getTeacherForUser(currentUser, schoolId);
+    if (!profile) {
+      setTeacher(null);
+      return;
+    }
+    const [leaveList, history] = await Promise.all([teacherWorkforceService.getLeaves(schoolId, { teacherId: profile.id }), teacherWorkforceService.getAttendance(schoolId, { teacherId: profile.id })]);
     setTeacher(profile); setLeaves(leaveList); setAttendance(history);
   };
-  useEffect(() => { load().catch(() => error('Failed to load your attendance and leaves')); }, [schoolId, teacherId]);
+  useEffect(() => { load().catch(() => error('Failed to load your attendance and leaves')); }, [schoolId, currentUser]);
 
-  if (!teacherId) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-6"><h1 className="font-bold text-amber-950">Teacher profile setup is incomplete</h1><p className="mt-1 text-sm text-amber-800">Your school administrator must finish linking your approved account to a teacher record before you can request leave.</p></div>;
+  if (!teacher) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-6"><h1 className="font-bold text-amber-950">Teacher profile setup is incomplete</h1><p className="mt-1 text-sm text-amber-800">Your school administrator must finish linking your approved account to a teacher record before you can request leave.</p></div>;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -14,7 +14,6 @@ import { TableSkeleton, CardSkeleton } from '@/components/ui/skeleton';
 
 export default function TeacherPaymentsPage() {
   const { currentUser, currentSchool } = useAuth();
-  const teacherId = currentUser?.teacher_id || 'tch-001';
   const schoolId = currentSchool?.id || 'sch-001';
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
@@ -25,8 +24,10 @@ export default function TeacherPaymentsPage() {
     async function loadSalaryInfo() {
       setIsLoading(true);
       try {
+        const resolvedTeacher = await teacherService.getTeacherForUser(currentUser, schoolId);
+        const teacherId = resolvedTeacher?.id || '';
         const [tch, pList] = await Promise.all([
-          teacherService.getTeacherById(teacherId),
+          Promise.resolve(resolvedTeacher),
           teacherPaymentService.getPayments(schoolId, { teacherId }),
         ]);
 
@@ -40,7 +41,7 @@ export default function TeacherPaymentsPage() {
     }
 
     loadSalaryInfo();
-  }, [schoolId, teacherId]);
+  }, [schoolId, currentUser]);
 
   return (
     <div className="space-y-6 text-left w-full">

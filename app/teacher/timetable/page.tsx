@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
-import { timetableService } from '@/lib/services/api';
+import { teacherService, timetableService } from '@/lib/services/api';
 import { TimetableEntry } from '@/lib/types';
 import { formatTime, getDayName } from '@/lib/utils/formatters';
 import { CalendarDays, Clock, MapPin, Trophy, BookOpen, UtensilsCrossed } from 'lucide-react';
@@ -23,7 +23,6 @@ const DAYS = [
 
 export default function TeacherTimetablePage() {
   const { currentUser, currentSchool } = useAuth();
-  const teacherId = currentUser?.teacher_id || 'tch-001';
   const schoolId = currentSchool?.id || 'sch-001';
 
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
@@ -41,7 +40,8 @@ export default function TeacherTimetablePage() {
     async function loadSchedule() {
       setIsLoading(true);
       try {
-        const list = await timetableService.getTimetable(schoolId, { teacherId });
+        const teacher = await teacherService.getTeacherForUser(currentUser, schoolId);
+        const list = teacher ? await timetableService.getTimetable(schoolId, { teacherId: teacher.id }) : [];
         setEntries(list);
       } catch (err) {
         console.error(err);
@@ -50,7 +50,7 @@ export default function TeacherTimetablePage() {
       }
     }
     loadSchedule();
-  }, [schoolId, teacherId]);
+  }, [schoolId, currentUser]);
 
   return (
     <div className="space-y-6 text-left">

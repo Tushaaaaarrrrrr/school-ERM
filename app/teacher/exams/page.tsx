@@ -25,7 +25,6 @@ function TeacherExamsContent() {
   const examIdParam = searchParams.get('examId');
 
   const { currentUser, currentSchool, currentYear } = useAuth();
-  const teacherId = currentUser?.teacher_id || 'tch-001';
   const schoolId = currentSchool?.id || 'sch-001';
   const yearId = currentYear?.id || 'ay-2026';
   const { success, error: toastError } = useToast();
@@ -55,6 +54,8 @@ function TeacherExamsContent() {
   const loadTeacherExams = async () => {
     setIsLoading(true);
     try {
+      const teacher = await teacherService.getTeacherForUser(currentUser, schoolId);
+      const teacherId = teacher?.id || '';
       const [exList, asgList] = await Promise.all([
         examService.getExams(schoolId, { teacherId }),
         teacherService.getAssignments(schoolId, teacherId),
@@ -76,7 +77,7 @@ function TeacherExamsContent() {
 
   useEffect(() => {
     loadTeacherExams();
-  }, [schoolId, teacherId, examIdParam]);
+  }, [schoolId, currentUser, examIdParam]);
 
   useEffect(() => {
     if (!selectedExamId) return;
@@ -130,7 +131,7 @@ function TeacherExamsContent() {
         class_id: asg.class_id,
         section_id: asg.section_id,
         subject_id: asg.subject_id,
-        teacher_id: teacherId,
+        teacher_id: asg.teacher_id,
         name: formData.name.trim(),
         max_marks: Number(formData.maxMarks),
         exam_date: formData.examDate,
