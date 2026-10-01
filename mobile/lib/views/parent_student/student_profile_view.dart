@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
 import '../../data/services/auth_service.dart';
+import '../../viewmodels/student_viewmodel.dart';
 
 class StudentProfileView extends StatelessWidget {
   const StudentProfileView({super.key});
@@ -13,6 +14,7 @@ class StudentProfileView extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final user = auth.currentUser;
+    final student = context.watch<StudentViewModel>().student;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -103,13 +105,19 @@ class StudentProfileView extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Class: 10-A  •  Roll: 105',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          Text(
+                            [
+                              if (student.className.isNotEmpty) 'Class: ${student.className}',
+                              if (student.section.isNotEmpty) 'Section: ${student.section}',
+                              if (student.rollNumber.isNotEmpty) 'Roll: ${student.rollNumber}',
+                            ].join('  •  '),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
-                          const Text(
-                            'Adm No: ADM-2024-8821',
-                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                          Text(
+                            student.admissionNumber.isEmpty
+                                ? 'Admission number not available'
+                                : 'Adm No: ${student.admissionNumber}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                         ],
                       ),

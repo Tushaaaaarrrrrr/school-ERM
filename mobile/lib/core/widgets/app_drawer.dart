@@ -4,16 +4,107 @@ import '../theme/app_theme.dart';
 import 'app_svg_icon.dart';
 import 'user_avatar.dart';
 import '../../data/services/auth_service.dart';
+import '../../data/models/user_model.dart';
 
 class AppDrawer extends StatelessWidget {
   final Function(int) onNavigate;
 
   const AppDrawer({super.key, required this.onNavigate});
 
+  List<_DrawerNavItem> _itemsFor(UserRole role) {
+    switch (role) {
+      case UserRole.superAdmin:
+        return const [
+          _DrawerNavItem('PLATFORM', 'dashboard', 'Platform Overview', 0),
+          _DrawerNavItem('PLATFORM', 'graduation_cap', 'Schools', 1),
+          _DrawerNavItem('PLATFORM', 'teacher', 'Users & Roles', 2),
+          _DrawerNavItem('GOVERNANCE', 'bell', 'Access Requests', 3),
+          _DrawerNavItem('GOVERNANCE', 'shield_check', 'Security Logs', 4),
+          _DrawerNavItem('GOVERNANCE', 'sparkles', 'Platform Settings', 5),
+        ];
+      case UserRole.teacher:
+        return const [
+          _DrawerNavItem('FACULTY WORKSPACE', 'dashboard', 'Dashboard', 0),
+          _DrawerNavItem('FACULTY WORKSPACE', 'attendance', 'Student Roll Call', 1),
+          _DrawerNavItem('FACULTY WORKSPACE', 'attendance', 'My Attendance & Leave', 2),
+          _DrawerNavItem('FACULTY WORKSPACE', 'teacher', 'My Classes & Rosters', 3),
+          _DrawerNavItem('FACULTY WORKSPACE', 'award', 'Exams & Marks', 4),
+          _DrawerNavItem('FACULTY WORKSPACE', 'calendar', 'Teaching Schedule', 5),
+          _DrawerNavItem('FACULTY WORKSPACE', 'receipt', 'Salary Statements', 6),
+        ];
+      case UserRole.student:
+      case UserRole.parent:
+        return const [
+          _DrawerNavItem('STUDENT WORKSPACE', 'dashboard', 'Dashboard', 0),
+          _DrawerNavItem('STUDENT WORKSPACE', 'calendar', 'Classes & Timetable', 1),
+          _DrawerNavItem('STUDENT WORKSPACE', 'bus', 'Bus Transport', 2),
+          _DrawerNavItem('STUDENT WORKSPACE', 'award', 'Exam Results', 3),
+          _DrawerNavItem('STUDENT WORKSPACE', 'receipt', 'Fee Statements', 4),
+          _DrawerNavItem('STUDENT WORKSPACE', 'id_card', 'Profile & Attendance', 5),
+        ];
+      case UserRole.driver:
+        return const [
+          _DrawerNavItem('DRIVER FLEET PORTAL', 'bus', 'Driver Dashboard', 0),
+          _DrawerNavItem('DRIVER FLEET PORTAL', 'map_pin', 'Route Stops', 1),
+          _DrawerNavItem('DRIVER FLEET PORTAL', 'id_card', 'Boarding', 2),
+        ];
+      case UserRole.staff:
+        return const [
+          _DrawerNavItem('STAFF WORKSPACE', 'dashboard', 'Staff Dashboard', 0),
+          _DrawerNavItem('STAFF WORKSPACE', 'bell', 'Visitor Lookup', 1),
+          _DrawerNavItem('STAFF WORKSPACE', 'receipt', 'Student Fees', 2),
+          _DrawerNavItem('STAFF WORKSPACE', 'graduation_cap', 'Student Directory', 3),
+          _DrawerNavItem('STAFF WORKSPACE', 'attendance', 'Daily Attendance', 4),
+          _DrawerNavItem('STAFF WORKSPACE', 'bell', 'Notice Board', 5),
+        ];
+      case UserRole.accountant:
+        return const [
+          _DrawerNavItem('FINANCE WORKSPACE', 'dashboard', 'Dashboard', 0),
+          _DrawerNavItem('FINANCE WORKSPACE', 'receipt', 'Student Fees', 1),
+          _DrawerNavItem('FINANCE WORKSPACE', 'receipt', 'Employee Payroll', 2),
+          _DrawerNavItem('FINANCE WORKSPACE', 'graduation_cap', 'Student Directory', 3),
+          _DrawerNavItem('GOVERNANCE', 'shield_check', 'Login History', 4),
+        ];
+      case UserRole.schoolAdmin:
+        return const [
+          _DrawerNavItem('MAIN', 'dashboard', 'Dashboard', 0),
+          _DrawerNavItem('PEOPLE & OPERATIONS', 'graduation_cap', 'Students', 1),
+          _DrawerNavItem('PEOPLE & OPERATIONS', 'teacher', 'Teachers', 2),
+          _DrawerNavItem('PEOPLE & OPERATIONS', 'teacher', 'Staff & Support', 3),
+          _DrawerNavItem('PEOPLE & OPERATIONS', 'bell', 'Reception & Enquiries', 4),
+          _DrawerNavItem('ATTENDANCE & LEAVES', 'attendance', 'Student Attendance', 5),
+          _DrawerNavItem('ATTENDANCE & LEAVES', 'calendar', 'Student Leaves', 6),
+          _DrawerNavItem('ATTENDANCE & LEAVES', 'attendance', 'Teacher Attendance & Leaves', 7),
+          _DrawerNavItem('ATTENDANCE & LEAVES', 'calendar', 'School Holidays', 8),
+          _DrawerNavItem('ACADEMICS & FACILITIES', 'graduation_cap', 'Classes & Sections', 9),
+          _DrawerNavItem('ACADEMICS & FACILITIES', 'graduation_cap', 'Classrooms & Labs', 10),
+          _DrawerNavItem('ACADEMICS & FACILITIES', 'graduation_cap', 'Subjects', 11),
+          _DrawerNavItem('ACADEMICS & FACILITIES', 'calendar', 'Timetable', 12),
+          _DrawerNavItem('TRANSPORT', 'bus', 'Fleet & Bus Routes', 13),
+          _DrawerNavItem('FINANCE & PAYROLL', 'receipt', 'Student Fees', 14),
+          _DrawerNavItem('FINANCE & PAYROLL', 'receipt', 'Employee Payroll', 15),
+          _DrawerNavItem('EXAMS & COMMUNICATION', 'award', 'Exams', 16),
+          _DrawerNavItem('EXAMS & COMMUNICATION', 'award', 'Marks & Results', 17),
+          _DrawerNavItem('EXAMS & COMMUNICATION', 'bell', 'Notice Board', 18),
+          _DrawerNavItem('GOVERNANCE & SECURITY', 'bell', 'Join Requests', 19),
+          _DrawerNavItem('GOVERNANCE & SECURITY', 'bell', 'Recycle Bin (30-Day)', 20),
+          _DrawerNavItem('GOVERNANCE & SECURITY', 'shield_check', 'Login History', 21),
+          _DrawerNavItem('GOVERNANCE & SECURITY', 'shield_check', 'Deletion Requests', 22),
+          _DrawerNavItem('GOVERNANCE & SECURITY', 'sparkles', 'School Settings', 23),
+        ];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final user = auth.currentUser;
+    final isSuperAdmin = user.role == UserRole.superAdmin;
+    final navItems = _itemsFor(user.role);
+    final sectionedItems = <String, List<_DrawerNavItem>>{};
+    for (final item in navItems) {
+      sectionedItems.putIfAbsent(item.section, () => []).add(item);
+    }
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -36,7 +127,8 @@ class AppDrawer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
-                    child: const AppSvgIcon('sparkles', size: 20, color: Colors.white),
+                    child: const AppSvgIcon('sparkles',
+                        size: 20, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -44,14 +136,16 @@ class AppDrawer extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user.schoolName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          isSuperAdmin ? 'Platform Console' : user.schoolName,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const Text(
                           'K-12 Cloud Suite',
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                          style: TextStyle(
+                              color: AppColors.textSecondary, fontSize: 11),
                         ),
                       ],
                     ),
@@ -63,69 +157,22 @@ class AppDrawer extends StatelessWidget {
             // Navigation Sections
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                children: [
-                  const _SectionHeader(title: 'MAIN WORKSPACE'),
-                  _DrawerTile(
-                    icon: 'dashboard',
-                    title: 'Dashboard Overview',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(0);
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: 'attendance',
-                    title: 'Attendance & Leaves',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(1);
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: 'graduation_cap',
-                    title: 'Students & Classes',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(2);
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-                  const _SectionHeader(title: 'ACADEMICS & SERVICES'),
-                  _DrawerTile(
-                    icon: 'award',
-                    title: 'Exams & Results',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(3);
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: 'receipt',
-                    title: 'Fees & Invoices',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(2);
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: 'bus',
-                    title: 'Transport & GPS Bus',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(3);
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: 'bell',
-                    title: 'Notice Board & Alerts',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onNavigate(4);
-                    },
-                  ),
-                ],
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                children: sectionedItems.entries.expand((entry) {
+                  return [
+                    _SectionHeader(title: entry.key),
+                    ...entry.value.map((item) => _DrawerTile(
+                          icon: item.icon,
+                          title: item.title,
+                          onTap: () {
+                            Navigator.pop(context);
+                            onNavigate(item.index);
+                          },
+                        )),
+                    const SizedBox(height: 12),
+                  ];
+                }).toList(),
               ),
             ),
 
@@ -137,7 +184,8 @@ class AppDrawer extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  UserAvatar(name: user.name, imageUrl: user.avatarUrl, radius: 18),
+                  UserAvatar(
+                      name: user.name, imageUrl: user.avatarUrl, radius: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -145,19 +193,22 @@ class AppDrawer extends StatelessWidget {
                       children: [
                         Text(
                           user.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           user.roleDisplayName,
-                          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 10),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const AppSvgIcon('logout', size: 18, color: AppColors.danger),
+                    icon: const AppSvgIcon('logout',
+                        size: 18, color: AppColors.danger),
                     onPressed: () {
                       Navigator.pop(context);
                       auth.logout();
@@ -171,6 +222,15 @@ class AppDrawer extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DrawerNavItem {
+  final String section;
+  final String icon;
+  final String title;
+  final int index;
+
+  const _DrawerNavItem(this.section, this.icon, this.title, this.index);
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -216,7 +276,10 @@ class _DrawerTile extends StatelessWidget {
       leading: AppSvgIcon(icon, size: 18, color: AppColors.textSecondary),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+        style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary),
       ),
       onTap: onTap,
     );

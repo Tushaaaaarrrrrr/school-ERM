@@ -175,6 +175,32 @@ class ApiClient {
         .toList();
   }
 
+  static Future<StudentModel> createStudent({
+    required String schoolId,
+    required String fullName,
+    required String admissionNumber,
+    String className = '',
+    String section = '',
+  }) async {
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    final firstName = parts.isEmpty ? fullName.trim() : parts.first;
+    final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    final json = await _post('/api/students', {
+      'school_id': schoolId,
+      'first_name': firstName,
+      'last_name': lastName,
+      'registration_number': admissionNumber.trim(),
+      'joining_date': DateTime.now().toIso8601String().split('T').first,
+      'status': 'active',
+      if (className.trim().isNotEmpty || section.trim().isNotEmpty)
+        'current_enrollment': {
+          'class_name': className.trim(),
+          'section_name': section.trim(),
+        },
+    });
+    return StudentModel.fromJson(Map<String, dynamic>.from(json['data']));
+  }
+
   static Future<List<NoticeModel>> getNotices() async {
     final json = await _get('/api/notices');
     final data = (json['data'] as List? ?? const []);
@@ -189,6 +215,58 @@ class ApiClient {
     return data
         .map((e) => FeeInvoiceModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getAcademicYears() async {
+    final json = await _get('/api/academic-years');
+    return _listFromJson(json);
+  }
+
+  static Future<void> createFeeInvoice({
+    required String studentId,
+    required String academicYearId,
+    required double amount,
+    required DateTime dueDate,
+    required DateTime billingMonth,
+  }) async {
+    await _post('/api/fee-invoices', {
+      'student_id': studentId,
+      'academic_year_id': academicYearId,
+      'billing_month': billingMonth.toIso8601String().split('T').first,
+      'base_amount': amount,
+      'discount_amount': 0,
+      'late_fee': 0,
+      'final_amount': amount,
+      'paid_amount': 0,
+      'due_date': dueDate.toIso8601String().split('T').first,
+      'status': 'pending',
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getSchools() async {
+    final json = await _get('/api/schools');
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getUsers() async {
+    final json = await _get('/api/users');
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getAccessRequests() async {
+    final json = await _get('/api/access-requests');
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getAuthEvents(
+      {int limit = 50}) async {
+    final json = await _get('/api/auth/events', {'limit': '$limit'});
+    return _listFromJson(json);
+  }
+
+  static List<Map<String, dynamic>> _listFromJson(Map<String, dynamic> json) {
+    final data = (json['data'] as List? ?? const []);
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
   static Future<Map<String, dynamic>> _get(String path,

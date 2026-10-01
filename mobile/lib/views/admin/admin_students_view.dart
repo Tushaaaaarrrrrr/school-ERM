@@ -40,9 +40,17 @@ class _AdminStudentsViewState extends State<AdminStudentsView> {
     final filtered = _students.where((s) {
       final matchesSearch = s.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           s.admissionNumber.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesClass = _selectedClass == 'All Classes' || s.className.toLowerCase().contains(_selectedClass.toLowerCase());
+      final matchesClass = _selectedClass == 'All Classes' ||
+          s.classSection.toLowerCase() == _selectedClass.toLowerCase();
       return matchesSearch && matchesClass;
     }).toList();
+    final classFilters = [
+      'All Classes',
+      ..._students
+          .map((s) => s.classSection.trim())
+          .where((value) => value.isNotEmpty && value != '-')
+          .toSet(),
+    ];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -72,7 +80,7 @@ class _AdminStudentsViewState extends State<AdminStudentsView> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['All Classes', 'Class 10-A', 'Class 9-B', 'Class 11-A', 'Class 8-C'].map((cls) {
+              children: classFilters.map((cls) {
                 final isSelected = _selectedClass == cls;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),

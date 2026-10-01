@@ -52,79 +52,19 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
       rollNumber: widget.student.rollNumber,
       admissionNumber: widget.student.admissionNumber,
       parentName: widget.student.parentName ?? 'Parent of ${widget.student.fullName}',
-      parentPhone: widget.student.parentPhone ?? '+91 98712 34567',
-      totalAnnualFee: 45000,
-      totalPaid: 38000,
-      totalDue: 7000,
-      invoices: const [
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-09',
-          title: 'September Tuition & Bus Transport',
-          monthYear: 'September 2026',
-          amount: 4500,
-          paidAmount: 2000,
-          dueDate: '10 Sep 2026',
-          status: 'PARTIAL',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-10',
-          title: 'October Tuition Fee (Q3 Installment)',
-          monthYear: 'October 2026',
-          amount: 4500,
-          paidAmount: 0,
-          dueDate: '10 Oct 2026',
-          status: 'PENDING',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-08',
-          title: 'August Tuition & Transport Fee',
-          monthYear: 'August 2026',
-          amount: 4500,
-          paidAmount: 4500,
-          dueDate: '10 Aug 2026',
-          paidDate: '08 Aug 2026',
-          paymentMode: 'UPI (GPay)',
-          receiptNumber: 'REC-2026-081',
-          status: 'PAID',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-07',
-          title: 'July Tuition & Lab Activity',
-          monthYear: 'July 2026',
-          amount: 4500,
-          paidAmount: 4500,
-          dueDate: '10 Jul 2026',
-          paidDate: '05 Jul 2026',
-          paymentMode: 'NetBanking (HDFC)',
-          receiptNumber: 'REC-2026-072',
-          status: 'PAID',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-04',
-          title: 'Annual Admission, Library & Books Fee',
-          monthYear: 'April 2026 (Term 1)',
-          amount: 24500,
-          paidAmount: 24500,
-          dueDate: '15 Apr 2026',
-          paidDate: '10 Apr 2026',
-          paymentMode: 'Debit Card',
-          receiptNumber: 'REC-2026-041',
-          status: 'PAID',
-        ),
-      ],
-      feeStructure: const [
-        FeeStructureItem(category: 'Monthly Tuition Fee', amount: 3000, frequency: 'month'),
-        FeeStructureItem(category: 'Bus Transport Line (Route 4)', amount: 1500, frequency: 'month'),
-        FeeStructureItem(category: 'Science & Computer Lab Facility', amount: 4000, frequency: 'year'),
-        FeeStructureItem(category: 'Sports & Library Activity Fund', amount: 2500, frequency: 'year'),
-      ],
+      parentPhone: widget.student.parentPhone ?? '',
+      totalAnnualFee: 0,
+      totalPaid: 0,
+      totalDue: 0,
+      invoices: const [],
+      feeStructure: const [],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final s = widget.student;
-    final phone = s.parentPhone ?? '+91 98712 34567';
+    final phone = s.parentPhone ?? '';
     final parent = s.parentName ?? 'Guardian';
     final billing = _getBillingRecord();
 
@@ -680,7 +620,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Payment reminder SMS sent to $phone!'),
+                      content: Text(phone.isEmpty
+                          ? 'Guardian phone is not available.'
+                          : 'SMS reminder requires the live messaging service.'),
                       backgroundColor: AppColors.primary,
                     ),
                   );
@@ -695,8 +637,8 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Payment receipt generated successfully!'),
-                      backgroundColor: AppColors.success,
+                      content: Text('Use Fee Desk invoices to record live payments.'),
+                      backgroundColor: AppColors.primary,
                     ),
                   );
                 },

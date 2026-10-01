@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const requestedSchoolId = searchParams.get('schoolId') || undefined;
-    const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff']);
+    const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff', 'accountant']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     
     const list = await serverDb.getAcademicYears(access.schoolId);

@@ -2,286 +2,329 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/stat_card.dart';
 import '../../core/widgets/status_badge.dart';
-import 'student_billing_history_sheet.dart';
+import '../../data/models/fee_model.dart';
+import '../../data/models/student_model.dart';
+import '../../data/services/api_client.dart';
 
-class AdminFeesView extends StatelessWidget {
+class AdminFeesView extends StatefulWidget {
   const AdminFeesView({super.key});
 
-  StudentBillingRecord _getRahulBilling() {
-    return const StudentBillingRecord(
-      studentName: 'Rahul Verma',
-      className: 'Class 10-A',
-      rollNumber: '105',
-      admissionNumber: 'ADM-2024-005',
-      parentName: 'Vikram Verma',
-      parentPhone: '+91 98712 34567',
-      totalAnnualFee: 45000,
-      totalPaid: 38000,
-      totalDue: 7000,
-      invoices: [
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-09',
-          title: 'September Tuition & Bus Transport',
-          monthYear: 'September 2026',
-          amount: 4500,
-          paidAmount: 2000,
-          dueDate: '10 Sep 2026',
-          status: 'PARTIAL',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-10',
-          title: 'October Tuition Fee (Q3 Installment)',
-          monthYear: 'October 2026',
-          amount: 4500,
-          paidAmount: 0,
-          dueDate: '10 Oct 2026',
-          status: 'PENDING',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-08',
-          title: 'August Tuition & Transport Fee',
-          monthYear: 'August 2026',
-          amount: 3500,
-          paidAmount: 3500,
-          dueDate: '10 Aug 2026',
-          paidDate: '08 Aug 2026',
-          paymentMode: 'UPI (GPay)',
-          receiptNumber: 'REC-2026-081',
-          status: 'PAID',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-07',
-          title: 'July Tuition & Lab Activity',
-          monthYear: 'July 2026',
-          amount: 4500,
-          paidAmount: 4500,
-          dueDate: '10 Jul 2026',
-          paidDate: '05 Jul 2026',
-          paymentMode: 'NetBanking (HDFC)',
-          receiptNumber: 'REC-2026-072',
-          status: 'PAID',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-04',
-          title: 'Annual Admission, Library & Books Fee',
-          monthYear: 'April 2026 (Term 1)',
-          amount: 24500,
-          paidAmount: 24500,
-          dueDate: '15 Apr 2026',
-          paidDate: '10 Apr 2026',
-          paymentMode: 'Debit Card',
-          receiptNumber: 'REC-2026-041',
-          status: 'PAID',
-        ),
-      ],
-      feeStructure: [
-        FeeStructureItem(category: 'Monthly Tuition Fee', amount: 3000, frequency: 'month'),
-        FeeStructureItem(category: 'Bus Transport Line (Route 4)', amount: 1500, frequency: 'month'),
-        FeeStructureItem(category: 'Science & Computer Lab Facility', amount: 4000, frequency: 'year'),
-        FeeStructureItem(category: 'Sports & Library Activity Fund', amount: 2500, frequency: 'year'),
-      ],
-    );
+  @override
+  State<AdminFeesView> createState() => _AdminFeesViewState();
+}
+
+class _AdminFeesViewState extends State<AdminFeesView> {
+  late Future<List<FeeInvoiceModel>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ApiClient.getFeeInvoices();
   }
 
-  StudentBillingRecord _getAaravBilling() {
-    return const StudentBillingRecord(
-      studentName: 'Aarav Patel',
-      className: 'Class 10-A',
-      rollNumber: '101',
-      admissionNumber: 'ADM-2024-001',
-      parentName: 'Sanjay Patel',
-      parentPhone: '+91 98765 43210',
-      totalAnnualFee: 42000,
-      totalPaid: 35000,
-      totalDue: 7000,
-      invoices: [
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-09',
-          title: 'September Tuition Fee',
-          monthYear: 'September 2026',
-          amount: 3500,
-          paidAmount: 0,
-          dueDate: '10 Sep 2026',
-          status: 'PENDING',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-10',
-          title: 'October Tuition Fee',
-          monthYear: 'October 2026',
-          amount: 3500,
-          paidAmount: 0,
-          dueDate: '10 Oct 2026',
-          status: 'PENDING',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-08',
-          title: 'August Tuition Fee',
-          monthYear: 'August 2026',
-          amount: 3500,
-          paidAmount: 3500,
-          dueDate: '10 Aug 2026',
-          paidDate: '09 Aug 2026',
-          paymentMode: 'UPI (Paytm)',
-          receiptNumber: 'REC-2026-088',
-          status: 'PAID',
-        ),
-      ],
-      feeStructure: [
-        FeeStructureItem(category: 'Monthly Tuition Fee', amount: 3000, frequency: 'month'),
-        FeeStructureItem(category: 'Science & Computer Lab Facility', amount: 3500, frequency: 'year'),
-        FeeStructureItem(category: 'Sports & Library Activity Fund', amount: 2500, frequency: 'year'),
-      ],
-    );
-  }
-
-  StudentBillingRecord _getPriyaBilling() {
-    return const StudentBillingRecord(
-      studentName: 'Priya Nair',
-      className: 'Class 10-A',
-      rollNumber: '102',
-      admissionNumber: 'ADM-2024-002',
-      parentName: 'Raman Nair',
-      parentPhone: '+91 98111 22334',
-      totalAnnualFee: 48000,
-      totalPaid: 48000,
-      totalDue: 0,
-      invoices: [
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-05',
-          title: 'Term 1 Complete Installment & Tuition',
-          monthYear: 'May 2026',
-          amount: 12000,
-          paidAmount: 12000,
-          dueDate: '10 May 2026',
-          paidDate: '02 May 2026',
-          paymentMode: 'NetBanking (ICICI)',
-          receiptNumber: 'REC-2026-054',
-          status: 'PAID',
-        ),
-        BillingInvoiceItem(
-          invoiceNumber: 'INV-2026-08',
-          title: 'Term 2 Complete Installment & Tuition',
-          monthYear: 'August 2026',
-          amount: 12000,
-          paidAmount: 12000,
-          dueDate: '10 Aug 2026',
-          paidDate: '01 Aug 2026',
-          paymentMode: 'NetBanking (ICICI)',
-          receiptNumber: 'REC-2026-082',
-          status: 'PAID',
-        ),
-      ],
-      feeStructure: [
-        FeeStructureItem(category: 'Term 1 & Term 2 Tuition', amount: 24000, frequency: 'term'),
-        FeeStructureItem(category: 'Bus Transport (Route 4)', amount: 12000, frequency: 'year'),
-        FeeStructureItem(category: 'Science & Computer Lab Facility', amount: 6000, frequency: 'year'),
-        FeeStructureItem(category: 'Sports & Library Activity', amount: 6000, frequency: 'year'),
-      ],
-    );
+  void _refresh() {
+    setState(() => _future = ApiClient.getFeeInvoices());
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  title: 'Collected Q2',
-                  value: '₹18.4L',
-                  subtitle: '86% Target Reached',
-                  iconName: 'receipt',
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  title: 'Pending Arrears',
-                  value: '₹2.8L',
-                  subtitle: '24 Overdue Accounts',
-                  iconName: 'calendar',
-                ),
-              ),
-            ],
-          ),
+    return FutureBuilder<List<FeeInvoiceModel>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final invoices = snapshot.data ?? const <FeeInvoiceModel>[];
+        final paid =
+            invoices.fold<double>(0, (sum, item) => sum + item.paidAmount);
+        final pending =
+            invoices.fold<double>(0, (sum, item) => sum + item.dueBalance);
 
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const LinearProgressIndicator(minHeight: 2),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: StatCard(
+                      title: 'Collected',
+                      value: '₹${paid.toStringAsFixed(0)}',
+                      subtitle: 'Live invoice payments',
+                      iconName: 'receipt',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StatCard(
+                      title: 'Pending',
+                      value: '₹${pending.toStringAsFixed(0)}',
+                      subtitle: 'Outstanding balance',
+                      iconName: 'calendar',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showInvoiceSheet(context),
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('Generate Invoice'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
               const Text(
-                'Recent Fee Invoices & Payments',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'Tap for full billing ledger',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                'Fee Invoices',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
+              const SizedBox(height: 12),
+              if (invoices.isEmpty)
+                const _EmptyFees()
+              else
+                Card(
+                  child: Column(
+                    children: invoices
+                        .map((invoice) => ListTile(
+                              title: Text(
+                                invoice.invoiceNumber.isEmpty
+                                    ? 'Invoice'
+                                    : invoice.invoiceNumber,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              subtitle: Text(
+                                invoice.month.isEmpty
+                                    ? 'Due ${invoice.dueDate.toLocal().toString().split(' ').first}'
+                                    : invoice.month,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '₹${invoice.amount.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  _status(invoice.status),
+                                ],
+                              ),
+                            ))
+                        .expand((child) => [child, const Divider(height: 1)])
+                        .toList()
+                      ..removeLast(),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+        );
+      },
+    );
+  }
 
-          Card(
-            child: ListView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                ListTile(
-                  onTap: () => StudentBillingHistorySheet.show(context, record: _getRahulBilling()),
-                  title: const Text('Rahul Verma (Class 10-A)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  subtitle: const Text('Inv #INV-2026-08 • Tuition & Transport Fee', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                  trailing: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('₹3,500', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
-                      StatusBadge(label: 'PAID', type: StatusType.success),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  onTap: () => StudentBillingHistorySheet.show(context, record: _getAaravBilling()),
-                  title: const Text('Aarav Patel (Class 10-A)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  subtitle: const Text('Inv #INV-2026-09 • Tuition Fee', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                  trailing: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('₹3,500', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
-                      StatusBadge(label: 'PENDING', type: StatusType.warning),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  onTap: () => StudentBillingHistorySheet.show(context, record: _getPriyaBilling()),
-                  title: const Text('Priya Nair (Class 10-A)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  subtitle: const Text('Inv #INV-2026-05 • Term 1 Installment', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                  trailing: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('₹12,000', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
-                      StatusBadge(label: 'PAID', type: StatusType.success),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+  void _showInvoiceSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const Padding(
+        padding: EdgeInsets.all(20),
+        child: _InvoiceForm(),
+      ),
+    ).then((saved) {
+      if (saved == true) _refresh();
+    });
+  }
+
+  static StatusBadge _status(FeeInvoiceStatus status) {
+    switch (status) {
+      case FeeInvoiceStatus.paid:
+        return const StatusBadge(label: 'PAID', type: StatusType.success);
+      case FeeInvoiceStatus.partial:
+        return const StatusBadge(label: 'PARTIAL', type: StatusType.info);
+      case FeeInvoiceStatus.overdue:
+        return const StatusBadge(label: 'OVERDUE', type: StatusType.danger);
+      case FeeInvoiceStatus.pending:
+        return const StatusBadge(label: 'PENDING', type: StatusType.warning);
+    }
+  }
+}
+
+class _InvoiceForm extends StatefulWidget {
+  const _InvoiceForm();
+
+  @override
+  State<_InvoiceForm> createState() => _InvoiceFormState();
+}
+
+class _InvoiceFormState extends State<_InvoiceForm> {
+  final _amount = TextEditingController();
+  List<StudentModel> _students = const [];
+  List<Map<String, dynamic>> _years = const [];
+  String _studentId = '';
+  String _yearId = '';
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final students = await ApiClient.getStudents();
+      final years = await ApiClient.getAcademicYears();
+      if (!mounted) return;
+      setState(() {
+        _students = students;
+        _years = years;
+        _studentId = students.isNotEmpty ? students.first.id : '';
+        _yearId = years.isNotEmpty ? '${years.first['id'] ?? ''}' : '';
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await ApiClient.createFeeInvoice(
+        studentId: _studentId,
+        academicYearId: _yearId,
+        amount: double.tryParse(_amount.text) ?? 0,
+        billingMonth: DateTime(DateTime.now().year, DateTime.now().month, 1),
+        dueDate: DateTime.now().add(const Duration(days: 15)),
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Generate Invoice',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 14),
+        if (_loading) const LinearProgressIndicator(minHeight: 2),
+        if (!_loading && (_students.isEmpty || _years.isEmpty))
+          const Text(
+            'Students and academic year must exist before generating invoices.',
+            style: TextStyle(color: AppColors.textSecondary),
           ),
+        if (!_loading && _students.isNotEmpty) ...[
+          DropdownButtonFormField<String>(
+            value: _studentId,
+            decoration: const InputDecoration(labelText: 'Student'),
+            items: _students
+                .map((student) => DropdownMenuItem(
+                      value: student.id,
+                      child: Text(student.fullName.isEmpty
+                          ? student.admissionNumber
+                          : student.fullName),
+                    ))
+                .toList(),
+            onChanged: (value) => setState(() => _studentId = value ?? ''),
+          ),
+          const SizedBox(height: 10),
         ],
+        if (!_loading && _years.isNotEmpty) ...[
+          DropdownButtonFormField<String>(
+            value: _yearId,
+            decoration: const InputDecoration(labelText: 'Academic year'),
+            items: _years
+                .map((year) => DropdownMenuItem(
+                      value: '${year['id'] ?? ''}',
+                      child: Text('${year['name'] ?? year['label'] ?? year['year'] ?? year['id']}'),
+                    ))
+                .toList(),
+            onChanged: (value) => setState(() => _yearId = value ?? ''),
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 10),
+        TextField(
+          controller: _amount,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(labelText: 'Amount'),
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _saving ||
+                    _studentId.isEmpty ||
+                    _yearId.isEmpty ||
+                    (double.tryParse(_amount.text) ?? 0) <= 0
+                ? null
+                : _save,
+            child: Text(_saving ? 'Saving...' : 'Save Invoice'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyFees extends StatelessWidget {
+  const _EmptyFees();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            'No fee invoices returned by the server yet.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
       ),
     );
   }

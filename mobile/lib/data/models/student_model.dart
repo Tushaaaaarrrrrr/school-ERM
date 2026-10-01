@@ -43,13 +43,13 @@ class StudentModel {
       rollNumber: json['roll_number'] as String? ?? '',
       className: json['class_name'] as String? ?? enrollment?['class_name'] as String? ?? '',
       section: json['section'] as String? ?? enrollment?['section_name'] as String? ?? '',
-      gender: json['gender'] as String? ?? 'Male',
+      gender: json['gender'] as String? ?? '',
       parentName: json['parent_name'] as String? ?? guardian?['guardian_name'] as String? ?? guardian?['father_name'] as String?,
       parentPhone: json['parent_phone'] as String? ?? guardian?['primary_phone'] as String?,
       busRouteNumber: json['bus_route_number'] as String?,
       busStopName: json['bus_stop_name'] as String?,
       photoUrl: json['photo_url'] as String?,
-      attendancePercentage: (json['attendance_percentage'] as num?)?.toDouble() ?? 94.5,
+      attendancePercentage: (json['attendance_percentage'] as num?)?.toDouble() ?? 0,
     );
   }
 }

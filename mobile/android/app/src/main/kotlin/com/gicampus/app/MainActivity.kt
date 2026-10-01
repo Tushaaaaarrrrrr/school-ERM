@@ -1,4 +1,4 @@
-package com.schoolerp.app
+package com.gicampus.app
 
 import io.flutter.embedding.android.FlutterActivity
 

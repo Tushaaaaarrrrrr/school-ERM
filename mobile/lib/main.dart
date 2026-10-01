@@ -47,7 +47,7 @@ class SchoolErpApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'School ERP',
+      title: 'GI CAMPUS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const RootGateway(),

@@ -375,7 +375,9 @@ class StudentBillingHistorySheet extends StatelessWidget {
                             onPressed: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Payment reminder SMS sent to ${record.parentPhone}!'),
+                                  content: Text(record.parentPhone.isEmpty
+                                      ? 'Guardian phone is not available.'
+                                      : 'SMS reminder requires the live messaging service.'),
                                   backgroundColor: AppColors.primary,
                                 ),
                               );
@@ -390,8 +392,8 @@ class StudentBillingHistorySheet extends StatelessWidget {
                             onPressed: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Payment receipt generated and logged!'),
-                                  backgroundColor: AppColors.success,
+                                  content: Text('Use Fee Desk invoices to record live payments.'),
+                                  backgroundColor: AppColors.primary,
                                 ),
                               );
                             },

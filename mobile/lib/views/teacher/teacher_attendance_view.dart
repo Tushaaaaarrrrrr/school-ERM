@@ -177,8 +177,8 @@ class TeacherAttendanceView extends StatelessWidget {
                 vm.saveAttendance();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Attendance submitted successfully!'),
-                    backgroundColor: AppColors.success,
+                    content: Text('Attendance screen is ready; live submission endpoint is required to save.'),
+                    backgroundColor: AppColors.primary,
                   ),
                 );
               },

@@ -26,8 +26,16 @@ class FeeInvoiceModel {
     return FeeInvoiceModel(
       id: json['id'] as String? ?? '',
       invoiceNumber: json['invoice_number'] as String? ?? '',
-      month: json['month'] as String? ?? json['month_year'] as String? ?? '',
-      amount: (json['amount'] as num? ?? json['total_amount'] as num? ?? 0).toDouble(),
+      month: json['month'] as String? ??
+          json['month_year'] as String? ??
+          json['billing_month'] as String? ??
+          '',
+      amount: (json['amount'] as num? ??
+              json['total_amount'] as num? ??
+              json['final_amount'] as num? ??
+              json['base_amount'] as num? ??
+              0)
+          .toDouble(),
       paidAmount: (json['paid_amount'] as num? ?? 0).toDouble(),
       dueDate: DateTime.tryParse(json['due_date'] as String? ?? '') ?? DateTime.now(),
       status: status == 'paid'

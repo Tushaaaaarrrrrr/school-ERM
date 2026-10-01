@@ -7,6 +7,7 @@ enum UserRole {
   student,
   parent,
   driver,
+  accountant,
   staff,
 }
 
@@ -41,6 +42,7 @@ class UserModel {
       case UserRole.student: return 'Student';
       case UserRole.parent: return 'Parent';
       case UserRole.driver: return 'Bus Driver';
+      case UserRole.accountant: return 'Accountant';
       case UserRole.staff: return 'Staff';
     }
   }
