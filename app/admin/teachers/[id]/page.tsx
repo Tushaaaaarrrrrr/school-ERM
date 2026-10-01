@@ -530,7 +530,14 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
               <div>
                 <span className="text-slate-400 block">Assigned Classes</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                  {(teacher.assignments || []).map((asg) => (
+                  {Array.from(
+                    new Map(
+                      (teacher.assignments || []).map((asg) => [
+                        `${asg.class_id || asg.class_name}_${asg.section_id || asg.section_name}_${asg.subject_id || asg.subject_name}`,
+                        asg,
+                      ])
+                    ).values()
+                  ).map((asg) => (
                     <span key={asg.id} className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200">
                       {asg.class_name}{asg.section_name ? ` (${asg.section_name})` : ''} • {asg.subject_name}
                     </span>

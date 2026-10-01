@@ -4254,7 +4254,21 @@ export const teacherService = {
     };
 
     teachers[index].assignments = teachers[index].assignments || [];
-    teachers[index].assignments.push(fullAsg);
+    const existingIndex = teachers[index].assignments.findIndex(
+      (a) =>
+        a.class_id === assignment.class_id &&
+        (a.section_id || null) === (assignment.section_id || null) &&
+        a.subject_id === assignment.subject_id
+    );
+    if (existingIndex !== -1) {
+      teachers[index].assignments[existingIndex] = {
+        ...teachers[index].assignments[existingIndex],
+        ...fullAsg,
+        id: teachers[index].assignments[existingIndex].id,
+      };
+    } else {
+      teachers[index].assignments.push(fullAsg);
+    }
 
     try {
       if (typeof window !== 'undefined') {

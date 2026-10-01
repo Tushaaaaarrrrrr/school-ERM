@@ -519,7 +519,14 @@ export default function TeachersPage() {
                     <td className="px-4 py-3.5">
                       {teacher.assignments && teacher.assignments.length > 0 ? (
                         <div className="flex flex-wrap gap-1 max-w-sm">
-                          {teacher.assignments.map((a) => (
+                          {Array.from(
+                            new Map(
+                              (teacher.assignments || []).map((a) => [
+                                `${a.class_id || a.class_name}_${a.section_id || a.section_name}_${a.subject_id || a.subject_name}`,
+                                a,
+                              ])
+                            ).values()
+                          ).map((a) => (
                             <span
                               key={a.id}
                               className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[10px] font-semibold px-2 py-0.5 rounded border border-slate-200"
