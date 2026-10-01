@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { getAccessContext } from '@/lib/server/access';
 import { requireIdentity, getServiceSupabase } from '@/lib/server/auth';
 
+function assertNoDbError(result: { error?: any }, action: string) {
+  if (result.error) {
+    throw new Error(`${action}: ${result.error.message || result.error}`);
+  }
+}
+
 export async function GET() {
   try {
     const context = await getAccessContext();
@@ -70,33 +76,33 @@ export async function PUT(request: Request) {
 
     // Handle Revocation
     if (body.status === 'revoked') {
-      await adminClient.from('school_memberships').update({
+      assertNoDbError(await adminClient.from('school_memberships').update({
         status: 'revoked',
         revoked_at: new Date().toISOString(),
         revoked_by: context.profile?.id || null,
-      }).eq('user_id', body.userId).eq('status', 'active');
+      }).eq('user_id', body.userId).eq('status', 'active'), 'Revoke active memberships');
 
-      await adminClient.from('profiles').update({
+      assertNoDbError(await adminClient.from('profiles').update({
         status: 'revoked',
         school_id: null,
         updated_at: new Date().toISOString(),
-      }).eq('id', body.userId);
+      }).eq('id', body.userId), 'Revoke profile access');
 
       return NextResponse.json({ success: true, message: 'User access revoked' });
     }
 
     // Handle Disabled
     if (body.status === 'disabled') {
-      await adminClient.from('school_memberships').update({
+      assertNoDbError(await adminClient.from('school_memberships').update({
         status: 'revoked',
         revoked_at: new Date().toISOString(),
         revoked_by: context.profile?.id || null,
-      }).eq('user_id', body.userId).eq('status', 'active');
+      }).eq('user_id', body.userId).eq('status', 'active'), 'Disable active memberships');
 
-      await adminClient.from('profiles').update({
+      assertNoDbError(await adminClient.from('profiles').update({
         status: 'disabled',
         updated_at: new Date().toISOString(),
-      }).eq('id', body.userId);
+      }).eq('id', body.userId), 'Disable profile');
 
       return NextResponse.json({ success: true, message: 'User disabled' });
     }
@@ -108,20 +114,20 @@ export async function PUT(request: Request) {
 
     // Handle Super Admin Promotion
     if (body.role === 'super_admin') {
-      await adminClient.from('school_memberships').update({
+      assertNoDbError(await adminClient.from('school_memberships').update({
         status: 'revoked',
         revoked_at: new Date().toISOString(),
         revoked_by: context.profile?.id || null,
-      }).eq('user_id', body.userId);
+      }).eq('user_id', body.userId), 'Revoke school memberships');
 
-      await adminClient.from('profiles').update({
+      assertNoDbError(await adminClient.from('profiles').update({
         display_name: body.name || undefined,
         phone: body.phone || undefined,
         status: 'active',
         school_id: null,
         role: 'super_admin',
         updated_at: new Date().toISOString(),
-      }).eq('id', body.userId);
+      }).eq('id', body.userId), 'Promote profile');
 
       return NextResponse.json({ success: true, message: 'User promoted to Super Admin' });
     }
@@ -130,53 +136,14 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'School selection is required for this role.' }, { status: 400 });
     }
 
-    // 1. Atomic Revoke of prior active memberships across ANY school
-    // This strictly prevents PostgreSQL unique constraint violation on uq_one_active_school_per_user
-    await adminClient.from('school_memberships').update({
-      status: 'revoked',
-      revoked_at: new Date().toISOString(),
-      revoked_by: context.profile?.id || null,
-    }).eq('user_id', body.userId).eq('status', 'active');
-
-    // 2. Update platform profile
-    await adminClient.from('profiles').update({
-      display_name: body.name || undefined,
-      phone: body.phone || undefined,
-      status: 'active',
-      school_id: body.schoolId,
-      role: body.role,
-      updated_at: new Date().toISOString(),
-    }).eq('id', body.userId);
-
-    // 3. Upsert active membership for the target school
-    const { error: upsertErr } = await adminClient.from('school_memberships').upsert({
-      user_id: body.userId,
-      school_id: body.schoolId,
-      role: body.role,
-      status: 'active',
-      updated_at: new Date().toISOString(),
-      revoked_at: null,
-      revoked_by: null,
-    }, { onConflict: 'user_id,school_id' });
-
-    if (upsertErr) {
-      console.error('Membership upsert failed, retrying with raw insert:', upsertErr);
-      await adminClient.from('school_memberships').insert({
-        user_id: body.userId,
-        school_id: body.schoolId,
-        role: body.role,
-        status: 'active',
-        updated_at: new Date().toISOString(),
-      });
-    }
-
-    // 4. Mark any pending access requests for this user as approved
-    await adminClient.from('school_access_requests').update({
-      status: 'approved',
-      assigned_role: body.role,
-      reviewed_by: context.profile?.id || null,
-      reviewed_at: new Date().toISOString(),
-    }).eq('user_id', body.userId).eq('status', 'pending');
+    assertNoDbError(await supabase.rpc('assign_user_school_access', {
+      p_user_id: body.userId,
+      p_school_id: body.schoolId,
+      p_role: body.role,
+      p_name: body.name || '',
+      p_phone: body.phone || '',
+      p_status: 'active',
+    }), 'Save school access');
 
     return NextResponse.json({ success: true, message: 'User access successfully updated' });
   } catch (err: any) {
@@ -240,4 +207,3 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: err?.message || 'Failed to update profile' }, { status: 500 });
   }
 }
-
