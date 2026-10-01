@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.gicampus.app",
+      "sha256_cert_fingerprints": [
+        "B0:0D:37:FF:27:37:82:4A:81:F1:53:B0:5B:A1:1E:7E:3F:1C:21:98:31:52:99:E0:27:E6:69:AA:88:76:6C:E4",
+        "18:6E:15:A1:4F:5A:BF:20:FD:71:81:27:02:8D:0F:21:7B:63:32:A7:CF:AB:46:13:BD:87:D2:56:3B:D5:63:A4",
+        "CC:F4:89:CE:47:29:9F:EA:E6:6E:80:A5:DD:4C:C2:66:2F:6B:76:6A:44:88:DE:B2:0C:B2:E7:2C:2E:3C:22:39"
+      ]
+    }
+  }
+]
