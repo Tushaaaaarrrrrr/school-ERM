@@ -118,11 +118,17 @@ export async function POST(request: Request) {
       // Check school administrator credentials against serverDb
       try {
         const schools = await serverDb.getSchools();
-        const matchedSchool = schools.find((s) =>
-          ids.includes(s.admin_email?.toLowerCase() || '') ||
-          ids.includes(s.email?.toLowerCase() || '') ||
-          ids.includes(s.code?.toLowerCase() || '')
-        );
+        const matchedSchool = schools.find((s) => {
+          const adminEmails = (s.admin_email || '')
+            .split(',')
+            .map((e: string) => e.trim().toLowerCase())
+            .filter(Boolean);
+          return (
+            adminEmails.some((e: string) => ids.includes(e)) ||
+            ids.includes(s.email?.toLowerCase() || '') ||
+            ids.includes(s.code?.toLowerCase() || '')
+          );
+        });
         if (matchedSchool) {
           if (matchedSchool.admin_pin && String(matchedSchool.admin_pin).trim() === cleanPass) {
             return NextResponse.json({ success: true, valid: true });

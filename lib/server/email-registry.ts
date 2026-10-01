@@ -137,7 +137,10 @@ export async function checkEmailRegistry(
     const allSchools = await serverDb.getSchools();
     const existingSchoolWithAdmin = allSchools.find(
       (s) =>
-        s.admin_email?.toLowerCase().trim() === normalizedEmail &&
+        (s.admin_email || '')
+          .split(',')
+          .map((e: string) => e.trim().toLowerCase())
+          .includes(normalizedEmail) &&
         (!options?.excludeSchoolId || s.id !== options.excludeSchoolId)
     );
     if (existingSchoolWithAdmin) {

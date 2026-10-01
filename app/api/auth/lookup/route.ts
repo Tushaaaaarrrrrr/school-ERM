@@ -52,19 +52,24 @@ export async function GET(request: Request) {
     }
 
     for (const school of candidateSchools) {
-      if (school.admin_email?.toLowerCase() === cleanIdentifier) {
+      const adminEmails = (school.admin_email || '')
+        .split(',')
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (adminEmails.includes(cleanIdentifier)) {
         return NextResponse.json({
           success: true,
           exists: true,
           user: {
             id: `usr-admin-${school.id}`,
             name: school.admin_name || `${school.name} Administrator`,
-            email: school.admin_email,
+            email: cleanIdentifier,
             role: 'school_admin',
             school_id: school.id,
             school_name: school.name,
             school_code: school.code,
-            login_id: school.admin_email,
+            login_id: cleanIdentifier,
           },
           schoolData: school,
         });

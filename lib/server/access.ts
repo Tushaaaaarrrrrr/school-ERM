@@ -191,11 +191,19 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedAdminSchools } = await adminClient
       .from('schools')
       .select('*')
-      .ilike('admin_email', email)
+      .ilike('admin_email', `%${email}%`)
       .eq('status', 'active');
 
-    if (matchedAdminSchools && matchedAdminSchools.length > 0) {
-      const s = matchedAdminSchools[0];
+    const matchedSchool = (matchedAdminSchools || []).find((s: any) => {
+      const emails = (s.admin_email || '')
+        .split(',')
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+      return emails.includes(email);
+    });
+
+    if (matchedSchool) {
+      const s = matchedSchool;
       await adminClient.from('school_memberships').upsert({
         user_id: profile.id,
         school_id: s.id,
@@ -490,10 +498,13 @@ export async function resolveAccessContext(supabase: any, user: any) {
   const allSchools = await serverDb.getSchools();
   for (const s of allSchools) {
     // 1. Check School Admin
-    const adminEmail = s.admin_email?.trim().toLowerCase() || s.email?.trim().toLowerCase();
+    const adminEmails = (s.admin_email || s.email || '')
+      .split(',')
+      .map((e: string) => e.trim().toLowerCase())
+      .filter(Boolean);
     const genericAdmin = `admin@${s.code.toLowerCase()}.edu.in`;
     const isSchoolAdmin =
-      email === adminEmail ||
+      adminEmails.includes(email) ||
       email === genericAdmin ||
       (s.id === 'sch-001' && (email === 'admin@delhipublic.edu.in' || email.startsWith('admin@')));
 

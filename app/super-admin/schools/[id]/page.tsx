@@ -102,6 +102,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
     name: '',
     code: '',
     email: '',
+    adminEmail: '',
     phone: '',
     address: '',
   });
@@ -204,6 +205,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
           name: data.name,
           code: data.code,
           email: data.email,
+          adminEmail: data.admin_email || data.email || '',
           phone: data.phone,
           address: data.address || '',
         });
@@ -245,6 +247,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
         name: editFormData.name,
         code: editFormData.code.trim().toUpperCase(),
         email: editFormData.email,
+        admin_email: editFormData.adminEmail,
         phone: editFormData.phone,
         address: editFormData.address,
       });
@@ -879,8 +882,8 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
 
             <div className="space-y-3.5 text-xs divide-y divide-slate-100">
               <div className="pt-2 flex items-center justify-between gap-2">
-                <span className="text-slate-500 shrink-0">Authorized Admin Email:</span>
-                <span className="font-semibold text-slate-900 font-mono truncate max-w-[180px]" title={school.admin_email || school.email}>
+                <span className="text-slate-500 shrink-0">Authorized Admin Email(s):</span>
+                <span className="font-semibold text-slate-900 font-mono truncate max-w-[280px]" title={school.admin_email || school.email}>
                   {school.admin_email || school.email}
                 </span>
               </div>
@@ -1054,6 +1057,14 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
             value={editFormData.email}
             onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
             placeholder="admin@school.edu.in"
+          />
+
+          <Input
+            label="Authorized School Admin Email(s)"
+            value={editFormData.adminEmail}
+            onChange={(e) => setEditFormData({ ...editFormData, adminEmail: e.target.value })}
+            placeholder="e.g. admin1@school.com, admin2@school.com"
+            helperText="Multiple school admin emails supported (comma-separated)."
           />
 
           <Input

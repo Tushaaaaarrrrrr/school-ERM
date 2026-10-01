@@ -60,16 +60,32 @@ export async function PUT(
     if (body.school_hours !== undefined && !validSchoolHours(body.school_hours)) {
       return NextResponse.json({ success: false, error: 'Invalid weekly school timing' }, { status: 400 });
     }
-    if (isSuperAdmin && body.admin_email) {
+    if ((isSuperAdmin || isOwnSchoolAdmin) && body.admin_email !== undefined) {
       const existing = await serverDb.getSchoolById(id);
-      const emailCheck = await checkEmailRegistry(body.admin_email, {
-        excludeEmail: existing?.admin_email,
-        excludeSchoolId: id,
-        targetSchoolId: id,
-        targetRole: 'school_admin',
-      });
-      if (!emailCheck.valid || !emailCheck.available) {
-        return NextResponse.json({ success: false, error: emailCheck.error || 'School admin email is not available.' }, { status: 409 });
+      const existingEmails = (existing?.admin_email || '')
+        .split(',')
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+      const emails = (body.admin_email || '')
+        .split(',')
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      for (const email of emails) {
+        if (!emailRegex.test(email)) {
+          return NextResponse.json({ success: false, error: `Invalid email format: "${email}"` }, { status: 400 });
+        }
+        if (!existingEmails.includes(email)) {
+          const emailCheck = await checkEmailRegistry(email, {
+            excludeSchoolId: id,
+            targetSchoolId: id,
+            targetRole: 'school_admin',
+          });
+          if (!emailCheck.valid || !emailCheck.available) {
+            return NextResponse.json({ success: false, error: emailCheck.error || `Admin email "${email}" is not available.` }, { status: 409 });
+          }
+        }
       }
     }
     const allowed = isSuperAdmin ? body : {
@@ -83,6 +99,7 @@ export async function PUT(
       school_contact_phone: body.school_contact_phone,
       school_contact_alternate: body.school_contact_alternate,
       school_hours: body.school_hours,
+      ...(body.admin_email !== undefined && { admin_email: body.admin_email }),
     };
     const updated = await serverDb.updateSchool(id, allowed as Partial<School>);
     return NextResponse.json({ success: true, data: updated });

@@ -73,6 +73,7 @@ export default function SchoolSettingsPage() {
     name: currentSchool?.name || '',
     phone: currentSchool?.phone || '',
     email: currentSchool?.email || '',
+    adminEmail: currentSchool?.admin_email || currentSchool?.email || '',
     address: currentSchool?.address || '',
     logoUrl: currentSchool?.logo_url || '',
     photoMaxMb: currentSchool?.profile_photo_max_mb || 2,
@@ -167,6 +168,7 @@ export default function SchoolSettingsPage() {
         name: currentSchool.name,
         phone: currentSchool.phone,
         email: currentSchool.email,
+        adminEmail: currentSchool.admin_email || currentSchool.email || '',
         address: currentSchool.address || '',
         logoUrl: currentSchool.logo_url || '',
         photoMaxMb: currentSchool.profile_photo_max_mb || 2,
@@ -196,6 +198,7 @@ export default function SchoolSettingsPage() {
         name: profileData.name,
         phone: profileData.phone,
         email: profileData.email,
+        admin_email: profileData.adminEmail,
         address: profileData.address,
         logo_url: profileData.logoUrl,
         profile_photo_max_mb: Math.min(10, Math.max(1, profileData.photoMaxMb)),
@@ -333,6 +336,15 @@ export default function SchoolSettingsPage() {
             onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
           />
         </div>
+
+        <Input
+          label="Authorized School Administrator Email(s)"
+          required
+          value={profileData.adminEmail}
+          onChange={(e) => setProfileData({ ...profileData, adminEmail: e.target.value })}
+          placeholder="e.g. admin1@school.com, admin2@school.com"
+          helperText="Multiple school admin emails supported (comma-separated). Every listed admin has full school administrator access."
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input

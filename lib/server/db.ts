@@ -92,12 +92,21 @@ function getSupabaseAdmin() {
   return null;
 }
 
+function cleanAdminEmailsString(val?: string): string {
+  if (!val) return '';
+  return val
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .join(', ');
+}
+
 function schoolDatabaseFields(school: Partial<School>) {
   return {
     ...(school.name !== undefined && { name: school.name }),
     ...(school.code !== undefined && { code: school.code.trim().toUpperCase() }),
     ...(school.email !== undefined && { email: school.email }),
-    ...(school.admin_email !== undefined && { admin_email: school.admin_email?.trim().toLowerCase() }),
+    ...(school.admin_email !== undefined && { admin_email: cleanAdminEmailsString(school.admin_email) }),
     ...(school.admin_name !== undefined && { admin_name: school.admin_name }),
     ...(school.admin_pin !== undefined && { admin_pin: school.admin_pin }),
     ...(school.admin_pin_failed_attempts !== undefined && { admin_pin_failed_attempts: school.admin_pin_failed_attempts }),
@@ -428,48 +437,54 @@ export const serverDb = {
         if (!error && data) {
           if (cleanSchool.admin_email) {
             try {
-              const cleanAdminEmail = cleanSchool.admin_email.trim().toLowerCase();
-              let { data: adminProf } = await supabase
-                .from('profiles')
-                .select('id')
-                .ilike('email', cleanAdminEmail)
-                .maybeSingle();
+              const adminEmails = cleanSchool.admin_email
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .filter(Boolean);
 
-              if (!adminProf?.id) {
-                const { data: newProf } = await supabase
+              for (const cleanAdminEmail of adminEmails) {
+                let { data: adminProf } = await supabase
                   .from('profiles')
-                  .insert({
-                    email: cleanAdminEmail,
-                    display_name: cleanSchool.admin_name || `${cleanSchool.name} Administrator`,
+                  .select('id')
+                  .ilike('email', cleanAdminEmail)
+                  .maybeSingle();
+
+                if (!adminProf?.id) {
+                  const { data: newProf } = await supabase
+                    .from('profiles')
+                    .insert({
+                      email: cleanAdminEmail,
+                      display_name: cleanSchool.admin_name || `${cleanSchool.name} Administrator`,
+                      role: 'school_admin',
+                      school_id: data.id,
+                      status: 'active',
+                    })
+                    .select('id')
+                    .maybeSingle();
+                  adminProf = newProf;
+                }
+
+                if (adminProf?.id) {
+                  await supabase.from('school_memberships').update({
+                    status: 'revoked',
+                    revoked_at: new Date().toISOString(),
+                  }).eq('user_id', adminProf.id).eq('status', 'active');
+
+                  await supabase.from('school_memberships').upsert({
+                    user_id: adminProf.id,
+                    school_id: data.id,
+                    role: 'school_admin',
+                    status: 'active',
+                    updated_at: new Date().toISOString(),
+                    revoked_at: null,
+                  }, { onConflict: 'user_id,school_id' });
+
+                  await supabase.from('profiles').update({
                     role: 'school_admin',
                     school_id: data.id,
-                    status: 'active',
-                  })
-                  .select('id')
-                  .maybeSingle();
-                adminProf = newProf;
-              }
-
-              if (adminProf?.id) {
-                await supabase.from('school_memberships').update({
-                  status: 'revoked',
-                  revoked_at: new Date().toISOString(),
-                }).eq('user_id', adminProf.id).eq('status', 'active');
-
-                await supabase.from('school_memberships').upsert({
-                  user_id: adminProf.id,
-                  school_id: data.id,
-                  role: 'school_admin',
-                  status: 'active',
-                  updated_at: new Date().toISOString(),
-                  revoked_at: null,
-                }, { onConflict: 'user_id,school_id' });
-
-                await supabase.from('profiles').update({
-                  role: 'school_admin',
-                  school_id: data.id,
-                  updated_at: new Date().toISOString(),
-                }).eq('id', adminProf.id);
+                    updated_at: new Date().toISOString(),
+                  }).eq('id', adminProf.id);
+                }
               }
             } catch (linkErr) {
               console.warn('Could not auto-link admin membership upon school creation:', linkErr);
@@ -544,42 +559,48 @@ export const serverDb = {
         if (!error && data) {
           if (updates.admin_email) {
             try {
-              const cleanAdminEmail = updates.admin_email.trim().toLowerCase();
-              let { data: adminProf } = await supabase
-                .from('profiles')
-                .select('id')
-                .ilike('email', cleanAdminEmail)
-                .maybeSingle();
+              const adminEmails = updates.admin_email
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .filter(Boolean);
 
-              if (!adminProf?.id) {
-                const { data: newProf } = await supabase
+              for (const cleanAdminEmail of adminEmails) {
+                let { data: adminProf } = await supabase
                   .from('profiles')
-                  .insert({
-                    email: cleanAdminEmail,
-                    display_name: fullUpdatedSchool.admin_name || `${fullUpdatedSchool.name} Administrator`,
+                  .select('id')
+                  .ilike('email', cleanAdminEmail)
+                  .maybeSingle();
+
+                if (!adminProf?.id) {
+                  const { data: newProf } = await supabase
+                    .from('profiles')
+                    .insert({
+                      email: cleanAdminEmail,
+                      display_name: fullUpdatedSchool.admin_name || `${fullUpdatedSchool.name} Administrator`,
+                      role: 'school_admin',
+                      school_id: id,
+                      status: 'active',
+                    })
+                    .select('id')
+                    .maybeSingle();
+                  adminProf = newProf;
+                }
+
+                if (adminProf?.id) {
+                  await supabase.from('school_memberships').upsert({
+                    user_id: adminProf.id,
+                    school_id: id,
+                    role: 'school_admin',
+                    status: 'active',
+                    updated_at: new Date().toISOString(),
+                  }, { onConflict: 'user_id,school_id' });
+
+                  await supabase.from('profiles').update({
                     role: 'school_admin',
                     school_id: id,
-                    status: 'active',
-                  })
-                  .select('id')
-                  .maybeSingle();
-                adminProf = newProf;
-              }
-
-              if (adminProf?.id) {
-                await supabase.from('school_memberships').upsert({
-                  user_id: adminProf.id,
-                  school_id: id,
-                  role: 'school_admin',
-                  status: 'active',
-                  updated_at: new Date().toISOString(),
-                }, { onConflict: 'user_id,school_id' });
-
-                await supabase.from('profiles').update({
-                  role: 'school_admin',
-                  school_id: id,
-                  updated_at: new Date().toISOString(),
-                }).eq('id', adminProf.id);
+                    updated_at: new Date().toISOString(),
+                  }).eq('id', adminProf.id);
+                }
               }
             } catch (linkErr) {
               console.warn('Could not auto-link admin membership upon school update:', linkErr);
@@ -646,8 +667,11 @@ export const serverDb = {
     // 2. Check All Schools for Authorized Admin Email
     const schools = await this.getSchools();
     const adminSchool = schools.find((s) => {
-      const aEmail = s.admin_email?.trim().toLowerCase();
-      return aEmail === email;
+      const aEmails = (s.admin_email || '')
+        .split(',')
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+      return aEmails.includes(email);
     });
 
     if (adminSchool) {
@@ -1607,9 +1631,122 @@ export const serverDb = {
   async getClasses(schoolId: string): Promise<any[]> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase.from('classes').select('*').eq('school_id', schoolId);
-      if (!error && data) return data;
+      const { data, error } = await supabase.from('classes').select('*').eq('school_id', schoolId).order('sort_order', { ascending: true });
       if (error) throw new Error(`Database read failed: ${error.message}`);
+      
+      const existingClasses = (data || []) as any[];
+
+      // Check if classes need to be seeded or healed from enrolled students
+      try {
+        const students = await this.getStudents(schoolId);
+        const enrolledClassNames = new Set<string>();
+        students.forEach((st) => {
+          if (st.current_enrollment?.class_name) {
+            enrolledClassNames.add(st.current_enrollment.class_name.trim());
+          }
+        });
+
+        // If no classes exist at all, seed standard Classes 1–10 + any student classes
+        if (existingClasses.length === 0) {
+          const defaultNames = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
+          const namesToSeed = Array.from(new Set([...defaultNames, ...Array.from(enrolledClassNames)]));
+          const toInsert = namesToSeed.map((name, idx) => {
+            const num = name.match(/\d+/);
+            return {
+              school_id: schoolId,
+              name,
+              sort_order: num ? parseInt(num[0], 10) : (idx + 1),
+              status: 'active',
+            };
+          });
+
+          const { data: createdClasses } = await supabase.from('classes').insert(toInsert).select();
+          if (createdClasses && createdClasses.length > 0) {
+            // Auto-create Section 'A' for each seeded class
+            const secToInsert = createdClasses.map((cls: any) => ({
+              school_id: schoolId,
+              class_id: cls.id,
+              name: 'A',
+              status: 'active',
+            }));
+            const { data: createdSecs } = await supabase.from('sections').insert(secToInsert).select();
+
+            // Heal student enrollments so class_id and section_id reference the database IDs
+            for (const st of students) {
+              const enr = st.current_enrollment;
+              if (enr && enr.class_name) {
+                const cName = enr.class_name.trim().toLowerCase();
+                const matchedCls = createdClasses.find((c: any) => c.name.toLowerCase() === cName);
+                if (matchedCls) {
+                  const matchedSec = (createdSecs || []).find((s: any) => s.class_id === matchedCls.id);
+                  const updatedEnrollment = {
+                    ...enr,
+                    class_id: matchedCls.id,
+                    section_id: matchedSec?.id || enr.section_id || '',
+                    section_name: matchedSec?.name || enr.section_name || 'A',
+                  };
+                  await supabase.from('students').update({ current_enrollment: updatedEnrollment }).eq('id', st.id);
+                }
+              }
+            }
+
+            return createdClasses.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+          }
+        } else {
+          // Classes exist, but check if any student's class is missing from classes table
+          const missingClassNames: string[] = [];
+          enrolledClassNames.forEach((name) => {
+            const exists = existingClasses.some((c: any) => c.name.toLowerCase() === name.toLowerCase());
+            if (!exists) missingClassNames.push(name);
+          });
+
+          if (missingClassNames.length > 0) {
+            const toAdd = missingClassNames.map((name) => {
+              const num = name.match(/\d+/);
+              return {
+                school_id: schoolId,
+                name,
+                sort_order: num ? parseInt(num[0], 10) : (existingClasses.length + 1),
+                status: 'active',
+              };
+            });
+            const { data: extraClasses } = await supabase.from('classes').insert(toAdd).select();
+            if (extraClasses && extraClasses.length > 0) {
+              const secToInsert = extraClasses.map((cls: any) => ({
+                school_id: schoolId,
+                class_id: cls.id,
+                name: 'A',
+                status: 'active',
+              }));
+              const { data: extraSecs } = await supabase.from('sections').insert(secToInsert).select();
+
+              for (const st of students) {
+                const enr = st.current_enrollment;
+                if (enr && enr.class_name && missingClassNames.includes(enr.class_name.trim())) {
+                  const cName = enr.class_name.trim().toLowerCase();
+                  const matchedCls = extraClasses.find((c: any) => c.name.toLowerCase() === cName);
+                  if (matchedCls) {
+                    const matchedSec = (extraSecs || []).find((s: any) => s.class_id === matchedCls.id);
+                    const updatedEnrollment = {
+                      ...enr,
+                      class_id: matchedCls.id,
+                      section_id: matchedSec?.id || enr.section_id || '',
+                      section_name: matchedSec?.name || enr.section_name || 'A',
+                    };
+                    await supabase.from('students').update({ current_enrollment: updatedEnrollment }).eq('id', st.id);
+                  }
+                }
+              }
+
+              return [...existingClasses, ...extraClasses].sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+            }
+          }
+        }
+      } catch (seedErr) {
+        console.warn('Auto-seed classes notice:', seedErr);
+      }
+
+      return existingClasses;
     }
     return [];
   },
@@ -1646,8 +1783,25 @@ export const serverDb = {
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const { data, error } = await supabase.from('sections').select('*').eq('school_id', schoolId);
-      if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
+      if (data && data.length > 0) return data;
+
+      // Auto-heal: if classes exist for this school, ensure each class has at least Section A
+      try {
+        const { data: existingClasses } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
+        if (existingClasses && existingClasses.length > 0) {
+          const sectionsToInsert = existingClasses.map((cls: any) => ({
+            school_id: schoolId,
+            class_id: cls.id,
+            name: 'A',
+            status: 'active',
+          }));
+          const { data: createdSections } = await supabase.from('sections').insert(sectionsToInsert).select();
+          if (createdSections && createdSections.length > 0) return createdSections;
+        }
+      } catch (secSeedErr) {
+        console.warn('Auto-seed sections notice:', secSeedErr);
+      }
     }
     return [];
   },
@@ -1722,8 +1876,25 @@ export const serverDb = {
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const { data, error } = await supabase.from('school_rooms').select('*').eq('school_id', schoolId);
-      if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
+      if (data && data.length > 0) return data;
+
+      // Auto-seed standard rooms if none exist for this school
+      try {
+        const defaultRooms = [
+          { school_id: schoolId, name: 'Classroom 101', room_number: '101', building: 'Academic Block A', floor: 'Ground Floor', type: 'classroom', capacity: 45, status: 'active' },
+          { school_id: schoolId, name: 'Classroom 102', room_number: '102', building: 'Academic Block A', floor: 'Ground Floor', type: 'classroom', capacity: 45, status: 'active' },
+          { school_id: schoolId, name: 'Classroom 201', room_number: '201', building: 'Academic Block A', floor: 'First Floor', type: 'classroom', capacity: 45, status: 'active' },
+          { school_id: schoolId, name: 'Classroom 202', room_number: '202', building: 'Academic Block A', floor: 'First Floor', type: 'classroom', capacity: 45, status: 'active' },
+          { school_id: schoolId, name: 'Science Laboratory', room_number: 'LAB-1', building: 'Academic Block B', floor: 'Ground Floor', type: 'lab', capacity: 35, status: 'active' },
+          { school_id: schoolId, name: 'Computer Laboratory', room_number: 'LAB-2', building: 'Academic Block B', floor: 'Ground Floor', type: 'lab', capacity: 40, status: 'active' },
+          { school_id: schoolId, name: 'Central Library', room_number: 'LIB-1', building: 'Central Block', floor: 'First Floor', type: 'library', capacity: 80, status: 'active' },
+        ];
+        const { data: createdRooms } = await supabase.from('school_rooms').insert(defaultRooms).select();
+        if (createdRooms && createdRooms.length > 0) return createdRooms;
+      } catch (rmSeedErr) {
+        console.warn('Auto-seed rooms notice:', rmSeedErr);
+      }
     }
     return [];
   },
