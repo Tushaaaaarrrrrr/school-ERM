@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -96,6 +99,7 @@ class StudentFeesView extends StatelessWidget {
                         (receipt['amount_paid'] as num?) ?? 0),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
+                  onTap: () => _showReceipt(context, receipt),
                 ),
               );
             }),
@@ -220,5 +224,96 @@ class StudentFeesView extends StatelessWidget {
       case FeeInvoiceStatus.pending:
         return const StatusBadge(label: 'PENDING', type: StatusType.info);
     }
+  }
+
+  static void _showReceipt(BuildContext context, Map<String, dynamic> receipt) {
+    final text = _receiptText(receipt);
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Receipt',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SelectableText(text),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Printing.layoutPdf(
+                  onLayout: (_) => _receiptPdf(receipt),
+                ),
+                icon: const Icon(Icons.print, size: 18),
+                label: const Text('Print Receipt'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final bytes = await _receiptPdf(receipt);
+                  await Printing.sharePdf(
+                    bytes: bytes,
+                    filename: '${receipt['receipt_number'] ?? 'receipt'}.pdf',
+                  );
+                },
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('Download PDF'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: text));
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Receipt copied')),
+                  );
+                },
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy Receipt'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _receiptText(Map<String, dynamic> receipt) {
+    final paidAt = DateTime.tryParse(
+        '${receipt['payment_date'] ?? receipt['created_at'] ?? ''}');
+    return [
+      'Receipt: ${receipt['receipt_number'] ?? '-'}',
+      'Amount: ${AppFormatters.currency((receipt['amount_paid'] as num?) ?? 0)}',
+      if (paidAt != null) 'Paid: ${AppFormatters.date(paidAt)}',
+      if ('${receipt['payment_mode'] ?? ''}'.isNotEmpty)
+        'Mode: ${receipt['payment_mode']}',
+      if ('${receipt['transaction_reference'] ?? ''}'.isNotEmpty)
+        'Reference: ${receipt['transaction_reference']}',
+    ].join('\n');
+  }
+
+  static Future<Uint8List> _receiptPdf(Map<String, dynamic> receipt) async {
+    final doc = pw.Document();
+    doc.addPage(
+      pw.Page(
+        build: (_) => pw.Padding(
+          padding: const pw.EdgeInsets.all(24),
+          child: pw.Text(_receiptText(receipt),
+              style: const pw.TextStyle(fontSize: 14)),
+        ),
+      ),
+    );
+    return doc.save();
   }
 }
