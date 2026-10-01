@@ -1,4 +1,14 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { fiveDigitPin, parseJsonBody } from '@/lib/server/validation';
+
+const pinResetInput = z.object({
+  targetType: z.enum(['school_admin', 'teacher', 'staff']),
+  targetId: z.string().min(1),
+  newPin: z.union([fiveDigitPin, z.literal('')]).nullish(),
+  removePin: z.boolean().optional(),
+  unlockedByName: z.string().optional(),
+});
 import { serverDb } from '@/lib/server/db';
 import { getAccessContext } from '@/lib/server/access';
 
@@ -11,13 +21,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const { targetType, targetId, newPin, removePin } = await request.json();
-    if (!targetType || !targetId) {
-      return NextResponse.json({ success: false, error: 'Target parameters required' }, { status: 400 });
-    }
-    if (newPin !== undefined && newPin !== null && newPin !== '' && !/^\d{5}$/.test(String(newPin))) {
-      return NextResponse.json({ success: false, error: 'PIN must be exactly 5 digits.' }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(request, pinResetInput);
+    if (!parsed.ok) return parsed.response;
+    const { targetType, targetId, newPin, removePin } = parsed.data;
 
     const isSuperAdmin = context.state === 'SUPER_ADMIN';
     const schoolId = context.state === 'ACTIVE_SCHOOL_USER' && context.user?.role === 'school_admin'

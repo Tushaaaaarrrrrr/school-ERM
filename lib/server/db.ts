@@ -161,6 +161,7 @@ const SCHOOLS_FILE = path.join(DATA_DIR, 'schools.json');
 const STUDENTS_FILE = path.join(DATA_DIR, 'students.json');
 
 function saveSchoolsToFile(schools: School[]) {
+  if (getSupabaseAdmin()) return;
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -187,6 +188,7 @@ function loadSchoolsFromFile(): School[] | null {
 }
 
 function saveStudentsToFile(students: Student[]) {
+  if (getSupabaseAdmin()) return;
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -212,7 +214,20 @@ function loadStudentsFromFile(): Student[] | null {
   return null;
 }
 
+// With a real database attached, memory is only a scratch fallback: never seed it with demo data or files.
+function emptyServerDb(): NonNullable<typeof globalThis.__SERVER_DB__> {
+  return {
+    schools: [], teachers: [], staff: [], students: [], profiles: [], classes: [], sections: [],
+    subjects: [], timetable: [], attendance: [], feeInvoices: [], teacherPayments: [],
+    employeePayments: [], accessRequests: [], holidays: [], recycleBin: [], authEvents: [],
+    temporaryAssignments: [], salaryAdjustments: [], parents: [], parentLinks: [],
+  };
+}
+
 function initServerDb() {
+  if (!globalThis.__SERVER_DB__ && getSupabaseAdmin()) {
+    globalThis.__SERVER_DB__ = emptyServerDb();
+  }
   if (!globalThis.__SERVER_DB__) {
     const fileSchools = loadSchoolsFromFile();
     const mergedSchools = fileSchools ? [...fileSchools] : [...INITIAL_SCHOOLS];
@@ -538,8 +553,7 @@ export const serverDb = {
               continue;
             }
           }
-          console.warn('Supabase create school notice:', error.message);
-          break;
+          throw new Error(`Database school insert failed: ${error.message}`);
         }
       }
     }
@@ -656,9 +670,7 @@ export const serverDb = {
               continue;
             }
           }
-          // If other non-fatal error, log and return fullUpdatedSchool from cache
-          console.warn('Supabase update school notice:', error.message);
-          break;
+          throw new Error(`Database school update failed: ${error.message}`);
         }
       }
       return fullUpdatedSchool;
@@ -1058,8 +1070,9 @@ export const serverDb = {
 
   async deleteTeacher(id: string): Promise<boolean> {
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      await supabase.from('teachers').delete().eq('id', id);
+    if (supabase && isUuidString(id)) {
+      const { error } = await supabase.from('teachers').delete().eq('id', id);
+      if (error) throw new Error(`Database teacher delete failed: ${error.message}`);
     }
     const db = initServerDb();
     if (!db.teachers) db.teachers = [];
@@ -1153,11 +1166,9 @@ export const serverDb = {
 
   async deleteStaff(id: string): Promise<boolean> {
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-      if (isUuid(id)) {
-        await supabase.from('staff').delete().eq('id', id);
-      }
+    if (supabase && isUuidString(id)) {
+      const { error } = await supabase.from('staff').delete().eq('id', id);
+      if (error) throw new Error(`Database staff delete failed: ${error.message}`);
     }
     const db = initServerDb();
     if (!db.staff) db.staff = [];
@@ -1380,11 +1391,9 @@ export const serverDb = {
 
   async deleteStudent(id: string): Promise<boolean> {
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-      if (isUuid(id)) {
-        await supabase.from('students').delete().eq('id', id);
-      }
+    if (supabase && isUuidString(id)) {
+      const { error } = await supabase.from('students').delete().eq('id', id);
+      if (error) throw new Error(`Database student delete failed: ${error.message}`);
     }
     const db = initServerDb();
     db.students = db.students.filter((s) => s.id !== id);
@@ -1426,28 +1435,82 @@ export const serverDb = {
   // --------------------------------------------------------------------------
   // HOLIDAYS
   // --------------------------------------------------------------------------
+  async resolveAcademicYearId(schoolId: string, requestedId: string | undefined, onDate: string): Promise<string> {
+    if (requestedId && isUuidString(requestedId)) return requestedId;
+    const years = await this.getAcademicYears(schoolId);
+    const match =
+      years.find((y: any) => y.is_current) ||
+      years.find((y: any) => y.start_date <= onDate && onDate <= y.end_date) ||
+      [...years].sort((a: any, b: any) => String(b.start_date).localeCompare(String(a.start_date)))[0];
+    if (!match) throw new Error('Create an academic year for this school before adding holidays.');
+    return match.id;
+  },
+
+  holidayRow(holiday: Partial<SchoolHoliday>) {
+    const { description, ...rest } = holiday;
+    const row = sanitizeSupabasePayload({ ...rest, reason: rest.reason || description || null });
+    for (const key of Object.keys(row)) {
+      if (!['school_id', 'academic_year_id', 'name', 'start_date', 'end_date', 'reason', 'created_by'].includes(key)) delete row[key];
+    }
+    return row;
+  },
+
   async getHolidays(schoolId: string): Promise<SchoolHoliday[]> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { data, error } = await supabase.from('school_holidays').select('*').eq('school_id', schoolId).order('start_date');
+      if (error) throw new Error(`Database holidays read failed: ${error.message}`);
+      return (data || []) as SchoolHoliday[];
+    }
     const db = initServerDb();
     return db.holidays.filter((h) => h.school_id === schoolId);
   },
-
   async createHoliday(holiday: SchoolHoliday): Promise<SchoolHoliday> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const academicYearId = await this.resolveAcademicYearId(holiday.school_id, holiday.academic_year_id, holiday.start_date);
+      const row = this.holidayRow({ ...holiday, academic_year_id: academicYearId, end_date: holiday.end_date || holiday.start_date });
+      const { data, error } = await supabase.from('school_holidays').insert(row).select().single();
+      if (error) throw new Error(`Database holiday insert failed: ${error.message}`);
+      return data as SchoolHoliday;
+    }
     const db = initServerDb();
-    db.holidays.unshift(holiday);
-    return holiday;
+    const item: SchoolHoliday = {
+      ...holiday,
+      id: holiday.id || `hol-${Date.now().toString().slice(-6)}`,
+      created_at: holiday.created_at || new Date().toISOString(),
+    };
+    db.holidays.unshift(item);
+    return item;
   },
-
-  async updateHoliday(id: string, updates: Partial<SchoolHoliday>): Promise<SchoolHoliday> {
+  async updateHoliday(id: string, schoolId: string, updates: Partial<SchoolHoliday>): Promise<SchoolHoliday> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const row = this.holidayRow(updates);
+      delete row.school_id;
+      if (updates.academic_year_id !== undefined) {
+        row.academic_year_id = await this.resolveAcademicYearId(schoolId, updates.academic_year_id, updates.start_date || new Date().toISOString().slice(0, 10));
+      }
+      const { data, error } = await supabase.from('school_holidays').update(row).eq('id', id).eq('school_id', schoolId).select().maybeSingle();
+      if (error) throw new Error(`Database holiday update failed: ${error.message}`);
+      if (!data) throw new Error('Holiday not found');
+      return data as SchoolHoliday;
+    }
     const db = initServerDb();
-    const idx = db.holidays.findIndex((h) => h.id === id);
+    const idx = db.holidays.findIndex((h) => h.id === id && h.school_id === schoolId);
     if (idx === -1) throw new Error('Holiday not found');
-    db.holidays[idx] = { ...db.holidays[idx], ...updates };
+    db.holidays[idx] = { ...db.holidays[idx], ...updates, id, school_id: schoolId };
     return db.holidays[idx];
   },
-
-  async deleteHoliday(id: string): Promise<void> {
+  async deleteHoliday(id: string, schoolId: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { error } = await supabase.from('school_holidays').delete().eq('id', id).eq('school_id', schoolId);
+      if (error) throw new Error(`Database holiday delete failed: ${error.message}`);
+      return;
+    }
     const db = initServerDb();
-    db.holidays = db.holidays.filter((h) => h.id !== id);
+    db.holidays = db.holidays.filter((h) => !(h.id === id && h.school_id === schoolId));
   },
 
   // --------------------------------------------------------------------------
@@ -1489,7 +1552,6 @@ export const serverDb = {
   },
 
   async createTemporaryAssignment(assignment: TemporaryAssignment): Promise<TemporaryAssignment> {
-    const db = initServerDb();
     const item: TemporaryAssignment = {
       ...assignment,
       id: assignment.id || `tmp-asg-${Date.now().toString().slice(-4)}`,
@@ -1497,17 +1559,19 @@ export const serverDb = {
       created_at: assignment.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    db.temporaryAssignments.unshift(item);
 
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      try {
-        await supabase.from('temporary_assignments').insert(item);
-      } catch (err) {
-        console.warn('Supabase insert temporary_assignments notice:', err);
-      }
+      const { data, error } = await supabase
+        .from('temporary_assignments')
+        .insert(sanitizeSupabasePayload(item))
+        .select()
+        .single();
+      if (error) throw new Error(`Database temporary assignment insert failed: ${error.message}`);
+      return data as TemporaryAssignment;
     }
 
+    initServerDb().temporaryAssignments.unshift(item);
     return item;
   },
 
@@ -1515,27 +1579,21 @@ export const serverDb = {
     id: string,
     updates: Partial<TemporaryAssignment>
   ): Promise<TemporaryAssignment> {
+    const changes = { ...updates, updated_at: new Date().toISOString() };
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const payload = sanitizeSupabasePayload(changes);
+      delete payload.id;
+      const { data, error } = await supabase.from('temporary_assignments').update(payload).eq('id', id).select().maybeSingle();
+      if (error) throw new Error(`Database temporary assignment update failed: ${error.message}`);
+      if (!data) throw new Error('Temporary assignment not found');
+      return data as TemporaryAssignment;
+    }
+
     const db = initServerDb();
     const idx = db.temporaryAssignments.findIndex((a) => a.id === id);
     if (idx === -1) throw new Error('Temporary assignment not found');
-    db.temporaryAssignments[idx] = {
-      ...db.temporaryAssignments[idx],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
-
-    const supabase = getSupabaseAdmin();
-    if (supabase) {
-      try {
-        await supabase
-          .from('temporary_assignments')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', id);
-      } catch (err) {
-        console.warn('Supabase update temporary_assignments notice:', err);
-      }
-    }
-
+    db.temporaryAssignments[idx] = { ...db.temporaryAssignments[idx], ...changes };
     return db.temporaryAssignments[idx];
   },
 
@@ -1582,7 +1640,6 @@ export const serverDb = {
   },
 
   async createSalaryAdjustment(adjustment: EmployeeSalaryAdjustment): Promise<EmployeeSalaryAdjustment> {
-    const db = initServerDb();
     const item: EmployeeSalaryAdjustment = {
       ...adjustment,
       id: adjustment.id || `sal-adj-${Date.now().toString().slice(-4)}`,
@@ -1590,32 +1647,28 @@ export const serverDb = {
       created_at: adjustment.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    db.salaryAdjustments.unshift(item);
 
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      try {
-        await supabase.from('employee_salary_adjustments').insert(item);
-      } catch (err) {
-        console.warn('Supabase insert employee_salary_adjustments notice:', err);
-      }
+      const payload = sanitizeSupabasePayload(item);
+      if (payload.temporary_assignment_id && !isUuidString(payload.temporary_assignment_id)) delete payload.temporary_assignment_id;
+      const { data, error } = await supabase.from('employee_salary_adjustments').insert(payload).select().single();
+      if (error) throw new Error(`Database salary adjustment insert failed: ${error.message}`);
+      return data as EmployeeSalaryAdjustment;
     }
 
+    initServerDb().salaryAdjustments.unshift(item);
     return item;
   },
 
   async deleteSalaryAdjustment(id: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    if (supabase && isUuidString(id)) {
+      const { error } = await supabase.from('employee_salary_adjustments').delete().eq('id', id);
+      if (error) throw new Error(`Database salary adjustment delete failed: ${error.message}`);
+    }
     const db = initServerDb();
     db.salaryAdjustments = db.salaryAdjustments.filter((a) => a.id !== id);
-
-    const supabase = getSupabaseAdmin();
-    if (supabase) {
-      try {
-        await supabase.from('employee_salary_adjustments').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase delete employee_salary_adjustments notice:', err);
-      }
-    }
   },
 
   async getAcademicYears(schoolId: string): Promise<any[]> {

@@ -5758,8 +5758,20 @@ export const STANDARD_INDIAN_HOLIDAYS = [
   { name: 'Christmas & Winter Vacation', start_date: '2026-12-25', end_date: '2027-01-02', reason: 'Winter Vacation Break' },
 ];
 
+async function holidayApi<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.success === false) throw new Error(json.error || 'Holiday request failed');
+  return json.data as T;
+}
+
+const byStartDate = (a: SchoolHoliday, b: SchoolHoliday) => a.start_date.localeCompare(b.start_date);
+
 export const holidayService = {
   async getHolidays(schoolId: string): Promise<SchoolHoliday[]> {
+    if (!isDemoEnvironment()) {
+      return (await holidayApi<SchoolHoliday[]>('/api/holidays')).sort(byStartDate);
+    }
     let all = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     let schoolHols = all.filter((h) => h.school_id === schoolId);
 
@@ -5784,6 +5796,9 @@ export const holidayService = {
   },
 
   async createHoliday(data: Omit<SchoolHoliday, 'id' | 'created_at'>): Promise<SchoolHoliday> {
+    if (!isDemoEnvironment()) {
+      return holidayApi<SchoolHoliday>('/api/holidays', { method: 'POST', body: JSON.stringify(data) });
+    }
     const list = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     const newHol: SchoolHoliday = {
       ...data,
@@ -5796,6 +5811,9 @@ export const holidayService = {
   },
 
   async updateHoliday(id: string, data: Partial<SchoolHoliday>): Promise<SchoolHoliday> {
+    if (!isDemoEnvironment()) {
+      return holidayApi<SchoolHoliday>(`/api/holidays/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+    }
     const list = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     const index = list.findIndex((h) => h.id === id);
     if (index === -1) throw new Error('Holiday not found');
@@ -5806,6 +5824,24 @@ export const holidayService = {
   },
 
   async loadStandardIndianHolidays(schoolId: string, academicYearId = 'ay-2026'): Promise<SchoolHoliday[]> {
+    if (!isDemoEnvironment()) {
+      const existing = await this.getHolidays(schoolId);
+      for (const h of existing) {
+        await holidayApi(`/api/holidays/${encodeURIComponent(h.id)}`, { method: 'DELETE' });
+      }
+      const created: SchoolHoliday[] = [];
+      for (const std of STANDARD_INDIAN_HOLIDAYS) {
+        created.push(await this.createHoliday({
+          school_id: schoolId,
+          academic_year_id: academicYearId,
+          name: std.name,
+          start_date: std.start_date,
+          end_date: std.end_date,
+          reason: std.reason,
+        }));
+      }
+      return created.sort(byStartDate);
+    }
     let all = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     // Remove existing holidays for this school and replace with standard set
     all = all.filter((h) => h.school_id !== schoolId);
@@ -5827,6 +5863,10 @@ export const holidayService = {
   },
 
   async deleteHoliday(id: string, actorName = 'School Administrator', actorRole: UserRole = 'school_admin'): Promise<void> {
+    if (!isDemoEnvironment()) {
+      await holidayApi(`/api/holidays/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      return;
+    }
     let list = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     const target = list.find((h) => h.id === id);
     if (target) {

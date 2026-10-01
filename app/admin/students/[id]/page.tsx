@@ -273,7 +273,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           feeService.getInvoices(s.school_id, { studentId: s.id }),
           examService.getPublishedResultsForStudent(s.id),
           attendanceService.getAttendance(s.school_id, { studentId: s.id }),
-          holidayService.getHolidays(s.school_id),
+          holidayService.getHolidays(s.school_id).catch(() => []),
           leaveService.getActiveLeaveForStudent(s.id, todayStr),
           leaveService.getLeaves(s.school_id, { studentId: s.id }),
           transportService.getStudentTodayTransportStatus(s.id, todayStr),

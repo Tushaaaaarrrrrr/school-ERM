@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { parseJsonBody } from '@/lib/server/validation';
 import { clientIp, consume, tooManyRequests } from '@/lib/server/rate-limit';
 import { serverDb } from '@/lib/server/db';
 import { getAccessContext } from '@/lib/server/access';
@@ -14,10 +16,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const { pin } = await request.json();
-    if (typeof pin !== 'string') {
-      return NextResponse.json({ success: false, error: 'PIN required' }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(request, z.object({ pin: z.string().max(10) }));
+    if (!parsed.ok) return parsed.response;
+    const { pin } = parsed.data;
 
     const result = await serverDb.verifyPin(user, pin);
     return NextResponse.json(result);
