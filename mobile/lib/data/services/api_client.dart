@@ -21,8 +21,11 @@ class ApiClient {
   static const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY',
       defaultValue:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eWNsYml6dXhvY25pcGlkaGloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0OTU2MDEsImV4cCI6MjEwMzA3MTYwMX0.8A7Pr42GNbEwRm9CgDdlzZ7yXW-pm8DREDak71Bdxog');
-  static const _googleWebClientId =
-      String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+  static const _googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue:
+        '990282572765-bn1ls79tuhpa589eiici5r9mr6c98c8h.apps.googleusercontent.com',
+  );
 
   ApiClient._();
 
