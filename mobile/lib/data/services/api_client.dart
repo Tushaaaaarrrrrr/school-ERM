@@ -135,6 +135,10 @@ class ApiClient {
           {
             'action': 'verify',
             'identifier': identifier,
+            'userId': lookup['user']['id'],
+            'email': lookup['user']['email'],
+            'loginId': lookup['user']['login_id'],
+            'role': lookup['user']['role'],
             'password': password,
           },
           includeSession: false);

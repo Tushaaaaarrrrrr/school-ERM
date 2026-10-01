@@ -15,6 +15,7 @@ class _LoginViewState extends State<LoginView> {
   final _identifier = TextEditingController();
   final _password = TextEditingController();
   bool _showPassword = false;
+  bool _passwordVisible = false;
 
   @override
   void dispose() {
@@ -142,15 +143,27 @@ class _LoginViewState extends State<LoginView> {
                 const SizedBox(height: 4),
                 TextField(
                   controller: _password,
-                  obscureText: true,
+                  obscureText: !_passwordVisible,
                   autofocus: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Password',
                     hintText: 'Enter your account password',
-                    prefixIcon: Padding(
+                    prefixIcon: const Padding(
                       padding: EdgeInsets.all(12),
                       child: AppSvgIcon('shield_check',
                           size: 18, color: AppColors.textMuted),
+                    ),
+                    suffixIcon: IconButton(
+                      tooltip:
+                          _passwordVisible ? 'Hide password' : 'Show password',
+                      icon: Icon(
+                        _passwordVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.textMuted,
+                      ),
+                      onPressed: () =>
+                          setState(() => _passwordVisible = !_passwordVisible),
                     ),
                   ),
                 ),
