@@ -135,6 +135,10 @@ class _MainShellViewState extends State<MainShellView>
       _scaffoldKey.currentState?.closeDrawer();
       return;
     }
+    if (_scaffoldKey.currentState?.isEndDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+      return;
+    }
 
     // 2. Navigate back in tab/screen history (Screen C -> Screen B -> Screen A)
     if (_tabHistory.length > 1) {
@@ -179,6 +183,14 @@ class _MainShellViewState extends State<MainShellView>
         key: _scaffoldKey,
         appBar: AppTopHeader(scaffoldKey: _scaffoldKey),
         drawer: AppDrawer(onNavigate: _onTabSelected),
+        endDrawer: _MoreDrawer(
+          user: auth.currentUser,
+          items: _moreItemsForRole(currentRole),
+          onNavigate: (index) {
+            Navigator.of(context).pop();
+            _onTabSelected(index);
+          },
+        ),
         body: IndexedStack(
           index: _currentIndex,
           children: _getScreensForRole(currentRole),
@@ -190,7 +202,7 @@ class _MainShellViewState extends State<MainShellView>
           onCreateStudent: currentRole == UserRole.schoolAdmin
               ? _showCreateStudentSheet
               : null,
-          onMore: () => _showMoreSheet(currentRole),
+          onMore: () => _scaffoldKey.currentState?.openEndDrawer(),
         ),
       ),
     );
@@ -209,10 +221,7 @@ class _MainShellViewState extends State<MainShellView>
       case UserRole.student:
       case UserRole.parent:
         return const [
-          _MoreNavItem('Classes & Timetable', 1, 'calendar'),
           _MoreNavItem('Attendance, Leave & Health', 7, 'attendance'),
-          _MoreNavItem('Fees, Receipts & Charges', 4, 'receipt'),
-          _MoreNavItem('Transport Details', 2, 'bus'),
           _MoreNavItem('Results', 3, 'award'),
           _MoreNavItem('Notices', 8, 'bell'),
           _MoreNavItem('Profile', 5, 'id_card'),
@@ -270,51 +279,6 @@ class _MainShellViewState extends State<MainShellView>
           _MoreNavItem('Settings', 4, 'sparkles'),
         ];
     }
-  }
-
-  void _showMoreSheet(UserRole role) {
-    final options = _moreItemsForRole(role);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.72,
-          minChildSize: 0.35,
-          maxChildSize: 0.92,
-          builder: (context, controller) {
-            return ListView(
-              controller: controller,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              children: [
-                const Text(
-                  'More',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                ...options.map(
-                  (item) => ListTile(
-                    leading: AppSvgIcon(item.icon,
-                        size: 18, color: AppColors.primary),
-                    title: Text(item.label),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _onTabSelected(item.index);
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   void _showCreateStudentSheet() {
@@ -706,4 +670,150 @@ class _MoreNavItem {
   final String icon;
 
   const _MoreNavItem(this.label, this.index, this.icon);
+}
+
+class _MoreDrawer extends StatelessWidget {
+  final UserModel user;
+  final List<_MoreNavItem> items;
+  final ValueChanged<int> onNavigate;
+
+  const _MoreDrawer({
+    required this.user,
+    required this.items,
+    required this.onNavigate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    return Drawer(
+      width: MediaQuery.sizeOf(context).width,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: top),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 16, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'More',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  _MoreProfileHeader(user: user),
+                  const SizedBox(height: 14),
+                  ...items.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: ListTile(
+                        leading: AppSvgIcon(
+                          item.icon,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        title: Text(item.label),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => onNavigate(item.index),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreProfileHeader extends StatelessWidget {
+  final UserModel user;
+
+  const _MoreProfileHeader({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = user.avatarUrl;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 34,
+            backgroundColor: AppColors.primaryLight,
+            backgroundImage: avatarUrl == null || avatarUrl.isEmpty
+                ? null
+                : NetworkImage(avatarUrl),
+            child: avatarUrl == null || avatarUrl.isEmpty
+                ? Text(
+                    user.name.isEmpty
+                        ? 'U'
+                        : user.name.characters.first.toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name.isEmpty ? 'User' : user.name,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(user.roleDisplayName,
+                    style: const TextStyle(color: AppColors.textSecondary)),
+                if (user.schoolName.isNotEmpty)
+                  Text(user.schoolName,
+                      style: const TextStyle(color: AppColors.textSecondary)),
+                if (user.email.isNotEmpty)
+                  Text(
+                    user.email,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+                if ((user.loginId ?? '').isNotEmpty)
+                  Text(
+                    'ID: ${user.loginId}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
