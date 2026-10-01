@@ -14,7 +14,7 @@ import { CardSkeleton } from '@/components/ui/skeleton';
 
 export default function StudentTransportPage() {
   const { currentUser } = useAuth();
-  const schoolId = currentUser?.school_id || 'sch-001';
+  const schoolId = currentUser?.school_id || '';
 
   const [isLoading, setIsLoading] = useState(true);
   const [assignment, setAssignment] = useState<StudentTransportAssignment | null>(null);

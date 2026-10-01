@@ -212,12 +212,98 @@ class ApiClient {
         .toList();
   }
 
-  static Future<List<FeeInvoiceModel>> getFeeInvoices() async {
-    final json = await _get('/api/fee-invoices');
+  static Future<List<FeeInvoiceModel>> getFeeInvoices(
+      {String? studentId}) async {
+    final json = await _get('/api/fee-invoices', {
+      if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
+    });
     final data = (json['data'] as List? ?? const []);
     return data
         .map((e) => FeeInvoiceModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getStudentCharges(
+      {String? studentId}) async {
+    final json = await _get('/api/student-charges', {
+      if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getPaymentReceipts(
+      {String? studentId}) async {
+    final json = await _get('/api/payment-receipts', {
+      if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getStudentAttendance(
+      {String? studentId}) async {
+    final json = await _get('/api/attendance/students', {
+      if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getStudentLeaves(
+      {String? studentId}) async {
+    final json = await _get('/api/leaves/students', {
+      if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTimetable({
+    String? schoolId,
+    String? classId,
+    String? sectionId,
+  }) async {
+    final json = await _get('/api/timetable', {
+      if (schoolId != null && schoolId.isNotEmpty) 'schoolId': schoolId,
+      if (classId != null && classId.isNotEmpty) 'classId': classId,
+      if (sectionId != null && sectionId.isNotEmpty) 'sectionId': sectionId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getExamResults(
+      {String? studentId}) async {
+    final json = await _get('/api/exam-results', {
+      if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTransportAssignments(
+      {String? studentId}) async {
+    final json = await _get('/api/transport-assignments', {
+      if (studentId != null && studentId.isNotEmpty) 'student_id': studentId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTransportRoutes() async {
+    final json = await _get('/api/transport-routes');
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTransportStops(
+      {String? routeId}) async {
+    final json = await _get('/api/transport-stops', {
+      if (routeId != null && routeId.isNotEmpty) 'route_id': routeId,
+    });
+    return _listFromJson(json);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTransportEvents(
+      {String? studentId}) async {
+    final json = await _get('/api/transport-events', {
+      if (studentId != null && studentId.isNotEmpty) 'student_id': studentId,
+      'event_date': DateTime.now().toIso8601String().split('T').first,
+    });
+    return _listFromJson(json);
   }
 
   static Future<List<Map<String, dynamic>>> getAcademicYears() async {

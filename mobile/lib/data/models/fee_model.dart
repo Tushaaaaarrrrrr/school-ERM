@@ -2,6 +2,7 @@ enum FeeInvoiceStatus { paid, partial, pending, overdue }
 
 class FeeInvoiceModel {
   final String id;
+  final String studentId;
   final String invoiceNumber;
   final String month;
   final double amount;
@@ -11,6 +12,7 @@ class FeeInvoiceModel {
 
   const FeeInvoiceModel({
     required this.id,
+    required this.studentId,
     required this.invoiceNumber,
     required this.month,
     required this.amount,
@@ -25,6 +27,7 @@ class FeeInvoiceModel {
     final status = (json['status'] as String? ?? '').toLowerCase();
     return FeeInvoiceModel(
       id: json['id'] as String? ?? '',
+      studentId: json['student_id'] as String? ?? '',
       invoiceNumber: json['invoice_number'] as String? ?? '',
       month: json['month'] as String? ??
           json['month_year'] as String? ??
@@ -37,7 +40,8 @@ class FeeInvoiceModel {
               0)
           .toDouble(),
       paidAmount: (json['paid_amount'] as num? ?? 0).toDouble(),
-      dueDate: DateTime.tryParse(json['due_date'] as String? ?? '') ?? DateTime.now(),
+      dueDate: DateTime.tryParse(json['due_date'] as String? ?? '') ??
+          DateTime.now(),
       status: status == 'paid'
           ? FeeInvoiceStatus.paid
           : status == 'partial'

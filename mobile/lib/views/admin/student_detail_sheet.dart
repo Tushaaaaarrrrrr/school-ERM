@@ -9,17 +9,20 @@ import 'student_billing_history_sheet.dart';
 class StudentDetailSheet extends StatefulWidget {
   final StudentModel student;
   final int initialTabIndex;
+  final bool canManageFees;
 
   const StudentDetailSheet({
     super.key,
     required this.student,
     this.initialTabIndex = 0,
+    this.canManageFees = false,
   });
 
   static void show(
     BuildContext context, {
     required StudentModel student,
     int initialTabIndex = 0,
+    bool canManageFees = false,
   }) {
     showModalBottomSheet(
       context: context,
@@ -28,6 +31,7 @@ class StudentDetailSheet extends StatefulWidget {
       builder: (context) => StudentDetailSheet(
         student: student,
         initialTabIndex: initialTabIndex,
+        canManageFees: canManageFees,
       ),
     );
   }
@@ -51,7 +55,8 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
       className: '${widget.student.className}-${widget.student.section}',
       rollNumber: widget.student.rollNumber,
       admissionNumber: widget.student.admissionNumber,
-      parentName: widget.student.parentName ?? 'Parent of ${widget.student.fullName}',
+      parentName:
+          widget.student.parentName ?? 'Parent of ${widget.student.fullName}',
       parentPhone: widget.student.parentPhone ?? '',
       totalAnnualFee: 0,
       totalPaid: 0,
@@ -112,13 +117,15 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                           const SizedBox(height: 2),
                           Text(
                             'Class: ${s.className}-${s.section} • Roll: ${s.rollNumber} • Adm: ${s.admissionNumber}',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                      icon: const Icon(Icons.close,
+                          color: AppColors.textSecondary),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -145,7 +152,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: _selectedTab == 0 ? Colors.white : Colors.transparent,
+                              color: _selectedTab == 0
+                                  ? Colors.white
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: _selectedTab == 0
                                   ? [
@@ -164,15 +173,21 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                                 Icon(
                                   Icons.person,
                                   size: 16,
-                                  color: _selectedTab == 0 ? AppColors.primary : AppColors.textSecondary,
+                                  color: _selectedTab == 0
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '360° Profile',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: _selectedTab == 0 ? FontWeight.bold : FontWeight.w500,
-                                    color: _selectedTab == 0 ? AppColors.primary : AppColors.textSecondary,
+                                    fontWeight: _selectedTab == 0
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: _selectedTab == 0
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -188,7 +203,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: _selectedTab == 1 ? Colors.white : Colors.transparent,
+                              color: _selectedTab == 1
+                                  ? Colors.white
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: _selectedTab == 1
                                   ? [
@@ -207,15 +224,21 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                                 AppSvgIcon(
                                   'receipt',
                                   size: 14,
-                                  color: _selectedTab == 1 ? AppColors.primary : AppColors.textSecondary,
+                                  color: _selectedTab == 1
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Billing & Fees Ledger',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: _selectedTab == 1 ? FontWeight.bold : FontWeight.w500,
-                                    color: _selectedTab == 1 ? AppColors.primary : AppColors.textSecondary,
+                                    fontWeight: _selectedTab == 1
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: _selectedTab == 1
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -233,7 +256,8 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
               Expanded(
                 child: _selectedTab == 0
                     ? _buildProfileTab(controller, s, phone, parent)
-                    : _buildBillingTab(controller, billing, phone),
+                    : _buildBillingTab(
+                        controller, billing, phone, widget.canManageFees),
               ),
             ],
           ),
@@ -242,7 +266,8 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
     );
   }
 
-  Widget _buildProfileTab(ScrollController controller, StudentModel s, String phone, String parent) {
+  Widget _buildProfileTab(ScrollController controller, StudentModel s,
+      String phone, String parent) {
     return ListView(
       controller: controller,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -268,16 +293,21 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                   children: [
                     Text(
                       s.fullName,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Roll No: ${s.rollNumber} • Class: ${s.className}-${s.section}',
-                      style: const TextStyle(color: Color(0xFFE0E7FF), fontSize: 11),
+                      style: const TextStyle(
+                          color: Color(0xFFE0E7FF), fontSize: 11),
                     ),
                     Text(
                       'Adm #: ${s.admissionNumber}',
-                      style: const TextStyle(color: Color(0xFFC7D2FE), fontSize: 10),
+                      style: const TextStyle(
+                          color: Color(0xFFC7D2FE), fontSize: 10),
                     ),
                   ],
                 ),
@@ -290,7 +320,10 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                 ),
                 child: const Text(
                   'ENROLLED',
-                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -306,19 +339,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
               child: _DetailStatBox(
                 title: 'Attendance',
                 value: '${s.attendancePercentage}%',
-                subtitle: '38 / 40 Days',
+                subtitle: 'Recorded',
                 color: AppColors.success,
                 bgColor: AppColors.successLight,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: _DetailStatBox(
-                title: 'Academic Grade',
-                value: 'A+ (90.2%)',
-                subtitle: 'Term 1 Exam',
-                color: AppColors.primary,
-                bgColor: AppColors.primaryLight,
               ),
             ),
             const SizedBox(width: 8),
@@ -328,10 +351,10 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                 borderRadius: BorderRadius.circular(10),
                 child: const _DetailStatBox(
                   title: 'Fee Status',
-                  value: '₹7,000 Due',
-                  subtitle: 'Tap to view',
-                  color: AppColors.danger,
-                  bgColor: AppColors.dangerLight,
+                  value: 'View Bills',
+                  subtitle: 'Live invoices',
+                  color: AppColors.primary,
+                  bgColor: AppColors.primaryLight,
                 ),
               ),
             ),
@@ -343,7 +366,10 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
         // Personal & Bio Information Card
         const Text(
           'Personal & Admission Information',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary),
         ),
         const SizedBox(height: 8),
 
@@ -352,7 +378,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                _InfoRow(label: 'Gender', value: s.gender.isNotEmpty ? s.gender : 'Not Specified'),
+                _InfoRow(
+                    label: 'Gender',
+                    value: s.gender.isNotEmpty ? s.gender : 'Not Specified'),
                 const Divider(height: 12),
                 _InfoRow(label: 'Father / Guardian', value: parent),
                 const Divider(height: 12),
@@ -367,7 +395,10 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
         // Bus Route
         const Text(
           'Assigned Bus Transport Route',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary),
         ),
         const SizedBox(height: 8),
 
@@ -376,9 +407,13 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                _InfoRow(label: 'Route Line', value: s.busRouteNumber ?? 'Not Assigned'),
+                _InfoRow(
+                    label: 'Route Line',
+                    value: s.busRouteNumber ?? 'Not Assigned'),
                 const Divider(height: 12),
-                _InfoRow(label: 'Bus Stop Name', value: s.busStopName ?? 'Not Assigned'),
+                _InfoRow(
+                    label: 'Bus Stop Name',
+                    value: s.busStopName ?? 'Not Assigned'),
               ],
             ),
           ),
@@ -392,10 +427,13 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
               child: OutlinedButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Calling parent $phone...'), backgroundColor: AppColors.primary),
+                    SnackBar(
+                        content: Text('Calling parent $phone...'),
+                        backgroundColor: AppColors.primary),
                   );
                 },
-                icon: const Icon(Icons.phone, size: 16, color: AppColors.primary),
+                icon:
+                    const Icon(Icons.phone, size: 16, color: AppColors.primary),
                 label: const Text('Call Parent'),
               ),
             ),
@@ -403,7 +441,8 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () => setState(() => _selectedTab = 1),
-                icon: const AppSvgIcon('receipt', size: 16, color: Colors.white),
+                icon:
+                    const AppSvgIcon('receipt', size: 16, color: Colors.white),
                 label: const Text('View Ledger'),
               ),
             ),
@@ -414,10 +453,18 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
     );
   }
 
-  Widget _buildBillingTab(ScrollController controller, StudentBillingRecord billing, String phone) {
-    final pending = billing.invoices.where((i) => i.status == 'PENDING' || i.status == 'PARTIAL' || i.status == 'UPCOMING').toList();
+  Widget _buildBillingTab(ScrollController controller,
+      StudentBillingRecord billing, String phone, bool canManageFees) {
+    final pending = billing.invoices
+        .where((i) =>
+            i.status == 'PENDING' ||
+            i.status == 'PARTIAL' ||
+            i.status == 'UPCOMING')
+        .toList();
     final paid = billing.invoices.where((i) => i.status == 'PAID').toList();
-    final paidPct = (billing.totalPaid / billing.totalAnnualFee) * 100;
+    final paidPct = billing.totalAnnualFee > 0
+        ? (billing.totalPaid / billing.totalAnnualFee) * 100
+        : 0.0;
 
     return ListView(
       controller: controller,
@@ -456,7 +503,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                       Text(
                         '₹${billing.totalDue.toStringAsFixed(0)}',
                         style: TextStyle(
-                          color: billing.totalDue > 0 ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+                          color: billing.totalDue > 0
+                              ? const Color(0xFFF87171)
+                              : const Color(0xFF4ADE80),
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                         ),
@@ -464,18 +513,25 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: billing.totalDue > 0 ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.2),
+                      color: billing.totalDue > 0
+                          ? Colors.red.withOpacity(0.2)
+                          : Colors.green.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: billing.totalDue > 0 ? Colors.red.withOpacity(0.4) : Colors.green.withOpacity(0.4),
+                        color: billing.totalDue > 0
+                            ? Colors.red.withOpacity(0.4)
+                            : Colors.green.withOpacity(0.4),
                       ),
                     ),
                     child: Text(
                       billing.totalDue > 0 ? 'PAYMENT PENDING' : 'CLEARED',
                       style: TextStyle(
-                        color: billing.totalDue > 0 ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                        color: billing.totalDue > 0
+                            ? const Color(0xFFFCA5A5)
+                            : const Color(0xFF86EFAC),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -489,11 +545,17 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                 children: [
                   Text(
                     'Paid: ₹${billing.totalPaid.toStringAsFixed(0)} / ₹${billing.totalAnnualFee.toStringAsFixed(0)}',
-                    style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 11, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        color: Color(0xFFE2E8F0),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500),
                   ),
                   Text(
                     '${paidPct.toStringAsFixed(0)}% Settled',
-                    style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Color(0xFF38BDF8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -504,7 +566,9 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                   value: paidPct / 100,
                   backgroundColor: const Color(0xFF334155),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    paidPct >= 80 ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24),
+                    paidPct >= 80
+                        ? const Color(0xFF4ADE80)
+                        : const Color(0xFFFBBF24),
                   ),
                   minHeight: 6,
                 ),
@@ -521,7 +585,10 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
           children: [
             const Text(
               'What Student Has To Pay',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -531,7 +598,10 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
               ),
               child: Text(
                 '${pending.length} Due Invoices',
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.danger),
+                style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.danger),
               ),
             ),
           ],
@@ -545,109 +615,123 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
               color: AppColors.successLight,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('No pending dues.', style: TextStyle(color: AppColors.success, fontSize: 12)),
+            child: const Text('No pending dues.',
+                style: TextStyle(color: AppColors.success, fontSize: 12)),
           )
         else
           ...pending.map((inv) => _PendingInvoiceItemView(invoice: inv)),
 
-        const SizedBox(height: 18),
+        if (paid.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const Text(
+            'Complete Invoices & Payment Ledger',
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 8),
+          ...paid.map((inv) => _PaidInvoiceItemView(invoice: inv)),
+        ],
 
-        // Section: Payment Ledger & History
-        const Text(
-          'Complete Invoices & Payment Ledger',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 8),
-
-        ...paid.map((inv) => _PaidInvoiceItemView(invoice: inv)),
-
-        const SizedBox(height: 18),
-
-        // Fee Structure Breakdown
-        const Text(
-          'Annual Fee Structure Breakdown',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 8),
-
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                ...billing.feeStructure.map((item) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            item.category,
-                            style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
-                          ),
-                          Text(
-                            '₹${item.amount.toStringAsFixed(0)} / ${item.frequency}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+        if (billing.feeStructure.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const Text(
+            'Annual Fee Structure Breakdown',
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  ...billing.feeStructure.map((item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item.category,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.textPrimary),
+                            ),
+                            Text(
+                              '₹${item.amount.toStringAsFixed(0)} / ${item.frequency}',
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      )),
+                  const Divider(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Annual Commitment',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold),
                       ),
-                    )),
-                const Divider(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total Annual Commitment',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '₹${billing.totalAnnualFee.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        '₹${billing.totalAnnualFee.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+        ],
 
-        const SizedBox(height: 20),
-
-        // Actions
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(phone.isEmpty
-                          ? 'Guardian phone is not available.'
-                          : 'SMS reminder requires the live messaging service.'),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                },
-                icon: const AppSvgIcon('bell', size: 16, color: AppColors.primary),
-                label: const Text('SMS Reminder'),
+        if (canManageFees) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(phone.isEmpty
+                            ? 'Guardian phone is not available.'
+                            : 'SMS reminder requires the live messaging service.'),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
+                  },
+                  icon: const AppSvgIcon('bell',
+                      size: 16, color: AppColors.primary),
+                  label: const Text('SMS Reminder'),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Use Fee Desk invoices to record live payments.'),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                },
-                icon: const AppSvgIcon('receipt', size: 16, color: Colors.white),
-                label: const Text('Collect / Pay'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Use Fee Desk invoices to record live payments.'),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
+                  },
+                  icon: const AppSvgIcon('receipt',
+                      size: 16, color: Colors.white),
+                  label: const Text('Collect / Pay'),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
       ],
     );
@@ -680,30 +764,42 @@ class _PendingInvoiceItemView extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const AppSvgIcon('receipt', size: 14, color: Color(0xFFD97706)),
+                    const AppSvgIcon('receipt',
+                        size: 14, color: Color(0xFFD97706)),
                     const SizedBox(width: 6),
                     Text(
                       invoice.monthYear,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF92400E)),
                     ),
                   ],
                 ),
                 StatusBadge(
                   label: invoice.status,
-                  type: invoice.status == 'PARTIAL' ? StatusType.warning : StatusType.danger,
+                  type: invoice.status == 'PARTIAL'
+                      ? StatusType.warning
+                      : StatusType.danger,
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(invoice.title, style: const TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+            Text(invoice.title,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF78350F))),
             const Divider(height: 14, color: Color(0xFFFDE68A)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Due: ${invoice.dueDate}', style: const TextStyle(fontSize: 11, color: Color(0xFF92400E))),
+                Text('Due: ${invoice.dueDate}',
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF92400E))),
                 Text(
                   'Remaining: ₹${remaining.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFDC2626)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFFDC2626)),
                 ),
               ],
             ),
@@ -733,9 +829,12 @@ class _PaidInvoiceItemView extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const AppSvgIcon('receipt', size: 14, color: AppColors.success),
+                    const AppSvgIcon('receipt',
+                        size: 14, color: AppColors.success),
                     const SizedBox(width: 6),
-                    Text(invoice.monthYear, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(invoice.monthYear,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
                 const StatusBadge(label: 'PAID', type: StatusType.success),
@@ -752,11 +851,15 @@ class _PaidInvoiceItemView extends StatelessWidget {
               children: [
                 Text(
                   'Paid: ${invoice.paidDate ?? invoice.dueDate}',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textSecondary),
                 ),
                 Text(
                   '₹${invoice.amount.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppColors.textPrimary),
                 ),
               ],
             ),
@@ -794,11 +897,16 @@ class _DetailStatBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+          Text(title,
+              style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w600, color: color)),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 9, color: color.withOpacity(0.8))),
+          Text(subtitle,
+              style: TextStyle(fontSize: 9, color: color.withOpacity(0.8))),
         ],
       ),
     );
@@ -826,7 +934,10 @@ class _InfoRow extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary),
           ),
         ),
       ],

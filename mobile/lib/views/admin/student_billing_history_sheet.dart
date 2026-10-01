@@ -71,23 +71,38 @@ class FeeStructureItem {
 
 class StudentBillingHistorySheet extends StatelessWidget {
   final StudentBillingRecord record;
+  final bool canManageFees;
 
-  const StudentBillingHistorySheet({super.key, required this.record});
+  const StudentBillingHistorySheet({
+    super.key,
+    required this.record,
+    this.canManageFees = false,
+  });
 
-  static void show(BuildContext context, {required StudentBillingRecord record}) {
+  static void show(BuildContext context,
+      {required StudentBillingRecord record, bool canManageFees = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StudentBillingHistorySheet(record: record),
+      builder: (context) => StudentBillingHistorySheet(
+          record: record, canManageFees: canManageFees),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final pendingInvoices = record.invoices.where((i) => i.status == 'PENDING' || i.status == 'PARTIAL' || i.status == 'UPCOMING').toList();
-    final paidInvoices = record.invoices.where((i) => i.status == 'PAID').toList();
-    final paidPercentage = (record.totalPaid / record.totalAnnualFee) * 100;
+    final pendingInvoices = record.invoices
+        .where((i) =>
+            i.status == 'PENDING' ||
+            i.status == 'PARTIAL' ||
+            i.status == 'UPCOMING')
+        .toList();
+    final paidInvoices =
+        record.invoices.where((i) => i.status == 'PAID').toList();
+    final paidPercentage = record.totalAnnualFee > 0
+        ? (record.totalPaid / record.totalAnnualFee) * 100
+        : 0.0;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.90,
@@ -133,13 +148,15 @@ class StudentBillingHistorySheet extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             'Adm: ${record.admissionNumber} • Roll: ${record.rollNumber} • Parent: ${record.parentName}',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                      icon: const Icon(Icons.close,
+                          color: AppColors.textSecondary),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -151,7 +168,8 @@ class StudentBillingHistorySheet extends StatelessWidget {
               Expanded(
                 child: ListView(
                   controller: controller,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   children: [
                     // Fee Balance Overview Banner Card
                     Container(
@@ -193,7 +211,9 @@ class StudentBillingHistorySheet extends StatelessWidget {
                                   Text(
                                     '₹${record.totalDue.toStringAsFixed(0)}',
                                     style: TextStyle(
-                                      color: record.totalDue > 0 ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+                                      color: record.totalDue > 0
+                                          ? const Color(0xFFF87171)
+                                          : const Color(0xFF4ADE80),
                                       fontSize: 26,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -201,18 +221,27 @@ class StudentBillingHistorySheet extends StatelessWidget {
                                 ],
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: record.totalDue > 0 ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.2),
+                                  color: record.totalDue > 0
+                                      ? Colors.red.withOpacity(0.2)
+                                      : Colors.green.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: record.totalDue > 0 ? Colors.red.withOpacity(0.4) : Colors.green.withOpacity(0.4),
+                                    color: record.totalDue > 0
+                                        ? Colors.red.withOpacity(0.4)
+                                        : Colors.green.withOpacity(0.4),
                                   ),
                                 ),
                                 child: Text(
-                                  record.totalDue > 0 ? 'PAYMENT PENDING' : 'ALL DUES CLEARED',
+                                  record.totalDue > 0
+                                      ? 'PAYMENT PENDING'
+                                      : 'ALL DUES CLEARED',
                                   style: TextStyle(
-                                    color: record.totalDue > 0 ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                                    color: record.totalDue > 0
+                                        ? const Color(0xFFFCA5A5)
+                                        : const Color(0xFF86EFAC),
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -226,11 +255,17 @@ class StudentBillingHistorySheet extends StatelessWidget {
                             children: [
                               Text(
                                 'Paid: ₹${record.totalPaid.toStringAsFixed(0)} / ₹${record.totalAnnualFee.toStringAsFixed(0)}',
-                                style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 12, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                    color: Color(0xFFE2E8F0),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500),
                               ),
                               Text(
                                 '${paidPercentage.toStringAsFixed(0)}% Settled',
-                                style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: Color(0xFF38BDF8),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -241,7 +276,9 @@ class StudentBillingHistorySheet extends StatelessWidget {
                               value: paidPercentage / 100,
                               backgroundColor: const Color(0xFF334155),
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                paidPercentage >= 80 ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24),
+                                paidPercentage >= 80
+                                    ? const Color(0xFF4ADE80)
+                                    : const Color(0xFFFBBF24),
                               ),
                               minHeight: 6,
                             ),
@@ -258,17 +295,24 @@ class StudentBillingHistorySheet extends StatelessWidget {
                       children: [
                         const Text(
                           'Pending & Upcoming Dues',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppColors.dangerLight,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '${pendingInvoices.length} Invoices',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.danger),
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.danger),
                           ),
                         ),
                       ],
@@ -281,128 +325,159 @@ class StudentBillingHistorySheet extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.successLight,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                          border: Border.all(
+                              color: AppColors.success.withOpacity(0.3)),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.check_circle, color: AppColors.success, size: 20),
+                            Icon(Icons.check_circle,
+                                color: AppColors.success, size: 20),
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'Great news! No pending dues for this student.',
-                                style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 12),
+                                style: TextStyle(
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12),
                               ),
                             ),
                           ],
                         ),
                       )
                     else
-                      ...pendingInvoices.map((inv) => _PendingInvoiceCard(invoice: inv)),
+                      ...pendingInvoices
+                          .map((inv) => _PendingInvoiceCard(invoice: inv)),
 
-                    const SizedBox(height: 22),
+                    if (paidInvoices.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Payment History & Receipts Ledger',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary),
+                      ),
+                      const SizedBox(height: 10),
+                      ...paidInvoices
+                          .map((inv) => _PaidInvoiceCard(invoice: inv)),
+                    ],
 
-                    // Section: Payment Ledger & History
-                    const Text(
-                      'Payment History & Receipts Ledger',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 10),
-
-                    ...paidInvoices.map((inv) => _PaidInvoiceCard(invoice: inv)),
-
-                    const SizedBox(height: 22),
-
-                    // Section: Annual Fee Structure Breakdown
-                    const Text(
-                      'Annual Fee Structure (2026-27)',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 10),
-
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          children: [
-                            ...record.feeStructure.map((item) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.circle, size: 6, color: AppColors.primary),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            item.category,
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        '₹${item.amount.toStringAsFixed(0)} / ${item.frequency}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                      ),
-                                    ],
+                    if (record.feeStructure.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Annual Fee Structure',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary),
+                      ),
+                      const SizedBox(height: 10),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            children: [
+                              ...record.feeStructure.map((item) => Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 6),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.circle,
+                                                size: 6,
+                                                color: AppColors.primary),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              item.category,
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.textPrimary),
+                                            ),
+                                          ],
+                                        ),
+                                        Text(
+                                          '₹${item.amount.toStringAsFixed(0)} / ${item.frequency}',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.textPrimary),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                              const Divider(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Total Annual Commitment',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary),
                                   ),
-                                )),
-                            const Divider(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Total Annual Commitment',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                ),
-                                Text(
-                                  '₹${record.totalAnnualFee.toStringAsFixed(0)}',
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  Text(
+                                    '₹${record.totalAnnualFee.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
 
-                    const SizedBox(height: 24),
-
-                    // Action Controls
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(record.parentPhone.isEmpty
-                                      ? 'Guardian phone is not available.'
-                                      : 'SMS reminder requires the live messaging service.'),
-                                  backgroundColor: AppColors.primary,
-                                ),
-                              );
-                            },
-                            icon: const AppSvgIcon('bell', size: 16, color: AppColors.primary),
-                            label: const Text('SMS Reminder'),
+                    if (canManageFees) ...[
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(record.parentPhone.isEmpty
+                                        ? 'Guardian phone is not available.'
+                                        : 'SMS reminder requires the live messaging service.'),
+                                    backgroundColor: AppColors.primary,
+                                  ),
+                                );
+                              },
+                              icon: const AppSvgIcon('bell',
+                                  size: 16, color: AppColors.primary),
+                              label: const Text('SMS Reminder'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Use Fee Desk invoices to record live payments.'),
-                                  backgroundColor: AppColors.primary,
-                                ),
-                              );
-                            },
-                            icon: const AppSvgIcon('receipt', size: 16, color: Colors.white),
-                            label: const Text('Collect / Pay'),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Use Fee Desk invoices to record live payments.'),
+                                    backgroundColor: AppColors.primary,
+                                  ),
+                                );
+                              },
+                              icon: const AppSvgIcon('receipt',
+                                  size: 16, color: Colors.white),
+                              label: const Text('Collect / Pay'),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -441,17 +516,23 @@ class _PendingInvoiceCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const AppSvgIcon('receipt', size: 16, color: Color(0xFFD97706)),
+                    const AppSvgIcon('receipt',
+                        size: 16, color: Color(0xFFD97706)),
                     const SizedBox(width: 8),
                     Text(
                       invoice.monthYear,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF92400E)),
                     ),
                   ],
                 ),
                 StatusBadge(
                   label: invoice.status,
-                  type: invoice.status == 'PARTIAL' ? StatusType.warning : StatusType.danger,
+                  type: invoice.status == 'PARTIAL'
+                      ? StatusType.warning
+                      : StatusType.danger,
                 ),
               ],
             ),
@@ -469,22 +550,31 @@ class _PendingInvoiceCard extends StatelessWidget {
                   children: [
                     Text(
                       'Due Date: ${invoice.dueDate}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF92400E)),
                     ),
                     if (invoice.paidAmount > 0)
                       Text(
                         'Already Paid: ₹${invoice.paidAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.success),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.success),
                       ),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Remaining Due', style: TextStyle(fontSize: 10, color: Color(0xFF92400E))),
+                    const Text('Remaining Due',
+                        style:
+                            TextStyle(fontSize: 10, color: Color(0xFF92400E))),
                     Text(
                       '₹${remaining.toStringAsFixed(0)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFDC2626)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFFDC2626)),
                     ),
                   ],
                 ),
@@ -516,11 +606,13 @@ class _PaidInvoiceCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const AppSvgIcon('receipt', size: 16, color: AppColors.success),
+                    const AppSvgIcon('receipt',
+                        size: 16, color: AppColors.success),
                     const SizedBox(width: 8),
                     Text(
                       invoice.monthYear,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
                 ),
@@ -541,18 +633,25 @@ class _PaidInvoiceCard extends StatelessWidget {
                   children: [
                     Text(
                       'Paid: ${invoice.paidDate ?? invoice.dueDate}',
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textSecondary),
                     ),
                     if (invoice.receiptNumber != null)
                       Text(
                         'Receipt: ${invoice.receiptNumber} (${invoice.paymentMode ?? "Online"})',
-                        style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600),
                       ),
                   ],
                 ),
                 Text(
                   '₹${invoice.amount.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.textPrimary),
                 ),
               ],
             ),

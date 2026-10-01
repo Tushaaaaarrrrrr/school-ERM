@@ -6,9 +6,21 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const requestedSchoolId = searchParams.get('schoolId') || undefined;
-    const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff', 'driver']);
+    const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff', 'driver', 'student', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
-    const list = await serverDb.getStudents(access.schoolId);
+    let list = await serverDb.getStudents(access.schoolId);
+    if (access.role === 'student' || access.role === 'parent') {
+      const login = String(access.context.user?.login_id || access.context.user?.email || '').toLowerCase();
+      const email = String(access.context.user?.email || '').toLowerCase();
+      list = list.filter((student: any) => {
+        const guardian = student.guardian || {};
+        return (
+          String(student.registration_number || student.admission_number || '').toLowerCase() === login ||
+          String(student.email || '').toLowerCase() === email ||
+          String(guardian.email || guardian.guardian_email || guardian.father_email || '').toLowerCase() === email
+        );
+      });
+    }
     return NextResponse.json({ success: true, data: list });
   } catch (err: unknown) {
     return NextResponse.json(

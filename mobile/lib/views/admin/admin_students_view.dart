@@ -155,7 +155,7 @@ class _AdminStudentsViewState extends State<AdminStudentsView> {
               final student = filtered[index];
               return Card(
                 child: InkWell(
-                  onTap: () => StudentDetailSheet.show(context, student: student),
+                  onTap: () => StudentDetailSheet.show(context, student: student, canManageFees: true),
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.all(12),

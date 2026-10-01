@@ -41,11 +41,9 @@ class AppBottomNav extends StatelessWidget {
         return const [
           NavItemData(label: 'Home', icon: 'dashboard'),
           NavItemData(label: 'Roll Call', icon: 'attendance'),
-          NavItemData(label: 'My Leave', icon: 'attendance'),
-          NavItemData(label: 'Classes', icon: 'teacher'),
-          NavItemData(label: 'Exams', icon: 'award'),
-          NavItemData(label: 'Schedule', icon: 'calendar'),
-          NavItemData(label: 'Salary', icon: 'receipt'),
+          NavItemData(label: 'Classes', icon: 'teacher', screenIndex: 3),
+          NavItemData(label: 'Exams', icon: 'award', screenIndex: 4),
+          NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
         ];
       case UserRole.student:
       case UserRole.parent:
@@ -53,9 +51,8 @@ class AppBottomNav extends StatelessWidget {
           NavItemData(label: 'Home', icon: 'dashboard'),
           NavItemData(label: 'Classes', icon: 'calendar'),
           NavItemData(label: 'Bus', icon: 'bus'),
-          NavItemData(label: 'Results', icon: 'award'),
-          NavItemData(label: 'Fees', icon: 'receipt'),
-          NavItemData(label: 'Profile', icon: 'id_card'),
+          NavItemData(label: 'Fees', icon: 'receipt', screenIndex: 4),
+          NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
         ];
       case UserRole.superAdmin:
         return const [
@@ -63,43 +60,42 @@ class AppBottomNav extends StatelessWidget {
           NavItemData(label: 'Schools', icon: 'graduation_cap'),
           NavItemData(label: 'Users', icon: 'teacher'),
           NavItemData(label: 'Requests', icon: 'bell'),
-          NavItemData(label: 'Security', icon: 'shield_check'),
-          NavItemData(label: 'Settings', icon: 'sparkles'),
+          NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
         ];
       case UserRole.schoolAdmin:
         return const [
           NavItemData(label: 'Home', icon: 'dashboard', screenIndex: 0),
-          NavItemData(label: 'Students', icon: 'graduation_cap', screenIndex: 1),
+          NavItemData(
+              label: 'Students', icon: 'graduation_cap', screenIndex: 1),
           NavItemData(
             label: 'Create',
             icon: 'graduation_cap',
             isPrimaryAction: true,
           ),
+          NavItemData(label: 'Fees', icon: 'receipt', screenIndex: 14),
           NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
-          NavItemData(label: 'Profile', icon: 'id_card', screenIndex: 24),
         ];
       case UserRole.accountant:
         return const [
           NavItemData(label: 'Home', icon: 'dashboard'),
           NavItemData(label: 'Fees', icon: 'receipt'),
           NavItemData(label: 'Payroll', icon: 'receipt'),
-          NavItemData(label: 'Students', icon: 'graduation_cap'),
-          NavItemData(label: 'Security', icon: 'shield_check'),
+          NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
         ];
       case UserRole.staff:
         return const [
           NavItemData(label: 'Overview', icon: 'dashboard'),
-          NavItemData(label: 'Reception', icon: 'bell'),
-          NavItemData(label: 'Fees', icon: 'receipt'),
-          NavItemData(label: 'Students', icon: 'graduation_cap'),
-          NavItemData(label: 'Attendance', icon: 'attendance'),
-          NavItemData(label: 'Notices', icon: 'bell'),
+          NavItemData(label: 'Fees', icon: 'receipt', screenIndex: 2),
+          NavItemData(
+              label: 'Students', icon: 'graduation_cap', screenIndex: 3),
+          NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
         ];
       case UserRole.driver:
         return const [
           NavItemData(label: 'Dashboard', icon: 'bus'),
           NavItemData(label: 'Route Stops', icon: 'map_pin'),
           NavItemData(label: 'Boarding', icon: 'id_card'),
+          NavItemData(label: 'More', icon: 'sparkles', isMoreAction: true),
         ];
     }
   }
@@ -128,7 +124,8 @@ class AppBottomNav extends StatelessWidget {
             children: List.generate(items.length, (index) {
               final item = items[index];
               final targetIndex = item.screenIndex ?? index;
-              final isSelected = !item.isPrimaryAction && currentIndex == targetIndex;
+              final isSelected =
+                  !item.isPrimaryAction && currentIndex == targetIndex;
               if (item.isPrimaryAction) {
                 return Expanded(
                   child: InkWell(

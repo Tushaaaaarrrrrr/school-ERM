@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
-import { requireSchoolAccess } from '@/lib/server/access';
+import { getAccessibleStudentIds, requireSchoolAccess } from '@/lib/server/access';
 
 function errorResponse(error: any) {
   return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const access = await requireSchoolAccess(null, ['school_admin', 'teacher']);
+    const { searchParams } = new URL(request.url);
+    const access = await requireSchoolAccess(null, ['school_admin', 'teacher', 'student', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
-    const data = await serverDb.getExamResults(access.schoolId);
+    let data = await serverDb.getExamResults(access.schoolId);
+    const studentId = searchParams.get('studentId');
+    const allowedStudentIds = await getAccessibleStudentIds(access, access.schoolId);
+    if (allowedStudentIds) {
+      data = data.filter((item: any) => allowedStudentIds.has(item.student_id));
+    } else if (studentId) {
+      data = data.filter((item: any) => item.student_id === studentId);
+    }
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     return errorResponse(error);

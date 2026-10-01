@@ -14,7 +14,7 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function StudentResultsPage() {
   const { currentUser } = useAuth();
-  const studentId = currentUser?.student_id || 'std-001';
+  const studentId = currentUser?.student_id || '';
 
   const [results, setResults] = useState<{ exam: Exam; result: ExamResult }[]>([]);
   const [isLoading, setIsLoading] = useState(true);

@@ -5,12 +5,15 @@ class StudentModel {
   final String rollNumber;
   final String className;
   final String section;
+  final String classId;
+  final String sectionId;
   final String gender;
   final String? parentName;
   final String? parentPhone;
   final String? busRouteNumber;
   final String? busStopName;
   final String? photoUrl;
+  final String healthInfo;
   final double attendancePercentage;
 
   const StudentModel({
@@ -20,12 +23,15 @@ class StudentModel {
     required this.rollNumber,
     required this.className,
     required this.section,
+    this.classId = '',
+    this.sectionId = '',
     required this.gender,
     this.parentName,
     this.parentPhone,
     this.busRouteNumber,
     this.busStopName,
     this.photoUrl,
+    this.healthInfo = '',
     this.attendancePercentage = 94.5,
   });
 
@@ -39,17 +45,37 @@ class StudentModel {
     return StudentModel(
       id: json['id'] as String,
       fullName: json['full_name'] as String? ?? '$first $last'.trim(),
-      admissionNumber: json['admission_number'] as String? ?? json['registration_number'] as String? ?? '',
+      admissionNumber: json['admission_number'] as String? ??
+          json['registration_number'] as String? ??
+          '',
       rollNumber: json['roll_number'] as String? ?? '',
-      className: json['class_name'] as String? ?? enrollment?['class_name'] as String? ?? '',
-      section: json['section'] as String? ?? enrollment?['section_name'] as String? ?? '',
+      className: json['class_name'] as String? ??
+          enrollment?['class_name'] as String? ??
+          '',
+      section: json['section'] as String? ??
+          enrollment?['section_name'] as String? ??
+          '',
+      classId: json['class_id'] as String? ??
+          enrollment?['class_id'] as String? ??
+          '',
+      sectionId: json['section_id'] as String? ??
+          enrollment?['section_id'] as String? ??
+          '',
       gender: json['gender'] as String? ?? '',
-      parentName: json['parent_name'] as String? ?? guardian?['guardian_name'] as String? ?? guardian?['father_name'] as String?,
-      parentPhone: json['parent_phone'] as String? ?? guardian?['primary_phone'] as String?,
+      parentName: json['parent_name'] as String? ??
+          guardian?['guardian_name'] as String? ??
+          guardian?['father_name'] as String?,
+      parentPhone: json['parent_phone'] as String? ??
+          guardian?['primary_phone'] as String?,
       busRouteNumber: json['bus_route_number'] as String?,
       busStopName: json['bus_stop_name'] as String?,
       photoUrl: json['photo_url'] as String?,
-      attendancePercentage: (json['attendance_percentage'] as num?)?.toDouble() ?? 0,
+      healthInfo: json['health_info'] as String? ??
+          json['medical_info'] as String? ??
+          json['medical_notes'] as String? ??
+          '',
+      attendancePercentage:
+          (json['attendance_percentage'] as num?)?.toDouble() ?? 0,
     );
   }
 }

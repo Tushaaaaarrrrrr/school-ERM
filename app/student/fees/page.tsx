@@ -19,8 +19,8 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function StudentFeesPage() {
   const { currentUser, currentSchool } = useAuth();
-  const studentId = currentUser?.id || currentUser?.student_id || 'std-001';
-  const schoolId = currentSchool?.id || 'sch-001';
+  const studentId = currentUser?.student_id || currentUser?.id || '';
+  const schoolId = currentSchool?.id || '';
 
   const [invoices, setInvoices] = useState<StudentFeeInvoice[]>([]);
   const [charges, setCharges] = useState<StudentCharge[]>([]);
@@ -33,11 +33,13 @@ export default function StudentFeesPage() {
     async function loadStudentFeeData() {
       setIsLoading(true);
       try {
-        const [invList, chgList, rcpList] = await Promise.all([
-          feeService.getInvoices(schoolId, { studentId }),
-          chargeService.getStudentCharges(schoolId, { studentId }),
-          receiptService.getReceipts(schoolId, { studentId }),
-        ]);
+        const [invList, chgList, rcpList] = schoolId && studentId
+          ? await Promise.all([
+              feeService.getInvoices(schoolId, { studentId }),
+              chargeService.getStudentCharges(schoolId, { studentId }),
+              receiptService.getReceipts(schoolId, { studentId }),
+            ])
+          : [[], [], []];
         setInvoices(invList);
         setCharges(chgList);
         setReceipts(rcpList);

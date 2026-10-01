@@ -74,11 +74,11 @@ export default function StudentDashboardPage() {
         const dayOfWeek = new Date().getDay() || 1;
 
         const std = studentId ? await studentService.getStudentById(studentId).catch(() => null) : null;
-        const classId = std?.current_enrollment?.class_id || 'cls-08';
-        const sectionId = std?.current_enrollment?.section_id || 'sec-8a';
+        const classId = std?.current_enrollment?.class_id || '';
+        const sectionId = std?.current_enrollment?.section_id || '';
 
         const [ttList, invList, resList, activeLv, noticeList, attList, transStatus, vehicles] = await Promise.all([
-          timetableService.getTimetable(schoolId, { classId, sectionId, dayOfWeek }).catch(() => []),
+          classId && sectionId ? timetableService.getTimetable(schoolId, { classId, sectionId, dayOfWeek }).catch(() => []) : Promise.resolve([]),
           studentId ? feeService.getInvoices(schoolId, { studentId }).catch(() => []) : Promise.resolve([]),
           studentId ? examService.getPublishedResultsForStudent(studentId).catch(() => []) : Promise.resolve([]),
           studentId ? leaveService.getActiveLeaveForStudent(studentId, todayStr).catch(() => null) : Promise.resolve(null),

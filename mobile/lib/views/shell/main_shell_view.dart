@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_top_header.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/app_drawer.dart';
+import '../../core/widgets/app_svg_icon.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_client.dart';
 import '../../data/services/auth_service.dart';
@@ -20,9 +22,12 @@ import '../teacher/teacher_timetable_view.dart';
 // Student & Parent Views
 import '../parent_student/student_home_view.dart';
 import '../parent/parent_home_view.dart';
+import '../parent_student/student_attendance_view.dart';
+import '../parent_student/student_classes_view.dart';
 import '../parent_student/student_results_view.dart';
 import '../parent_student/student_fees_view.dart';
 import '../parent_student/student_transport_view.dart';
+import '../parent_student/student_notices_view.dart';
 import '../parent_student/student_profile_view.dart';
 
 // Admin Views
@@ -185,39 +190,90 @@ class _MainShellViewState extends State<MainShellView>
           onCreateStudent: currentRole == UserRole.schoolAdmin
               ? _showCreateStudentSheet
               : null,
-          onMore: currentRole == UserRole.schoolAdmin
-              ? _showSchoolAdminMoreSheet
-              : null,
+          onMore: () => _showMoreSheet(currentRole),
         ),
       ),
     );
   }
 
-  void _showSchoolAdminMoreSheet() {
-    const options = [
-      _MoreNavItem('Teachers', 2),
-      _MoreNavItem('Staff & Support', 3),
-      _MoreNavItem('Reception & Enquiries', 4),
-      _MoreNavItem('Student Attendance', 5),
-      _MoreNavItem('Student Leaves', 6),
-      _MoreNavItem('Teacher Attendance & Leaves', 7),
-      _MoreNavItem('School Holidays', 8),
-      _MoreNavItem('Classes & Sections', 9),
-      _MoreNavItem('Classrooms & Labs', 10),
-      _MoreNavItem('Subjects', 11),
-      _MoreNavItem('Timetable', 12),
-      _MoreNavItem('Fleet & Bus Routes', 13),
-      _MoreNavItem('Student Fees', 14),
-      _MoreNavItem('Employee Payroll', 15),
-      _MoreNavItem('Exams', 16),
-      _MoreNavItem('Marks & Results', 17),
-      _MoreNavItem('Notice Board', 18),
-      _MoreNavItem('Join Requests', 19),
-      _MoreNavItem('Recycle Bin (30-Day)', 20),
-      _MoreNavItem('Login History', 21),
-      _MoreNavItem('Deletion Requests', 22),
-      _MoreNavItem('School Settings', 23),
-    ];
+  List<_MoreNavItem> _moreItemsForRole(UserRole role) {
+    switch (role) {
+      case UserRole.teacher:
+        return const [
+          _MoreNavItem('My Leave', 2, 'attendance'),
+          _MoreNavItem('Schedule', 5, 'calendar'),
+          _MoreNavItem('Salary', 6, 'receipt'),
+          _MoreNavItem('Profile', 7, 'id_card'),
+          _MoreNavItem('Settings', 8, 'sparkles'),
+        ];
+      case UserRole.student:
+      case UserRole.parent:
+        return const [
+          _MoreNavItem('Classes & Timetable', 1, 'calendar'),
+          _MoreNavItem('Attendance, Leave & Health', 7, 'attendance'),
+          _MoreNavItem('Fees, Receipts & Charges', 4, 'receipt'),
+          _MoreNavItem('Transport Details', 2, 'bus'),
+          _MoreNavItem('Results', 3, 'award'),
+          _MoreNavItem('Notices', 8, 'bell'),
+          _MoreNavItem('Profile', 5, 'id_card'),
+          _MoreNavItem('Settings', 6, 'sparkles'),
+        ];
+      case UserRole.superAdmin:
+        return const [
+          _MoreNavItem('Security', 4, 'shield_check'),
+          _MoreNavItem('Settings', 5, 'sparkles'),
+          _MoreNavItem('Profile', 6, 'id_card'),
+        ];
+      case UserRole.schoolAdmin:
+        return const [
+          _MoreNavItem('Teachers', 2, 'teacher'),
+          _MoreNavItem('Staff & Support', 3, 'teacher'),
+          _MoreNavItem('Reception & Enquiries', 4, 'bell'),
+          _MoreNavItem('Student Attendance', 5, 'attendance'),
+          _MoreNavItem('Student Leaves', 6, 'calendar'),
+          _MoreNavItem('Teacher Attendance & Leaves', 7, 'attendance'),
+          _MoreNavItem('School Holidays', 8, 'calendar'),
+          _MoreNavItem('Classes & Sections', 9, 'graduation_cap'),
+          _MoreNavItem('Classrooms & Labs', 10, 'graduation_cap'),
+          _MoreNavItem('Subjects', 11, 'graduation_cap'),
+          _MoreNavItem('Timetable', 12, 'calendar'),
+          _MoreNavItem('Fleet & Bus Routes', 13, 'bus'),
+          _MoreNavItem('Employee Payroll', 15, 'receipt'),
+          _MoreNavItem('Exams', 16, 'award'),
+          _MoreNavItem('Marks & Results', 17, 'award'),
+          _MoreNavItem('Notice Board', 18, 'bell'),
+          _MoreNavItem('Join Requests', 19, 'bell'),
+          _MoreNavItem('Recycle Bin', 20, 'bell'),
+          _MoreNavItem('Login History', 21, 'shield_check'),
+          _MoreNavItem('Deletion Requests', 22, 'shield_check'),
+          _MoreNavItem('Settings', 23, 'sparkles'),
+          _MoreNavItem('Profile', 24, 'id_card'),
+        ];
+      case UserRole.accountant:
+        return const [
+          _MoreNavItem('Students', 3, 'graduation_cap'),
+          _MoreNavItem('Security', 4, 'shield_check'),
+          _MoreNavItem('Profile', 5, 'id_card'),
+          _MoreNavItem('Settings', 6, 'sparkles'),
+        ];
+      case UserRole.staff:
+        return const [
+          _MoreNavItem('Reception', 1, 'bell'),
+          _MoreNavItem('Attendance', 4, 'attendance'),
+          _MoreNavItem('Notices', 5, 'bell'),
+          _MoreNavItem('Profile', 6, 'id_card'),
+          _MoreNavItem('Settings', 7, 'sparkles'),
+        ];
+      case UserRole.driver:
+        return const [
+          _MoreNavItem('Profile', 3, 'id_card'),
+          _MoreNavItem('Settings', 4, 'sparkles'),
+        ];
+    }
+  }
+
+  void _showMoreSheet(UserRole role) {
+    final options = _moreItemsForRole(role);
 
     showModalBottomSheet(
       context: context,
@@ -237,18 +293,22 @@ class _MainShellViewState extends State<MainShellView>
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
               children: [
                 const Text(
-                  'More Options',
+                  'More',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                ...options.map((item) => ListTile(
-                      title: Text(item.label),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _onTabSelected(item.index);
-                      },
-                    )),
+                ...options.map(
+                  (item) => ListTile(
+                    leading: AppSvgIcon(item.icon,
+                        size: 18, color: AppColors.primary),
+                    title: Text(item.label),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _onTabSelected(item.index);
+                    },
+                  ),
+                ),
               ],
             );
           },
@@ -300,8 +360,7 @@ class _MainShellViewState extends State<MainShellView>
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content:
-                        Text(e.toString().replaceFirst('Exception: ', '')),
+                    content: Text(e.toString().replaceFirst('Exception: ', '')),
                   ),
                 );
               } finally {
@@ -383,7 +442,11 @@ class _MainShellViewState extends State<MainShellView>
           const MobileModuleView(
             title: 'My Attendance & Leave',
             icon: 'attendance',
-            items: ['Daily attendance status', 'Leave request history', 'Salary-linked attendance records'],
+            items: [
+              'Daily attendance status',
+              'Leave request history',
+              'Salary-linked attendance records'
+            ],
           ),
           const TeacherClassesView(),
           const TeacherExamsView(),
@@ -391,34 +454,58 @@ class _MainShellViewState extends State<MainShellView>
           const MobileModuleView(
             title: 'Salary Statements',
             icon: 'receipt',
-            items: ['Monthly salary statements', 'Payment history', 'Deductions and adjustments'],
+            items: [
+              'Monthly salary statements',
+              'Payment history',
+              'Deductions and adjustments'
+            ],
           ),
+          const MobileModuleView(
+            title: 'Profile',
+            icon: 'id_card',
+            items: [
+              'Teacher profile',
+              'Contact information',
+              'Assigned classes'
+            ],
+          ),
+          const MobileModuleView(
+            title: 'Settings',
+            icon: 'sparkles',
+            items: ['PIN security', 'Notification preferences', 'App settings'],
+          ),
+          const StudentAttendanceView(),
+          const StudentNoticesView(),
         ];
       case UserRole.student:
         return [
           StudentHomeView(onTabSelected: _onTabSelected),
-          const MobileModuleView(
-            title: 'Classes & Timetable',
-            icon: 'calendar',
-            items: ['Class schedule', 'Subject timetable', 'Teacher details'],
-          ),
+          const StudentClassesView(),
           const StudentTransportView(),
           const StudentResultsView(),
           const StudentFeesView(),
           const StudentProfileView(),
+          const MobileModuleView(
+            title: 'Settings',
+            icon: 'sparkles',
+            items: ['PIN security', 'Notification preferences', 'App settings'],
+          ),
+          const StudentAttendanceView(),
+          const StudentNoticesView(),
         ];
       case UserRole.parent:
         return [
           ParentHomeView(onTabSelected: _onTabSelected),
-          const MobileModuleView(
-            title: 'Classes & Timetable',
-            icon: 'calendar',
-            items: ['Ward class schedule', 'Subject timetable', 'Teacher details'],
-          ),
+          const StudentClassesView(),
           const StudentTransportView(),
           const StudentResultsView(),
           const StudentFeesView(),
           const StudentProfileView(),
+          const MobileModuleView(
+            title: 'Settings',
+            icon: 'sparkles',
+            items: ['PIN security', 'Notification preferences', 'App settings'],
+          ),
         ];
       case UserRole.superAdmin:
         return [
@@ -428,57 +515,186 @@ class _MainShellViewState extends State<MainShellView>
           const SuperAdminAccessRequestsView(),
           const SuperAdminSecurityView(),
           const SuperAdminSettingsView(),
+          const MobileModuleView(
+            title: 'Profile',
+            icon: 'id_card',
+            items: [
+              'Platform admin profile',
+              'Account security',
+              'PIN settings'
+            ],
+          ),
         ];
       case UserRole.schoolAdmin:
         return [
           AdminHomeView(onTabSelected: _onTabSelected),
           AdminStudentsView(key: ValueKey(_studentsVersion)),
-          const MobileModuleView(title: 'Teachers', icon: 'teacher', items: ['Teacher directory', 'Teacher profiles', 'Teacher payments']),
-          const MobileModuleView(title: 'Staff & Support', icon: 'teacher', items: ['Staff directory', 'Drivers', 'Support staff']),
-          const MobileModuleView(title: 'Reception & Enquiries', icon: 'bell', items: ['Visitor lookup', 'New enquiries', 'Follow-ups']),
+          const MobileModuleView(title: 'Teachers', icon: 'teacher', items: [
+            'Teacher directory',
+            'Teacher profiles',
+            'Teacher payments'
+          ]),
+          const MobileModuleView(
+              title: 'Staff & Support',
+              icon: 'teacher',
+              items: ['Staff directory', 'Drivers', 'Support staff']),
+          const MobileModuleView(
+              title: 'Reception & Enquiries',
+              icon: 'bell',
+              items: ['Visitor lookup', 'New enquiries', 'Follow-ups']),
           const AdminAttendanceView(),
-          const MobileModuleView(title: 'Student Leaves', icon: 'calendar', items: ['Pending leaves', 'Approved leaves', 'Rejected leaves']),
-          const MobileModuleView(title: 'Teacher Attendance & Leaves', icon: 'attendance', items: ['Teacher attendance', 'Teacher leave requests', 'Daily staff status']),
-          const MobileModuleView(title: 'School Holidays', icon: 'calendar', items: ['Holiday calendar', 'Create holiday', 'Edit holiday']),
-          const MobileModuleView(title: 'Classes & Sections', icon: 'graduation_cap', items: ['Classes', 'Sections', 'Student assignment']),
-          const MobileModuleView(title: 'Classrooms & Labs', icon: 'graduation_cap', items: ['Rooms', 'Labs', 'Capacity']),
-          const MobileModuleView(title: 'Subjects', icon: 'graduation_cap', items: ['Subject list', 'Subject teachers', 'Class mapping']),
-          const MobileModuleView(title: 'Timetable', icon: 'calendar', items: ['Class timetable', 'Teacher timetable', 'Weekly periods']),
-          const MobileModuleView(title: 'Fleet & Bus Routes', icon: 'bus', items: ['Vehicles', 'Routes', 'Stops', 'Assignments']),
+          const MobileModuleView(
+              title: 'Student Leaves',
+              icon: 'calendar',
+              items: ['Pending leaves', 'Approved leaves', 'Rejected leaves']),
+          const MobileModuleView(
+              title: 'Teacher Attendance & Leaves',
+              icon: 'attendance',
+              items: [
+                'Teacher attendance',
+                'Teacher leave requests',
+                'Daily staff status'
+              ]),
+          const MobileModuleView(
+              title: 'School Holidays',
+              icon: 'calendar',
+              items: ['Holiday calendar', 'Create holiday', 'Edit holiday']),
+          const MobileModuleView(
+              title: 'Classes & Sections',
+              icon: 'graduation_cap',
+              items: ['Classes', 'Sections', 'Student assignment']),
+          const MobileModuleView(
+              title: 'Classrooms & Labs',
+              icon: 'graduation_cap',
+              items: ['Rooms', 'Labs', 'Capacity']),
+          const MobileModuleView(
+              title: 'Subjects',
+              icon: 'graduation_cap',
+              items: ['Subject list', 'Subject teachers', 'Class mapping']),
+          const MobileModuleView(title: 'Timetable', icon: 'calendar', items: [
+            'Class timetable',
+            'Teacher timetable',
+            'Weekly periods'
+          ]),
+          const MobileModuleView(
+              title: 'Fleet & Bus Routes',
+              icon: 'bus',
+              items: ['Vehicles', 'Routes', 'Stops', 'Assignments']),
           const AdminFeesView(),
-          const MobileModuleView(title: 'Employee Payroll', icon: 'receipt', items: ['Salary payments', 'Adjustments', 'Payment history']),
-          const MobileModuleView(title: 'Exams', icon: 'award', items: ['Exam setup', 'Schedules', 'Marks entry']),
-          const MobileModuleView(title: 'Marks & Results', icon: 'award', items: ['Result sheets', 'Student marks', 'Publish results']),
+          const MobileModuleView(
+              title: 'Employee Payroll',
+              icon: 'receipt',
+              items: ['Salary payments', 'Adjustments', 'Payment history']),
+          const MobileModuleView(
+              title: 'Exams',
+              icon: 'award',
+              items: ['Exam setup', 'Schedules', 'Marks entry']),
+          const MobileModuleView(
+              title: 'Marks & Results',
+              icon: 'award',
+              items: ['Result sheets', 'Student marks', 'Publish results']),
           const AdminNoticesView(),
-          const MobileModuleView(title: 'Join Requests', icon: 'bell', items: ['Pending requests', 'Approve school access', 'Reject requests']),
-          const MobileModuleView(title: 'Recycle Bin (30-Day)', icon: 'bell', items: ['Deleted records', 'Restore records', 'Permanent deletion window']),
-          const MobileModuleView(title: 'Login History', icon: 'shield_check', items: ['Login events', 'Failed logins', 'Role access events']),
-          const MobileModuleView(title: 'Deletion Requests', icon: 'shield_check', items: ['Account deletion requests', 'Approve requests', 'Reject requests']),
-          const MobileModuleView(title: 'School Settings', icon: 'sparkles', items: ['School profile', 'Modules', 'Security settings']),
-          const MobileModuleView(title: 'Profile', icon: 'id_card', items: ['Principal profile', 'School account', 'Security PIN']),
+          const MobileModuleView(title: 'Join Requests', icon: 'bell', items: [
+            'Pending requests',
+            'Approve school access',
+            'Reject requests'
+          ]),
+          const MobileModuleView(
+              title: 'Recycle Bin (30-Day)',
+              icon: 'bell',
+              items: [
+                'Deleted records',
+                'Restore records',
+                'Permanent deletion window'
+              ]),
+          const MobileModuleView(
+              title: 'Login History',
+              icon: 'shield_check',
+              items: ['Login events', 'Failed logins', 'Role access events']),
+          const MobileModuleView(
+              title: 'Deletion Requests',
+              icon: 'shield_check',
+              items: [
+                'Account deletion requests',
+                'Approve requests',
+                'Reject requests'
+              ]),
+          const MobileModuleView(
+              title: 'School Settings',
+              icon: 'sparkles',
+              items: ['School profile', 'Modules', 'Security settings']),
+          const MobileModuleView(
+              title: 'Profile',
+              icon: 'id_card',
+              items: ['Principal profile', 'School account', 'Security PIN']),
         ];
       case UserRole.staff:
         return [
           AdminHomeView(onTabSelected: _onTabSelected),
-          const MobileModuleView(title: 'Visitor Lookup', icon: 'bell', items: ['Find visitor records', 'Check student pickup authority']),
+          const MobileModuleView(title: 'Visitor Lookup', icon: 'bell', items: [
+            'Find visitor records',
+            'Check student pickup authority'
+          ]),
           const AdminFeesView(),
           const AdminStudentsView(),
           const AdminAttendanceView(),
           const AdminNoticesView(),
+          const MobileModuleView(
+              title: 'Profile',
+              icon: 'id_card',
+              items: ['Staff profile', 'Contact information', 'Security PIN']),
+          const MobileModuleView(title: 'Settings', icon: 'sparkles', items: [
+            'PIN security',
+            'Notification preferences',
+            'App settings'
+          ]),
         ];
       case UserRole.accountant:
         return [
           AdminHomeView(onTabSelected: _onTabSelected),
           const AdminFeesView(),
-          const MobileModuleView(title: 'Employee Payroll', icon: 'receipt', items: ['Salary payments', 'Payroll reports', 'Adjustments']),
-          const MobileModuleView(title: 'Student Directory', icon: 'graduation_cap', items: ['Student fee profiles', 'Parent contact', 'Admission numbers']),
-          const MobileModuleView(title: 'Login History', icon: 'shield_check', items: ['Fee desk login activity', 'Payment access events']),
+          const MobileModuleView(
+              title: 'Employee Payroll',
+              icon: 'receipt',
+              items: ['Salary payments', 'Payroll reports', 'Adjustments']),
+          const MobileModuleView(
+              title: 'Student Directory',
+              icon: 'graduation_cap',
+              items: [
+                'Student fee profiles',
+                'Parent contact',
+                'Admission numbers'
+              ]),
+          const MobileModuleView(
+              title: 'Login History',
+              icon: 'shield_check',
+              items: ['Fee desk login activity', 'Payment access events']),
+          const MobileModuleView(title: 'Profile', icon: 'id_card', items: [
+            'Accountant profile',
+            'Contact information',
+            'Security PIN'
+          ]),
+          const MobileModuleView(title: 'Settings', icon: 'sparkles', items: [
+            'PIN security',
+            'Notification preferences',
+            'App settings'
+          ]),
         ];
       case UserRole.driver:
         return [
           const DriverHomeView(),
           const DriverStopsView(),
           const DriverBoardingView(),
+          const MobileModuleView(title: 'Profile', icon: 'id_card', items: [
+            'Driver profile',
+            'Assigned vehicle',
+            'Contact information'
+          ]),
+          const MobileModuleView(title: 'Settings', icon: 'sparkles', items: [
+            'PIN security',
+            'Notification preferences',
+            'App settings'
+          ]),
         ];
     }
   }
@@ -487,6 +703,7 @@ class _MainShellViewState extends State<MainShellView>
 class _MoreNavItem {
   final String label;
   final int index;
+  final String icon;
 
-  const _MoreNavItem(this.label, this.index);
+  const _MoreNavItem(this.label, this.index, this.icon);
 }

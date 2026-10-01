@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const filters = Object.fromEntries(url.searchParams.entries());
-    const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff']);
+    const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff', 'student', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     
     // @ts-ignore

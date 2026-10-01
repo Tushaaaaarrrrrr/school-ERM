@@ -13,6 +13,8 @@ class StudentFeesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<StudentViewModel>();
+    final receipts = vm.receipts;
+    final charges = vm.charges;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -51,6 +53,52 @@ class StudentFeesView extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 20),
+          const Text(
+            'Official Receipts',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (receipts.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(18),
+                child: Text(
+                  'No payment receipts returned by the school yet.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            )
+          else
+            ...receipts.map((receipt) {
+              final paidAt = DateTime.tryParse(
+                  '${receipt['payment_date'] ?? receipt['created_at'] ?? ''}');
+              return Card(
+                child: ListTile(
+                  title: Text(
+                    '${receipt['receipt_number'] ?? 'Receipt'}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  subtitle: Text(
+                    paidAt == null
+                        ? 'Payment receipt'
+                        : 'Paid ${AppFormatters.date(paidAt)}',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                  trailing: Text(
+                    AppFormatters.currency(
+                        (receipt['amount_paid'] as num?) ?? 0),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              );
+            }),
           const SizedBox(height: 20),
           const Text(
             'Invoices',
@@ -112,6 +160,50 @@ class StudentFeesView extends StatelessWidget {
                 );
               },
             ),
+          const SizedBox(height: 20),
+          const Text(
+            'Extra Charges & Fines',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (charges.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(18),
+                child: Text(
+                  'No extra charges returned by the school yet.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            )
+          else
+            ...charges.map((charge) {
+              return Card(
+                child: ListTile(
+                  title: Text(
+                    '${charge['charge_name'] ?? 'Charge'}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  subtitle: Text(
+                    '${charge['description'] ?? charge['status'] ?? ''}',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                  trailing: Text(
+                    AppFormatters.currency(
+                        (charge['remaining_amount'] as num?) ??
+                            (charge['amount'] as num?) ??
+                            0),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );

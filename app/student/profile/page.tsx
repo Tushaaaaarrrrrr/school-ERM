@@ -15,8 +15,8 @@ import { UserPasswordCard } from '@/components/auth/user-password-modal';
 
 export default function StudentProfilePage() {
   const { currentUser, currentSchool } = useAuth();
-  const studentId = currentUser?.student_id || 'std-001';
-  const schoolId = currentSchool?.id || 'sch-001';
+  const studentId = currentUser?.student_id || '';
+  const schoolId = currentSchool?.id || '';
 
   const [student, setStudent] = useState<Student | null>(null);
   const [siblings, setSiblings] = useState<Student[]>([]);

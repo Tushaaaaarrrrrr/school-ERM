@@ -68,7 +68,6 @@ class StudentHomeView extends StatelessWidget {
                 child: _ActionCard(
                   icon: 'award',
                   title: 'Report Cards',
-                  subtitle: 'Term 1 Exam Results',
                   onTap: () => onTabSelected?.call(1),
                 ),
               ),
@@ -77,7 +76,6 @@ class StudentHomeView extends StatelessWidget {
                 child: _ActionCard(
                   icon: 'receipt',
                   title: 'Fee Invoices',
-                  subtitle: 'Statements & Pay',
                   onTap: () => onTabSelected?.call(2),
                 ),
               ),
@@ -90,7 +88,6 @@ class StudentHomeView extends StatelessWidget {
                 child: _ActionCard(
                   icon: 'bus',
                   title: 'Bus Transport',
-                  subtitle: 'Live ${student.busRouteNumber ?? 'Bus'} Tracking',
                   onTap: () => onTabSelected?.call(3),
                 ),
               ),
@@ -99,7 +96,6 @@ class StudentHomeView extends StatelessWidget {
                 child: _ActionCard(
                   icon: 'bell',
                   title: 'Notices & Events',
-                  subtitle: '${vm.notices.length} Announcements',
                   onTap: () => onTabSelected?.call(4),
                 ),
               ),
@@ -189,13 +185,11 @@ class StudentHomeView extends StatelessWidget {
 class _ActionCard extends StatelessWidget {
   final String icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   const _ActionCard({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
@@ -233,16 +227,6 @@ class _ActionCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

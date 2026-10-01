@@ -6,10 +6,16 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const requestedSchoolId = searchParams.get('schoolId') || undefined;
-    const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff']);
+    const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff', 'student', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     
-    const list = await serverDb.getTimetable(access.schoolId);
+    let list = await serverDb.getTimetable(access.schoolId);
+    const classId = searchParams.get('classId');
+    const sectionId = searchParams.get('sectionId');
+    const dayOfWeek = searchParams.get('dayOfWeek');
+    if (classId) list = list.filter((item: any) => item.class_id === classId);
+    if (sectionId) list = list.filter((item: any) => item.section_id === sectionId);
+    if (dayOfWeek) list = list.filter((item: any) => String(item.day_of_week) === dayOfWeek);
     return NextResponse.json({ success: true, data: list });
   } catch (err: unknown) {
     return NextResponse.json(

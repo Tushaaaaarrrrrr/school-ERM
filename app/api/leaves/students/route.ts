@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
-import { requireSchoolAccess } from '@/lib/server/access';
+import { getAccessibleStudentIds, requireSchoolAccess } from '@/lib/server/access';
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +10,9 @@ export async function GET(request: Request) {
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     
     // @ts-ignore
-    const data = await serverDb.getStudentLeaves(access.schoolId, filters);
+    let data = await serverDb.getStudentLeaves(access.schoolId, filters);
+    const allowedStudentIds = await getAccessibleStudentIds(access, access.schoolId);
+    if (allowedStudentIds) data = data.filter((item: any) => allowedStudentIds.has(item.student_id));
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

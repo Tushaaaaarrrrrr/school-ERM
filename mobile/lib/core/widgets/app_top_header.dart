@@ -69,7 +69,6 @@ class AppTopHeader extends StatelessWidget implements PreferredSizeWidget {
     final isSuperAdmin = auth.currentUser.role == UserRole.superAdmin;
     final title =
         isSuperAdmin ? 'Platform Console' : auth.currentUser.schoolName;
-    final code = isSuperAdmin ? 'All Schools' : auth.currentUser.schoolCode;
 
     return Container(
       decoration: const BoxDecoration(
@@ -96,43 +95,20 @@ class AppTopHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
               const SizedBox(width: 4),
 
-              // Workspace Name + Tenant Pill
+              // Workspace Name
               Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: AppColors.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        code,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
 
-              // Right Actions: Academic Year + Current Role
+              // Right Actions: Academic Year
               InkWell(
                 onTap: () => _showYearPicker(context),
                 borderRadius: BorderRadius.circular(8),
@@ -156,31 +132,6 @@ class AppTopHeader extends StatelessWidget implements PreferredSizeWidget {
                           size: 14, color: AppColors.textMuted),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 6),
-
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const AppSvgIcon('shield_check',
-                        size: 12, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      auth.currentUser.roleDisplayName.split(' ')[0],
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],

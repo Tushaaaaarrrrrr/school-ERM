@@ -21,6 +21,16 @@ class StudentViewModel extends ChangeNotifier {
   final List<ExamResultModel> _examResults = const [];
   final TransportRouteModel _route = TransportRouteModel.empty;
   List<NoticeModel> _notices = const [];
+  List<Map<String, dynamic>> _receipts = const [];
+  List<Map<String, dynamic>> _charges = const [];
+  List<Map<String, dynamic>> _attendance = const [];
+  List<Map<String, dynamic>> _leaves = const [];
+  List<Map<String, dynamic>> _timetable = const [];
+  List<Map<String, dynamic>> _results = const [];
+  List<Map<String, dynamic>> _transportAssignments = const [];
+  List<Map<String, dynamic>> _transportRoutes = const [];
+  List<Map<String, dynamic>> _transportStops = const [];
+  List<Map<String, dynamic>> _transportEvents = const [];
   String? _loadedFor;
 
   StudentModel get student => _student;
@@ -28,13 +38,24 @@ class StudentViewModel extends ChangeNotifier {
   List<ExamResultModel> get examResults => _examResults;
   TransportRouteModel get route => _route;
   List<NoticeModel> get notices => _notices;
+  List<Map<String, dynamic>> get receipts => _receipts;
+  List<Map<String, dynamic>> get charges => _charges;
+  List<Map<String, dynamic>> get attendance => _attendance;
+  List<Map<String, dynamic>> get leaves => _leaves;
+  List<Map<String, dynamic>> get timetable => _timetable;
+  List<Map<String, dynamic>> get results => _results;
+  List<Map<String, dynamic>> get transportAssignments => _transportAssignments;
+  List<Map<String, dynamic>> get transportRoutes => _transportRoutes;
+  List<Map<String, dynamic>> get transportStops => _transportStops;
+  List<Map<String, dynamic>> get transportEvents => _transportEvents;
 
   double get totalOutstandingFee {
     return _invoices.fold(0, (acc, inv) => acc + inv.dueBalance);
   }
 
   double get totalPendingFees => totalOutstandingFee;
-  int get unpaidInvoicesCount => _invoices.where((i) => i.status != FeeInvoiceStatus.paid).length;
+  int get unpaidInvoicesCount =>
+      _invoices.where((i) => i.status != FeeInvoiceStatus.paid).length;
 
   Future<void> loadFor(UserModel user) async {
     if (_loadedFor == user.id) return;
@@ -42,10 +63,15 @@ class StudentViewModel extends ChangeNotifier {
     try {
       final students = await ApiClient.getStudents(schoolId: user.schoolId);
       if (students.isNotEmpty) {
-        _student = students.firstWhere(
-          (s) => s.admissionNumber.toLowerCase() == (user.loginId ?? '').toLowerCase(),
-          orElse: () => students.first,
-        );
+        final loginId = (user.loginId ?? '').toLowerCase();
+        if (user.role == UserRole.parent) {
+          _student = students.first;
+        } else {
+          _student = students.firstWhere(
+            (s) => s.admissionNumber.toLowerCase() == loginId,
+            orElse: () => _student,
+          );
+        }
       }
     } catch (_) {}
     try {
@@ -53,9 +79,42 @@ class StudentViewModel extends ChangeNotifier {
       if (notices.isNotEmpty) _notices = notices;
     } catch (_) {}
     try {
-      final invoices = await ApiClient.getFeeInvoices();
-      if (invoices.isNotEmpty) _invoices = invoices;
+      _invoices = await ApiClient.getFeeInvoices(studentId: _student.id);
     } catch (_) {}
-      notifyListeners();
+    try {
+      _receipts = await ApiClient.getPaymentReceipts(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _charges = await ApiClient.getStudentCharges(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _attendance =
+          await ApiClient.getStudentAttendance(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _leaves = await ApiClient.getStudentLeaves(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _timetable = await ApiClient.getTimetable(
+        schoolId: user.schoolId,
+        classId: _student.classId,
+        sectionId: _student.sectionId,
+      );
+    } catch (_) {}
+    try {
+      _results = await ApiClient.getExamResults(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _transportAssignments =
+          await ApiClient.getTransportAssignments(studentId: _student.id);
+      _transportRoutes = await ApiClient.getTransportRoutes();
+      final routeId = _transportAssignments.isNotEmpty
+          ? (_transportAssignments.first['route_id'] as String? ?? '')
+          : '';
+      _transportStops = await ApiClient.getTransportStops(routeId: routeId);
+      _transportEvents =
+          await ApiClient.getTransportEvents(studentId: _student.id);
+    } catch (_) {}
+    notifyListeners();
   }
 }

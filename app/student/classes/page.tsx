@@ -29,11 +29,11 @@ export default function StudentClassesPage() {
         const std = studentId ? await studentService.getStudentById(studentId).catch(() => null) : null;
         setStudent(std);
 
-        const classId = std?.current_enrollment?.class_id || 'cls-08';
-        const sectionId = std?.current_enrollment?.section_id || 'sec-8a';
+        const classId = std?.current_enrollment?.class_id || '';
+        const sectionId = std?.current_enrollment?.section_id || '';
 
         const [ttList, subList] = await Promise.all([
-          timetableService.getTimetable(schoolId, { classId, sectionId }),
+          classId && sectionId ? timetableService.getTimetable(schoolId, { classId, sectionId }) : Promise.resolve([]),
           subjectService.getSubjects(schoolId),
         ]);
         setEntries(ttList);

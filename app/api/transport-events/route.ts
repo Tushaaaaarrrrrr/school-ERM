@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const filters = Object.fromEntries(url.searchParams.entries());
-    const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff', 'parent']);
+    const access = await requireSchoolAccess(null, ['school_admin', 'driver', 'staff', 'parent', 'student']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     if (access.role === 'driver') {
       const assigned = await getAssignedDriverTransport(access.schoolId, access.context);

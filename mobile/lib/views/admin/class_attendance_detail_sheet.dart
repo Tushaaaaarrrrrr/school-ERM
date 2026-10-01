@@ -368,6 +368,7 @@ class _StudentAttendanceCard extends StatelessWidget {
         onTap: () {
           StudentDetailSheet.show(
             context,
+            canManageFees: true,
             student: StudentModel(
               id: student.id,
               fullName: student.name,

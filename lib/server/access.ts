@@ -25,6 +25,25 @@ export async function getAccessContext() {
   return resolveAccessContext(supabase, user);
 }
 
+export async function getAccessibleStudentIds(access: any, schoolId: string) {
+  if (access.role !== 'student' && access.role !== 'parent') return null;
+  const login = String(access.context?.user?.login_id || access.context?.user?.email || '').toLowerCase();
+  const email = String(access.context?.user?.email || '').toLowerCase();
+  const students = await serverDb.getStudents(schoolId);
+  return new Set(
+    students
+      .filter((student: any) => {
+        const guardian = student.guardian || {};
+        return (
+          String(student.registration_number || student.admission_number || '').toLowerCase() === login ||
+          String(student.email || '').toLowerCase() === email ||
+          String(guardian.email || guardian.guardian_email || guardian.father_email || '').toLowerCase() === email
+        );
+      })
+      .map((student: any) => student.id)
+  );
+}
+
 async function getCookieSessionUser(): Promise<UserPersona | null> {
   try {
     const rawCookie = (await cookies()).get('school_erp_session')?.value;

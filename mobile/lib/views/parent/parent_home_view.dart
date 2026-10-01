@@ -24,10 +24,20 @@ class _ParentHomeViewState extends State<ParentHomeView> {
     final vm = context.watch<StudentViewModel>();
 
     // Dynamically resolve students linked to the parent
-    final List<StudentModel> children = vm.student.id.isNotEmpty ? [vm.student] : const [];
+    final List<StudentModel> children =
+        vm.student.id.isNotEmpty ? [vm.student] : const [];
     final activeChild = children.isNotEmpty
-        ? (_selectedChildIndex < children.length ? children[_selectedChildIndex] : children.first)
-        : const StudentModel(id: '', fullName: 'Ward', admissionNumber: '', rollNumber: '', className: '', section: '', gender: '');
+        ? (_selectedChildIndex < children.length
+            ? children[_selectedChildIndex]
+            : children.first)
+        : const StudentModel(
+            id: '',
+            fullName: 'Ward',
+            admissionNumber: '',
+            rollNumber: '',
+            className: '',
+            section: '',
+            gender: '');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -56,27 +66,33 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
                       avatar: CircleAvatar(
-                        backgroundColor: isSelected ? Colors.white : AppColors.primaryLight,
+                        backgroundColor:
+                            isSelected ? Colors.white : AppColors.primaryLight,
                         child: Text(
                           child.fullName[0],
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
                           ),
                         ),
                       ),
-                      label: Text('${child.fullName} (${child.className}-${child.section})'),
+                      label: Text(
+                          '${child.fullName} (${child.className}-${child.section})'),
                       selected: isSelected,
                       selectedColor: AppColors.primary,
                       labelStyle: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        color:
+                            isSelected ? Colors.white : AppColors.textPrimary,
                       ),
                       backgroundColor: Colors.white,
                       side: BorderSide(
-                        color: isSelected ? AppColors.primary : AppColors.border,
+                        color:
+                            isSelected ? AppColors.primary : AppColors.border,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
@@ -148,7 +164,8 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                         children: [
                           const Text(
                             'Term Attendance',
-                            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: TextStyle(
+                                fontSize: 11, color: AppColors.textMuted),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -170,7 +187,8 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                         children: [
                           const Text(
                             'Assigned Transport',
-                            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: TextStyle(
+                                fontSize: 11, color: AppColors.textMuted),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -210,7 +228,8 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const AppSvgIcon('receipt', size: 20, color: AppColors.warning),
+                    child: const AppSvgIcon('receipt',
+                        size: 20, color: AppColors.warning),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -236,18 +255,19 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                       ],
                     ),
                   ),
-                  ElevatedButton(
+                  OutlinedButton(
                     onPressed: () => widget.onTabSelected?.call(2),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF854D0E),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF854D0E),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Pay Now', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: const Text('View Bills',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -269,7 +289,6 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'award',
                   title: 'Report Cards',
-                  subtitle: '${vm.examResults.length} Evaluations',
                   onTap: () => widget.onTabSelected?.call(1),
                 ),
               ),
@@ -278,7 +297,6 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'receipt',
                   title: 'Fee Invoices',
-                  subtitle: '${vm.invoices.length} Invoices',
                   onTap: () => widget.onTabSelected?.call(2),
                 ),
               ),
@@ -291,7 +309,6 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'bus',
                   title: 'Bus Transport',
-                  subtitle: '${vm.route.routeNumber} (${activeChild.busStopName ?? "Assigned Stop"})',
                   onTap: () => widget.onTabSelected?.call(3),
                 ),
               ),
@@ -300,7 +317,6 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'attendance',
                   title: 'Attendance Record',
-                  subtitle: '${activeChild.attendancePercentage}% Recorded',
                   onTap: () => widget.onTabSelected?.call(0),
                 ),
               ),
@@ -389,13 +405,11 @@ class _ParentHomeViewState extends State<ParentHomeView> {
 class _ActionCard extends StatelessWidget {
   final String icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   const _ActionCard({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
@@ -433,16 +447,6 @@ class _ActionCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
