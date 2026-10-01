@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
+import { stripSchoolSecrets, studentLoginProfile } from '@/lib/server/sanitize';
 
 export async function GET(request: Request) {
   try {
@@ -46,8 +47,8 @@ export async function GET(request: Request) {
           login_id: student.registration_number,
           avatar_url: student.photo_url,
         },
-        studentData: student,
-        schoolData: sch,
+        studentData: studentLoginProfile(student),
+        schoolData: stripSchoolSecrets(sch),
       });
     }
 
@@ -71,7 +72,7 @@ export async function GET(request: Request) {
             school_code: school.code,
             login_id: cleanIdentifier,
           },
-          schoolData: school,
+          schoolData: stripSchoolSecrets(school),
         });
       }
 
@@ -101,7 +102,7 @@ export async function GET(request: Request) {
             avatar_url: teacher.photo_url,
           },
           teacherData: teacher,
-          schoolData: school,
+          schoolData: stripSchoolSecrets(school),
         });
       }
 
@@ -126,7 +127,7 @@ export async function GET(request: Request) {
             avatar_url: staffMember.photo_url,
           },
           staffData: staffMember,
-          schoolData: school,
+          schoolData: stripSchoolSecrets(school),
         });
       }
 
@@ -150,7 +151,7 @@ export async function GET(request: Request) {
             avatar_url: parent.photo_url,
           },
           parentData: parent,
-          schoolData: school,
+          schoolData: stripSchoolSecrets(school),
         });
       }
     }

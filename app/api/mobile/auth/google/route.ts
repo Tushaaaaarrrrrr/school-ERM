@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { stripSchoolSecrets } from '@/lib/server/sanitize';
 import { createClient } from '@supabase/supabase-js';
 import { redirectForContext, resolveAccessContext } from '@/lib/server/access';
 
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       user: context.user,
-      school: context.school,
+      school: stripSchoolSecrets(context.school),
       state: context.state,
       redirectUrl: redirectForContext(context),
     });

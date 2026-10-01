@@ -1,3 +1,4 @@
+import { escapeLikePattern } from '@/lib/utils/security';
 import type { UserPersona, UserRole } from '@/lib/types';
 import { requireIdentity, getServiceSupabase } from './auth';
 import { serverDb } from './db';
@@ -82,7 +83,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: profByAuth } = await adminClient.from('profiles').select('*').eq('auth_user_id', user.id).maybeSingle();
     profile = profByAuth;
     if (!profile) {
-      const { data: profileByEmail } = await adminClient.from('profiles').select('*').ilike('email', email).maybeSingle();
+      const { data: profileByEmail } = await adminClient.from('profiles').select('*').ilike('email', escapeLikePattern(email)).maybeSingle();
       if (profileByEmail) {
         const { data: updatedProf } = await adminClient.from('profiles').update({ auth_user_id: user.id, updated_at: new Date().toISOString() }).eq('id', profileByEmail.id).select().single();
         profile = updatedProf || profileByEmail;
@@ -191,7 +192,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedAdminSchools } = await adminClient
       .from('schools')
       .select('*')
-      .ilike('admin_email', `%${email}%`)
+      .ilike('admin_email', `%${escapeLikePattern(email)}%`)
       .eq('status', 'active');
 
     const matchedSchool = (matchedAdminSchools || []).find((s: any) => {
@@ -245,7 +246,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedTeachers } = await adminClient
       .from('teachers')
       .select('*, schools(*)')
-      .ilike('email', email)
+      .ilike('email', escapeLikePattern(email))
       .eq('status', 'active');
 
     if (matchedTeachers && matchedTeachers.length > 0) {
@@ -294,7 +295,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedStaffMembers } = await adminClient
       .from('staff')
       .select('*, schools(*)')
-      .ilike('email', email)
+      .ilike('email', escapeLikePattern(email))
       .eq('status', 'active');
 
     if (matchedStaffMembers && matchedStaffMembers.length > 0) {
@@ -344,7 +345,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedParents } = await adminClient
       .from('parent_profiles')
       .select('*, schools(*)')
-      .ilike('email', email)
+      .ilike('email', escapeLikePattern(email))
       .eq('status', 'active');
 
     if (matchedParents && matchedParents.length > 0) {
@@ -401,7 +402,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedGuardians } = await adminClient
       .from('guardians')
       .select('*, schools(*)')
-      .ilike('email', email);
+      .ilike('email', escapeLikePattern(email));
 
     if (matchedGuardians && matchedGuardians.length > 0) {
       const g = matchedGuardians[0];
@@ -449,7 +450,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     const { data: matchedStudents } = await adminClient
       .from('students')
       .select('*, schools(*)')
-      .ilike('guardian->>email', email)
+      .ilike('guardian->>email', escapeLikePattern(email))
       .eq('status', 'active');
 
     if (matchedStudents && matchedStudents.length > 0) {
@@ -759,7 +760,8 @@ export async function requireSchoolAccess(
   if (!context.authenticated) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const isConfigured = Boolean(url && !url.includes('demo.supabase.co') && !url.includes('your-project-id'));
-    if (!isConfigured) {
+    // Never fail open in production: a missing env var must not turn every request into a school admin.
+    if (!isConfigured && process.env.NODE_ENV !== 'production') {
       const allSchools = await serverDb.getSchools();
       const schoolId = requestedSchoolId || allSchools[0]?.id || 'sch-4404';
       const adminUser: UserPersona = { id: 'usr-admin-01', name: 'School Administrator', email: 'admin@school.com', role: 'school_admin', school_id: schoolId };

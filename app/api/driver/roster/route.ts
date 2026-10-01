@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { stripSchoolSecrets } from '@/lib/server/sanitize';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
 import { getAssignedDriverTransport } from '@/lib/server/driver-access';
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
     });
     
     // Get school info
-    const school = await serverDb.getSchoolById(schoolId);
+    const school = stripSchoolSecrets(await serverDb.getSchoolById(schoolId));
     
     return NextResponse.json({
       success: true,

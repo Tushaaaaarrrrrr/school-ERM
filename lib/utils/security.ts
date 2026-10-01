@@ -22,6 +22,11 @@ function secureRandomInt(maxExclusive: number): number {
   return values[0] % maxExclusive;
 }
 
+// ilike treats % and _ as wildcards; escape them so lookups only match the exact value (case-insensitively).
+export function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export function generateSecurePin(length = 5): string {
   return Array.from({ length }, () => secureRandomInt(10)).join('');
 }

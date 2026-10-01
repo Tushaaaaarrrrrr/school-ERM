@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { escapeLikePattern } from '@/lib/utils/security';
 
 const PORTAL_ROLES: Record<string, string[]> = {
   '/admin': ['school_admin'],
@@ -90,12 +91,20 @@ export async function middleware(request: NextRequest) {
       : supabase;
 
     const email = user.email?.trim().toLowerCase() || '';
-    const { data: profile } = await db
+    let { data: profile } = await db
       .from('profiles')
       .select('id, role, status')
-      .or(`auth_user_id.eq.${user.id},email.ilike.${email}`)
+      .eq('auth_user_id', user.id)
       .limit(1)
       .maybeSingle();
+    if (!profile && email) {
+      ({ data: profile } = await db
+        .from('profiles')
+        .select('id, role, status')
+        .ilike('email', escapeLikePattern(email))
+        .limit(1)
+        .maybeSingle());
+    }
 
     if (!profile || (profile.status && profile.status !== 'active')) {
       return NextResponse.redirect(new URL('/join', request.url));

@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
+import { getAccessContext } from '@/lib/server/access';
 import { UserPersona } from '@/lib/types';
 
 export async function POST(request: Request) {
   try {
-    const { user, pin } = await request.json();
-    if (!user || typeof pin !== 'string') {
-      return NextResponse.json({ success: false, error: 'User and PIN required' }, { status: 400 });
+    const context = await getAccessContext();
+    const user = context.authenticated ? (context.user as UserPersona | undefined) : undefined;
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const result = await serverDb.verifyPin(user as UserPersona, pin);
+    const { pin } = await request.json();
+    if (typeof pin !== 'string') {
+      return NextResponse.json({ success: false, error: 'PIN required' }, { status: 400 });
+    }
+
+    const result = await serverDb.verifyPin(user, pin);
     return NextResponse.json(result);
   } catch (err: unknown) {
     return NextResponse.json(

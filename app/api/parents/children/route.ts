@@ -3,6 +3,7 @@
 // Returns all students linked to the authenticated parent by email, phone, or explicit parent-student links
 // ============================================================================
 
+import { escapeLikePattern } from '@/lib/utils/security';
 import { NextResponse } from 'next/server';
 import { getAccessContext } from '@/lib/server/access';
 import { serverDb } from '@/lib/server/db';
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
           const { data: directStudents } = await adminClient
             .from('students')
             .select('*')
-            .ilike('guardian->>email', parentEmail)
+            .ilike('guardian->>email', escapeLikePattern(parentEmail))
             .eq('status', 'active');
           if (directStudents && directStudents.length > 0) {
             matchedStudents.push(...directStudents);
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
             const { data: gList } = await adminClient
               .from('guardians')
               .select('student_id')
-              .ilike('email', parentEmail);
+              .ilike('email', escapeLikePattern(parentEmail));
             if (gList && gList.length > 0) {
               const studentIds = gList.map((g: any) => g.student_id);
               const { data: sList } = await adminClient

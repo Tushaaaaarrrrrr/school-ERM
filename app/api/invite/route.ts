@@ -3,6 +3,7 @@
 // Allows instant, zero-cost Google OAuth onboarding for Teachers, Drivers, Staff, and Parents
 // ============================================================================
 
+import { escapeLikePattern } from '@/lib/utils/security';
 import { NextResponse } from 'next/server';
 import { requireIdentity, getServiceSupabase } from '@/lib/server/auth';
 import { serverDb } from '@/lib/server/db';
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
     let { data: profile } = await adminClient
       .from('profiles')
       .select('*')
-      .ilike('email', email)
+      .ilike('email', escapeLikePattern(email))
       .maybeSingle();
 
     if (!profile) {

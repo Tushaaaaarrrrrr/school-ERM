@@ -3,6 +3,7 @@
 // Enforces @gmail.com domain, single-role integrity, and cross-role collision checks
 // ============================================================================
 
+import { escapeLikePattern } from '@/lib/utils/security';
 import { requireIdentity, getServiceSupabase } from './auth';
 import { serverDb } from './db';
 
@@ -98,7 +99,7 @@ export async function checkEmailRegistry(
     const { data: profiles, error: profileErr } = await adminClient
       .from('profiles')
       .select('id, email, display_name, role, status, school_id')
-      .ilike('email', normalizedEmail)
+      .ilike('email', escapeLikePattern(normalizedEmail))
       .limit(5);
 
     if (!profileErr && profiles && profiles.length > 0) {

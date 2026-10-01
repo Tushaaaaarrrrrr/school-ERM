@@ -2,6 +2,7 @@
 // Server Database Engine (Supabase PostgreSQL + Central Enterprise Store)
 // ============================================================================
 
+import { escapeLikePattern } from '@/lib/utils/security';
 import {
   School,
   Teacher,
@@ -373,7 +374,7 @@ export const serverDb = {
 
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      let query = supabase.from('schools').select('id, name, code').ilike('code', cleanCode);
+      let query = supabase.from('schools').select('id, name, code').ilike('code', escapeLikePattern(cleanCode));
       if (excludeId) {
         query = query.neq('id', excludeId);
       }
@@ -446,7 +447,7 @@ export const serverDb = {
                 let { data: adminProf } = await supabase
                   .from('profiles')
                   .select('id')
-                  .ilike('email', cleanAdminEmail)
+                  .ilike('email', escapeLikePattern(cleanAdminEmail))
                   .maybeSingle();
 
                 if (!adminProf?.id) {
@@ -568,7 +569,7 @@ export const serverDb = {
                 let { data: adminProf } = await supabase
                   .from('profiles')
                   .select('id')
-                  .ilike('email', cleanAdminEmail)
+                  .ilike('email', escapeLikePattern(cleanAdminEmail))
                   .maybeSingle();
 
                 if (!adminProf?.id) {
@@ -866,13 +867,13 @@ export const serverDb = {
       if (user.role === 'school_admin' && user.school_id) {
         await this.updateSchool(user.school_id, { admin_pin_failed_attempts: 0, is_admin_pin_locked: false });
       } else if (user.role === 'teacher') {
-        const idx = db.teachers.findIndex((t) => t.id === user.teacher_id || t.id === user.id);
+        const idx = db.teachers.findIndex((t) => t.id === user.teacher_id || t.id === user.id || (!!user.email && t.email === user.email));
         if (idx !== -1) {
           db.teachers[idx].pin_failed_attempts = 0;
           db.teachers[idx].is_pin_locked = false;
         }
       } else if (['staff', 'driver'].includes(user.role)) {
-        const idx = db.staff.findIndex((s) => s.id === user.staff_id || s.id === user.id);
+        const idx = db.staff.findIndex((s) => s.id === user.staff_id || s.id === user.id || (!!user.email && s.email === user.email));
         if (idx !== -1) {
           db.staff[idx].pin_failed_attempts = 0;
           db.staff[idx].is_pin_locked = false;
@@ -891,13 +892,13 @@ export const serverDb = {
         is_admin_pin_locked: shouldLock,
       });
     } else if (user.role === 'teacher') {
-      const idx = db.teachers.findIndex((t) => t.id === user.teacher_id || t.id === user.id);
+      const idx = db.teachers.findIndex((t) => t.id === user.teacher_id || t.id === user.id || (!!user.email && t.email === user.email));
       if (idx !== -1) {
         db.teachers[idx].pin_failed_attempts = newCount;
         db.teachers[idx].is_pin_locked = shouldLock;
       }
     } else if (['staff', 'driver'].includes(user.role)) {
-      const idx = db.staff.findIndex((s) => s.id === user.staff_id || s.id === user.id);
+      const idx = db.staff.findIndex((s) => s.id === user.staff_id || s.id === user.id || (!!user.email && s.email === user.email));
       if (idx !== -1) {
         db.staff[idx].pin_failed_attempts = newCount;
         db.staff[idx].is_pin_locked = shouldLock;
@@ -1172,7 +1173,7 @@ export const serverDb = {
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      let query = supabase.from('students').select('*').ilike('registration_number', cleanReg);
+      let query = supabase.from('students').select('*').ilike('registration_number', escapeLikePattern(cleanReg));
       if (schoolId) query = query.eq('school_id', schoolId);
       const { data } = await query.maybeSingle();
       if (data) return data as Student;

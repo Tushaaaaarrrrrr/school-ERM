@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { stripSchoolSecrets } from '@/lib/server/sanitize';
 import { serverDb } from '@/lib/server/db';
 import { School } from '@/lib/types';
 import { getAccessContext } from '@/lib/server/access';
@@ -8,7 +9,7 @@ export async function GET() {
   try {
     const context = await getAccessContext();
     if (!context.authenticated) return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
-    const schools = context.state === 'SUPER_ADMIN' ? await serverDb.getSchools() : context.state === 'ACTIVE_SCHOOL_USER' && context.user?.school_id ? [await serverDb.getSchoolById(context.user.school_id)].filter(Boolean) : [];
+    const schools = context.state === 'SUPER_ADMIN' ? await serverDb.getSchools() : context.state === 'ACTIVE_SCHOOL_USER' && context.user?.school_id ? [stripSchoolSecrets(await serverDb.getSchoolById(context.user.school_id))].filter(Boolean) : [];
     return NextResponse.json({ success: true, data: schools });
   } catch (err: unknown) {
     return NextResponse.json(

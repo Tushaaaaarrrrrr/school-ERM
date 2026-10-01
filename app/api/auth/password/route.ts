@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { getSuperAdminEmails, isSuperAdminEmail } from '@/lib/server/super-admin';
+import { getAccessContext } from '@/lib/server/access';
 import fs from 'fs';
 import path from 'path';
 
@@ -146,8 +147,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, valid: false });
     }
 
-    // Setting a password
+    if (action !== 'set') {
+      return NextResponse.json({ success: false, error: 'Unsupported action' }, { status: 400 });
+    }
+
+    const context = await getAccessContext();
+    if (!context.authenticated || !context.user) {
+      return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
+    }
+    const caller = context.user;
+    const callerIsSuperAdmin = context.state === 'SUPER_ADMIN';
+
     const { userId, email, loginId, password, isSuperAdmin } = body;
+    const targetIds = [userId, email, loginId]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    const callerIds = [caller.id, caller.email, caller.login_id]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    const isSelf = targetIds.length > 0 && targetIds.every((id) => callerIds.includes(id));
+    if (!isSelf && !callerIsSuperAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+    if ((isSuperAdmin || isSuperAdminEmail(email)) && !callerIsSuperAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const cleanPass = String(password || '').trim();
 
     if (!cleanPass || cleanPass.length < 6) {

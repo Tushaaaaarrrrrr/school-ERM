@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { stripSchoolSecrets } from '@/lib/server/sanitize';
 import { serverDb } from '@/lib/server/db';
 import { School } from '@/lib/types';
 import { requireSchoolAccess, getAccessContext } from '@/lib/server/access';
@@ -31,7 +32,7 @@ export async function GET(
     if (!school) {
       return NextResponse.json({ success: false, error: 'School not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, data: school });
+    return NextResponse.json({ success: true, data: access.role === 'super_admin' ? school : stripSchoolSecrets(school) });
   } catch (err: unknown) {
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Error retrieving school' },
@@ -102,7 +103,7 @@ export async function PUT(
       ...(body.admin_email !== undefined && { admin_email: body.admin_email }),
     };
     const updated = await serverDb.updateSchool(id, allowed as Partial<School>);
-    return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({ success: true, data: isSuperAdmin ? updated : stripSchoolSecrets(updated) });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Error updating school';
     const isConflict = errorMessage.toLowerCase().includes('already registered') || errorMessage.toLowerCase().includes('duplicate');
