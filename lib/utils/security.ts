@@ -22,6 +22,10 @@ function secureRandomInt(maxExclusive: number): number {
   return values[0] % maxExclusive;
 }
 
+export function generateSecurePin(length = 5): string {
+  return Array.from({ length }, () => secureRandomInt(10)).join('');
+}
+
 /**
  * High-entropy 14-character password generator
  * Strictly includes: Uppercase (A-Z), Lowercase (a-z), Numbers (0-9), Symbols (!@#$%^&*)

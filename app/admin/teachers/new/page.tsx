@@ -19,6 +19,7 @@ import { GoogleEmailInput } from '@/components/ui/google-email-input';
 import { IdentityProofsInput, IdentityProof } from '@/components/ui/identity-proofs-input';
 import { useToast } from '@/components/ui/toast';
 import { sanitizePersonName, isValidPersonName, sanitizeIndianMobile, isValidIndianMobile } from '@/lib/utils/formatters';
+import { generateSecurePin } from '@/lib/utils/security';
 import {
   ArrowLeft,
   User,
@@ -76,7 +77,7 @@ export default function RegisterTeacherPage() {
 
     // Account & Credentials
     email: '',
-    securityPin: '12345',
+    securityPin: '',
   });
 
   const [identityProofs, setIdentityProofs] = useState<IdentityProof[]>([]);
@@ -171,7 +172,7 @@ export default function RegisterTeacherPage() {
           subjects: subjectArray,
           monthly_salary: parseInt(formData.monthlySalary, 10) || 30000,
           salary: parseInt(formData.monthlySalary, 10) || 30000,
-          security_pin: formData.securityPin || '12345',
+          security_pin: formData.securityPin || generateSecurePin(),
           status: 'active',
           identity_proofs: identityProofs.length > 0 ? identityProofs : undefined,
           extra_details: {
@@ -504,7 +505,7 @@ export default function RegisterTeacherPage() {
               pattern="[0-9]{5}"
               value={formData.securityPin}
               onChange={(e) => setFormData({ ...formData, securityPin: e.target.value.replace(/\D/g, '').slice(0, 5) })}
-              placeholder="12345"
+              placeholder="Leave blank to auto-generate"
             />
           </div>
         </div>

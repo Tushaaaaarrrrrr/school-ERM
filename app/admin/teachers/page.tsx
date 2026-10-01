@@ -114,7 +114,7 @@ export default function TeachersPage() {
   // 5-Digit PIN Management
   const [selectedTeacherForPin, setSelectedTeacherForPin] = useState<Teacher | null>(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [teacherPinInput, setTeacherPinInput] = useState('12345');
+  const [teacherPinInput, setTeacherPinInput] = useState('');
   const [isSavingPin, setIsSavingPin] = useState(false);
 
   const loadData = async () => {

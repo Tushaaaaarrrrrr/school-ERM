@@ -17,6 +17,15 @@ dist/
 .env
 !.env.example
 
+# Runtime data written by the demo server (contains credentials and PII)
+.data/
+
+# Signing material and credentials
+mobile/android/KEYSTORE_INFO.md
+mobile/android/key.properties
+*.jks
+*.keystore
+
 # Debug and system files
 npm-debug.log*
 yarn-debug.log*

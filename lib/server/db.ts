@@ -44,6 +44,7 @@ import {
   INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS,
 } from '@/lib/services/mock-data';
 import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
+import { isSuperAdminEmail } from '@/lib/server/super-admin';
 import { createClient } from '@supabase/supabase-js';
 
 // Global singleton for server-side state persistence across all requests & instances
@@ -629,11 +630,7 @@ export const serverDb = {
     const email = rawEmail.trim().toLowerCase();
 
     // 1. Super Admin Match
-    if (
-      email === 'superadmin@platform.erp' ||
-      email === 'superadmin@schoolerp.com' ||
-      email === 'pay.laxmikant@gmail.com'
-    ) {
+    if (isSuperAdminEmail(email)) {
       return {
         success: true,
         user: {

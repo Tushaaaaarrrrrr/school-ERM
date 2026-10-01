@@ -13,7 +13,7 @@ An enterprise-grade, multi-tenant School Enterprise Resource Planning (ERP) plat
 - 👨‍👩‍👧‍👦 **Multi-Child Parent Portal**: Unified parent dashboard to monitor multiple siblings, submit leaves, review attendance and fee invoices, view medical/emergency alerts, and connect instantly via the **Call School** helpline.
 - 📊 **Academic & Attendance Insights**: Normalized class toppers, subject performance averages, consecutive absence alerts ($\ge 3$, $\ge 5$, $\ge 10$ days), and parent communication follow-up tracking.
 - 🚌 **Transport Logistics & Safety**: Real-time vehicle manifests, route & stop assignments, and driver pickup/drop recording with instant status updates.
-- 🔒 **Enterprise Security & Compliance**: Role-based access control (RBAC), hierarchical password resets, login audit trails, rate limiting, and regulated account/school deletion workflows.
+- 🔒 **Enterprise Security & Compliance**: Role-based access control (RBAC), hierarchical password resets, login audit trails, and regulated account/school deletion workflows.
 
 ---
 
@@ -24,7 +24,7 @@ An enterprise-grade, multi-tenant School Enterprise Resource Planning (ERP) plat
 | **Framework** | Next.js 15.5+ (App Router, Server Components & Client Hydration) |
 | **Language** | TypeScript 5 (Strict Mode, 100% Type-Safe) |
 | **Styling & UI** | Tailwind CSS, Lucide Icons, Custom Accessible Component Primitives |
-| **State & Persistence** | React Context (`AuthContext`), Storage Service with SSR Fallback, Seed Database |
+| **State & Persistence** | Supabase (PostgreSQL + Auth) in production; in-memory seed data + `.data/` JSON files in local demo mode (no Supabase env vars) |
 | **Build & Tooling** | PostCSS, ESLint, npm |
 
 ---
@@ -79,8 +79,8 @@ An enterprise-grade, multi-tenant School Enterprise Resource Planning (ERP) plat
 ### 1. Installation
 Clone the repository and install dependencies:
 ```bash
-git clone <repo-url>
-cd "SChool erm"
+git clone https://github.com/Tushaaaaarrrrrr/school-ERM.git
+cd school-ERM
 npm install
 ```
 

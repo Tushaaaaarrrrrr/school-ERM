@@ -150,7 +150,7 @@ export default function AdminStaffPage() {
   // 5-Digit PIN Modal State
   const [selectedStaffForPin, setSelectedStaffForPin] = useState<Staff | null>(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [staffPinInput, setStaffPinInput] = useState('12345');
+  const [staffPinInput, setStaffPinInput] = useState('');
   const [isSavingPin, setIsSavingPin] = useState(false);
 
   // Add Form

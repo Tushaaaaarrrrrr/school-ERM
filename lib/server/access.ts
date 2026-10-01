@@ -2,6 +2,7 @@ import type { UserPersona, UserRole } from '@/lib/types';
 import { requireIdentity, getServiceSupabase } from './auth';
 import { serverDb } from './db';
 import { validateGmailDomain } from './email-registry';
+import { isSuperAdminEmail } from './super-admin';
 import { cookies } from 'next/headers';
 
 export type AccessState = 'SUPER_ADMIN' | 'ACTIVE_SCHOOL_USER' | 'PENDING_ACCESS_REQUEST' | 'NO_SCHOOL_ACCESS' | 'DISABLED' | 'REVOKED';
@@ -74,16 +75,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
   const name = String(user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0]);
   const adminClient = getServiceSupabase() || supabase;
 
-  const envSuperAdminEmails = (process.env.SUPER_ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  const isSuperAdminEmail =
-    email === 'pay.laxmikant@gmail.com' ||
-    email === 'superadmin@platform.erp' ||
-    email === 'superadmin@schoolerp.com' ||
-    envSuperAdminEmails.includes(email);
+  const isPlatformSuperAdmin = isSuperAdminEmail(email);
 
   let profile: any = null;
   try {
@@ -108,7 +100,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
         email: email,
         display_name: name,
         status: 'active',
-        role: isSuperAdminEmail ? 'super_admin' : 'school_user',
+        role: isPlatformSuperAdmin ? 'super_admin' : 'school_user',
       }).select().single();
       profile = createdProf;
     }
@@ -123,7 +115,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
       email: email,
       display_name: name,
       status: 'active',
-      role: isSuperAdminEmail ? 'super_admin' : 'school_user',
+      role: isPlatformSuperAdmin ? 'super_admin' : 'school_user',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -133,7 +125,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
     return { authenticated: true as const, state: profile.status === 'revoked' ? 'REVOKED' as AccessState : 'DISABLED' as AccessState, profile };
   }
 
-  if (isSuperAdminEmail || profile.role === 'super_admin') {
+  if (isPlatformSuperAdmin || profile.role === 'super_admin') {
     if (profile.id && profile.role !== 'super_admin') {
       try {
         await adminClient.from('profiles').update({

@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
+import { getSuperAdminEmails, isSuperAdminEmail } from '@/lib/server/super-admin';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,24 +44,34 @@ declare global {
   var __SERVER_PASSWORDS__: Record<string, string> | undefined;
 }
 
+// Shared demo passwords are only acceptable when no real backend is attached.
+function isDemoMode(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return !url || !key || url.includes('demo.supabase.co') || url.includes('your-project-id') || key === 'demo-anon-key';
+}
+
+const DEMO_SEED_PASSWORDS: Record<string, string> = {
+  'superadmin': 'admin123',
+  'admin': 'admin123',
+  'usr-super-01': 'admin123',
+  'admin@delhipublic.edu.in': 'admin123',
+  'jdps-103': 'student123',
+  'jdps-101': 'student123',
+};
+
 function getPasswordsDb(): Record<string, string> {
   if (!globalThis.__SERVER_PASSWORDS__) {
-    const filePass = loadPasswordsFromFile();
     globalThis.__SERVER_PASSWORDS__ = {
-      // Default seeded platform fallback passwords
-      'superadmin@platform.erp': 'admin123',
-      'superadmin@schoolerp.com': 'admin123',
-      'pay.laxmikant@gmail.com': 'admin123',
-      'superadmin': 'admin123',
-      'admin': 'admin123',
-      'usr-super-01': 'admin123',
-      'admin@delhipublic.edu.in': 'admin123',
-      'jdps-103': 'student123',
-      'jdps-101': 'student123',
-      ...filePass,
+      ...(isDemoMode() ? DEMO_SEED_PASSWORDS : {}),
+      ...loadPasswordsFromFile(),
     };
   }
   return globalThis.__SERVER_PASSWORDS__;
+}
+
+function superAdminPasswordKeys(): string[] {
+  return ['superadmin', 'admin', 'usr-super-01', ...getSuperAdminEmails()];
 }
 
 export async function POST(request: Request) {
@@ -92,25 +103,14 @@ export async function POST(request: Request) {
         }
       }
 
-      // Check default demo accounts
-      const isSuperAdminId = ids.some((id) =>
-        id === 'superadmin' ||
-        id === 'admin' ||
-        id === 'usr-super-01' ||
-        id === 'pay.laxmikant@gmail.com' ||
-        id === 'superadmin@platform.erp' ||
-        id === 'superadmin@schoolerp.com'
-      );
-
-      if (isSuperAdminId) {
-        // Check if any super admin key has this password
-        const superKeys = ['superadmin', 'admin', 'usr-super-01', 'pay.laxmikant@gmail.com', 'superadmin@platform.erp', 'superadmin@schoolerp.com'];
+      const superKeys = superAdminPasswordKeys();
+      if (ids.some((id) => superKeys.includes(id))) {
         for (const k of superKeys) {
           if (db[k] && db[k] === cleanPass) {
             return NextResponse.json({ success: true, valid: true });
           }
         }
-        if (['password', 'admin123', 'demo', '123456'].includes(cleanPass)) {
+        if (isDemoMode() && ['password', 'admin123', 'demo', '123456'].includes(cleanPass)) {
           return NextResponse.json({ success: true, valid: true });
         }
       }
@@ -127,13 +127,13 @@ export async function POST(request: Request) {
           if (matchedSchool.admin_pin && String(matchedSchool.admin_pin).trim() === cleanPass) {
             return NextResponse.json({ success: true, valid: true });
           }
-          if (['admin123', 'admin', 'password', '12345', '123456'].includes(cleanPass)) {
+          if (isDemoMode() && ['admin123', 'admin', 'password', '12345', '123456'].includes(cleanPass)) {
             return NextResponse.json({ success: true, valid: true });
           }
         }
       } catch (_) {}
 
-      if (role === 'student' && ['student123', 'Student@123', 'password', '123456'].includes(cleanPass)) {
+      if (isDemoMode() && role === 'student' && ['student123', 'Student@123', 'password', '123456'].includes(cleanPass)) {
         return NextResponse.json({ success: true, valid: true });
       }
 
@@ -157,20 +157,8 @@ export async function POST(request: Request) {
     if (email) db[String(email).trim().toLowerCase()] = cleanPass;
     if (loginId) db[String(loginId).trim().toLowerCase()] = cleanPass;
 
-    if (
-      isSuperAdmin ||
-      (email && (
-        email.toLowerCase() === 'pay.laxmikant@gmail.com' ||
-        email.toLowerCase() === 'superadmin@platform.erp' ||
-        email.toLowerCase() === 'superadmin@schoolerp.com'
-      ))
-    ) {
-      db['superadmin'] = cleanPass;
-      db['admin'] = cleanPass;
-      db['usr-super-01'] = cleanPass;
-      db['pay.laxmikant@gmail.com'] = cleanPass;
-      db['superadmin@platform.erp'] = cleanPass;
-      db['superadmin@schoolerp.com'] = cleanPass;
+    if (isSuperAdmin || isSuperAdminEmail(email)) {
+      for (const k of superAdminPasswordKeys()) db[k] = cleanPass;
     }
 
     savePasswordsToFile(db);

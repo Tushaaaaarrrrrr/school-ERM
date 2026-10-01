@@ -47,10 +47,13 @@ export async function PUT(
   try {
     const { id } = await params;
     const context = await getAccessContext();
-    const isSuperAdmin = context.authenticated && context.state === 'SUPER_ADMIN';
-    const isOwnSchoolAdmin = context.authenticated && context.state === 'ACTIVE_SCHOOL_USER' &&
+    if (!context.authenticated) {
+      return NextResponse.json({ success: false, error: 'Unauthenticated' }, { status: 401 });
+    }
+    const isSuperAdmin = context.state === 'SUPER_ADMIN';
+    const isOwnSchoolAdmin = context.state === 'ACTIVE_SCHOOL_USER' &&
       context.user?.role === 'school_admin' && context.user.school_id === id;
-    if (context.authenticated && !isSuperAdmin && !isOwnSchoolAdmin) {
+    if (!isSuperAdmin && !isOwnSchoolAdmin) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
     const body = await request.json();

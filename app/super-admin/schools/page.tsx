@@ -57,7 +57,7 @@ export default function SchoolsManagementPage() {
     address: '',
     adminName: '',
     adminEmail: '',
-    adminPin: '12345',
+    adminPin: '',
     securityQuestion: 'principal_reg',
     customSecurityQuestion: '',
     securityAnswer: '',
@@ -183,7 +183,7 @@ export default function SchoolsManagementPage() {
         address: '',
         adminName: '',
         adminEmail: '',
-        adminPin: '12345',
+        adminPin: '',
         securityQuestion: 'principal_reg',
         customSecurityQuestion: '',
         securityAnswer: '',
@@ -494,7 +494,7 @@ export default function SchoolsManagementPage() {
                     adminPin: e.target.value.replace(/\D/g, '').slice(0, 5),
                   })
                 }
-                placeholder="12345"
+                placeholder="Choose 5 digits"
                 helperText="Super Admin set only (5 digits)"
               />
             </div>

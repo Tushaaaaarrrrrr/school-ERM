@@ -138,6 +138,7 @@ import {
   validatePasswordStrength,
   validateImageFileContent,
   generateSafeStoragePath,
+  generateSecurePin,
 } from '@/lib/utils/security';
 import { validateSchoolCodeFormat, sanitizeSchoolCode } from '@/lib/utils/school-code';
 
@@ -4950,7 +4951,7 @@ export const schoolService = {
       code: sanitizedCode,
       admin_name: adminName,
       admin_email: adminEmail,
-      admin_pin: adminPin || '12345',
+      admin_pin: adminPin || generateSecurePin(),
       admin_pin_failed_attempts: 0,
       is_admin_pin_locked: false,
       security_question: securityQuestion,
@@ -8818,7 +8819,7 @@ export const accessRequestService = {
     const index = list.findIndex((r) => r.id === requestId);
     if (index === -1) throw new Error('Access request not found');
 
-    const pinToSet = options?.assignedPin?.trim() || '12345';
+    const pinToSet = options?.assignedPin?.trim() || generateSecurePin();
 
     const req = list[index];
     req.status = 'approved';

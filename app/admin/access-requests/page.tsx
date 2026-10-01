@@ -72,7 +72,7 @@ export default function AdminAccessRequestsPage() {
   const [assignedRole, setAssignedRole] = useState<'teacher' | 'staff' | 'driver' | 'parent' | 'student'>('teacher');
   const [assignedDepartment, setAssignedDepartment] = useState('Mathematics');
   const [assignedDesignation, setAssignedDesignation] = useState('Faculty Teacher');
-  const [assignedPin, setAssignedPin] = useState('12345');
+  const [assignedPin, setAssignedPin] = useState('');
   const [staffType, setStaffType] = useState<StaffType>('office_staff');
   const [selectedPermissions, setSelectedPermissions] = useState<StaffPermission[]>(['view_students', 'view_fees']);
   const [isProcessing, setIsProcessing] = useState(false);

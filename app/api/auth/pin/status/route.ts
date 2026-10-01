@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'User is required' }, { status: 400 });
     }
 
-    const status = await serverDb.getUserPinStatus(user as UserPersona);
+    const { pin: _pin, ...status } = await serverDb.getUserPinStatus(user as UserPersona);
     return NextResponse.json({ success: true, data: status });
   } catch (err: unknown) {
     return NextResponse.json(

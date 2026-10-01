@@ -64,6 +64,7 @@ import {
 import { SchoolFeatureKey } from '@/lib/types';
 import { SchoolCodeInput } from '@/components/schools/school-code-input';
 import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
+import { generateSecurePin } from '@/lib/utils/security';
 
 export default function SchoolDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -325,7 +326,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
       await pinSecurityService.unlockAndResetPin({
         targetType: 'school_admin',
         targetId: school.id,
-        newPin: school.admin_pin || '12345',
+        newPin: school.admin_pin || generateSecurePin(),
         unlockedByName: 'Super Admin',
       });
       success('School Administrator account unlocked successfully!');
@@ -523,7 +524,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                   type="button"
                   onClick={() => {
                     setIsActionsOpen(false);
-                    setNewPinInput(school.admin_pin || '12345');
+                    setNewPinInput(school.admin_pin || '');
                     setIsPinModalOpen(true);
                   }}
                   className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
@@ -888,7 +889,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                 <span className="text-slate-500 shrink-0">5-Digit Security PIN:</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded-md text-slate-800 tracking-wider">
-                    {showPin ? school.admin_pin || '12345' : '•••••'}
+                    {showPin ? school.admin_pin || 'Not set' : '•••••'}
                   </span>
                   <button
                     type="button"
@@ -902,7 +903,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                     variant="outline"
                     size="xs"
                     onClick={() => {
-                      setNewPinInput(school.admin_pin || '12345');
+                      setNewPinInput(school.admin_pin || '');
                       setIsPinModalOpen(true);
                     }}
                     leftIcon={<KeyRound className="w-3 h-3 text-indigo-600" />}
