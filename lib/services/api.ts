@@ -6988,6 +6988,24 @@ export const securityService = {
     if (!saved.success) {
       throw new Error(saved.error || 'Failed to save reset password');
     }
+    if (typeof window !== 'undefined') {
+      const verify = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify',
+          identifier: tLoginId || tUserId,
+          userId: tUserId,
+          loginId: tLoginId,
+          role: tRole,
+          password: pwd,
+        }),
+      });
+      const verified = verify.ok ? await verify.json().catch(() => ({})) : {};
+      if (verified.valid !== true) {
+        throw new Error('Password was not saved for login. Please try reset again.');
+      }
+    }
 
     authLogService.logEvent({
       school_id: sId,
@@ -9726,7 +9744,7 @@ export const userPasswordService = {
             isSuperAdmin: isSuper,
           }),
         });
-        if (!res.ok && !isDemoEnvironment()) {
+        if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           return { success: false, error: data.error || 'Could not save your password. Please try again.' };
         }
@@ -9803,7 +9821,11 @@ export const userPasswordService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'verify',
-            identifier: emailKey || userKey || loginKey,
+            identifier: userKey || loginKey || emailKey,
+            userId: userKey,
+            email: emailKey,
+            loginId: loginKey,
+            role: typeof user === 'string' ? undefined : user.role,
             password: attempt,
           }),
         });
