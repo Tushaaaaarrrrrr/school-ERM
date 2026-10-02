@@ -2027,22 +2027,6 @@ export const roomService = {
       (r) => r.school_id === schoolId
     );
 
-    if (list.length === 0) {
-      const defaultRooms: SchoolRoom[] = [
-        { id: `rm-${schoolId}-101`, school_id: schoolId, name: 'Classroom 101', room_number: '101', building: 'Academic Block A', floor: 'Ground Floor', type: 'classroom', capacity: 45, status: 'active', created_at: new Date().toISOString() },
-        { id: `rm-${schoolId}-102`, school_id: schoolId, name: 'Classroom 102', room_number: '102', building: 'Academic Block A', floor: 'Ground Floor', type: 'classroom', capacity: 45, status: 'active', created_at: new Date().toISOString() },
-        { id: `rm-${schoolId}-201`, school_id: schoolId, name: 'Classroom 201', room_number: '201', building: 'Academic Block A', floor: 'First Floor', type: 'classroom', capacity: 45, status: 'active', created_at: new Date().toISOString() },
-        { id: `rm-${schoolId}-202`, school_id: schoolId, name: 'Classroom 202', room_number: '202', building: 'Academic Block A', floor: 'First Floor', type: 'classroom', capacity: 45, status: 'active', created_at: new Date().toISOString() },
-        { id: `rm-${schoolId}-lab1`, school_id: schoolId, name: 'Science Laboratory', room_number: 'LAB-1', building: 'Academic Block B', floor: 'Ground Floor', type: 'lab', capacity: 35, status: 'active', created_at: new Date().toISOString() },
-        { id: `rm-${schoolId}-lab2`, school_id: schoolId, name: 'Computer Laboratory', room_number: 'LAB-2', building: 'Academic Block B', floor: 'Ground Floor', type: 'lab', capacity: 40, status: 'active', created_at: new Date().toISOString() },
-        { id: `rm-${schoolId}-lib1`, school_id: schoolId, name: 'Central Library', room_number: 'LIB-1', building: 'Central Block', floor: 'First Floor', type: 'library', capacity: 80, status: 'active', created_at: new Date().toISOString() },
-      ];
-      const allRooms = storageService.getItem<SchoolRoom[]>(STORAGE_KEYS.ROOMS, INITIAL_ROOMS);
-      const otherRooms = allRooms.filter((r) => r.school_id !== schoolId);
-      storageService.setItem(STORAGE_KEYS.ROOMS, [...otherRooms, ...defaultRooms]);
-      list = defaultRooms;
-    }
-
     if (type) list = list.filter((r) => r.type === type);
     return list.sort((a, b) => a.room_number.localeCompare(b.room_number));
   },
@@ -4522,25 +4506,6 @@ export const academicService = {
       }
     } catch {}
 
-    if (classes.length === 0) {
-      const defaultClasses: SchoolClass[] = [
-        { id: `cls-${schoolId}-1`, school_id: schoolId, name: 'Class 1', sort_order: 1, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-2`, school_id: schoolId, name: 'Class 2', sort_order: 2, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-3`, school_id: schoolId, name: 'Class 3', sort_order: 3, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-4`, school_id: schoolId, name: 'Class 4', sort_order: 4, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-5`, school_id: schoolId, name: 'Class 5', sort_order: 5, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-6`, school_id: schoolId, name: 'Class 6', sort_order: 6, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-7`, school_id: schoolId, name: 'Class 7', sort_order: 7, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-8`, school_id: schoolId, name: 'Class 8', sort_order: 8, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-9`, school_id: schoolId, name: 'Class 9', sort_order: 9, status: 'active', created_at: new Date().toISOString() },
-        { id: `cls-${schoolId}-10`, school_id: schoolId, name: 'Class 10', sort_order: 10, status: 'active', created_at: new Date().toISOString() },
-      ];
-      const all = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-      const other = all.filter((c) => c.school_id !== schoolId);
-      storageService.setItem(STORAGE_KEYS.CLASSES, [...other, ...defaultClasses]);
-      classes = defaultClasses;
-    }
-
     const sections = await this.getSections(schoolId);
     const rooms = storageService.getItem<SchoolRoom[]>(STORAGE_KEYS.ROOMS, INITIAL_ROOMS);
     const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
@@ -4646,25 +4611,6 @@ export const academicService = {
         }
       }
     } catch {}
-
-    if (sections.length === 0) {
-      const clsList = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
-      const defaultSecs: Section[] = clsList.map((c) => ({
-        id: `sec-${c.id}-a`,
-        school_id: schoolId,
-        class_id: c.id,
-        name: 'A',
-        status: 'active',
-        created_at: new Date().toISOString(),
-        class_name: c.name,
-      }));
-      if (defaultSecs.length > 0) {
-        const allSec = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS);
-        const otherSec = allSec.filter((s) => s.school_id !== schoolId);
-        storageService.setItem(STORAGE_KEYS.SECTIONS, [...otherSec, ...defaultSecs]);
-        sections = defaultSecs;
-      }
-    }
 
     if (classId) sections = sections.filter((s) => s.class_id === classId);
 

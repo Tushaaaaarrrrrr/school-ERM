@@ -318,43 +318,43 @@ export default function ClassesPage() {
                       </span>
                     </div>
                   )}
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Sections & Room Assignments:
-                  </span>
-                  <div className="space-y-2">
-                    {c.sections && c.sections.length > 0 ? (
-                      c.sections.map((sec) => (
-                        <div
-                          key={sec.id}
-                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs group"
-                        >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <strong className="text-slate-900 font-semibold">
-                                Section {sec.name}
-                              </strong>
-                              <span className="text-[11px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
-                                {sec.room_number ? `Room ${sec.room_number}` : 'Not assigned'}
+                  {c.sections && c.sections.length > 0 && (
+                    <>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Sections &amp; Room Assignments:
+                      </span>
+                      <div className="space-y-2">
+                        {c.sections.map((sec) => (
+                          <div
+                            key={sec.id}
+                            className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs group"
+                          >
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <strong className="text-slate-900 font-semibold">
+                                  Section {sec.name}
+                                </strong>
+                                <span className="text-[11px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                                  {sec.room_number ? `Room ${sec.room_number}` : 'Not assigned'}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-slate-500 block mt-0.5">
+                                Class Teacher: <strong>{sec.class_teacher_name || 'Not assigned'}</strong>
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-500 block mt-0.5">
-                              Class Teacher: <strong>{sec.class_teacher_name || 'Not assigned'}</strong>
-                            </span>
-                          </div>
 
-                          <button
-                            onClick={(event) => { event.stopPropagation(); handleOpenEditSection(c.id, sec); }}
-                            className="p-1 rounded text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit Section & Room"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-slate-400 italic">No sections created yet.</p>
-                    )}
-                  </div>
+                            <button
+                              onClick={(event) => { event.stopPropagation(); handleOpenEditSection(c.id, sec); }}
+                              className="p-1 rounded text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Edit Section &amp; Room"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
