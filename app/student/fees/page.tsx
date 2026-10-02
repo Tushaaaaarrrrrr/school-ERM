@@ -19,8 +19,8 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function StudentFeesPage() {
   const { currentUser, currentSchool } = useAuth();
-  const studentId = currentUser?.student_id || currentUser?.id || '';
-  const schoolId = currentSchool?.id || '';
+  const studentId = currentUser?.student_id || currentUser?.id?.replace(/^usr-/, '') || currentUser?.login_id || '';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
 
   const [invoices, setInvoices] = useState<StudentFeeInvoice[]>([]);
   const [charges, setCharges] = useState<StudentCharge[]>([]);

@@ -15,9 +15,20 @@ export async function GET(request: Request) {
     const requestedStudentId = searchParams.get('studentId') || '';
     if (access.role === 'student' || access.role === 'parent') {
       const allowedStudentIds = await getAccessibleStudentIds(access, access.schoolId);
-      data = data.filter((invoice: any) => allowedStudentIds?.has(invoice.student_id));
+      data = data.filter((invoice: any) =>
+        allowedStudentIds?.has(invoice.student_id) ||
+        allowedStudentIds?.has(String(invoice.student_id || '').toLowerCase()) ||
+        allowedStudentIds?.has(invoice.registration_number) ||
+        allowedStudentIds?.has(String(invoice.registration_number || '').toLowerCase())
+      );
     } else if (requestedStudentId) {
-      data = data.filter((invoice: any) => invoice.student_id === requestedStudentId);
+      const target = requestedStudentId.toLowerCase();
+      const clean = target.replace(/^usr-/, '');
+      data = data.filter((invoice: any) => {
+        const sId = String(invoice.student_id || '').toLowerCase();
+        const sReg = String(invoice.registration_number || '').toLowerCase();
+        return sId === target || sId === clean || sReg === target || sReg === clean;
+      });
     }
     return NextResponse.json({ success: true, data });
   } catch (error: any) {

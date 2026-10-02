@@ -6085,12 +6085,63 @@ export const feeService = {
     schoolId: string,
     filter?: { studentId?: string; status?: StudentFeeInvoice['status']; month?: string; billingMonth?: string }
   ): Promise<StudentFeeInvoice[]> {
+    if (typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams();
+        if (filter?.studentId) queryParams.set('studentId', filter.studentId);
+        const res = await fetch(`/api/fee-invoices?${queryParams.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            const serverInvoices = json.data as StudentFeeInvoice[];
+            const localInvoices = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
+            serverInvoices.forEach((sInv) => {
+              const idx = localInvoices.findIndex((l) => l.id === sInv.id);
+              if (idx !== -1) {
+                if ((localInvoices[idx].paid_amount || 0) > (sInv.paid_amount || 0)) {
+                  fetch(`/api/fee-invoices/${localInvoices[idx].id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(localInvoices[idx]),
+                  }).catch(() => {});
+                } else {
+                  localInvoices[idx] = sInv;
+                }
+              } else {
+                localInvoices.unshift(sInv);
+              }
+            });
+            localInvoices.forEach((lInv) => {
+              if (lInv.school_id === schoolId && !serverInvoices.some((s) => s.id === lInv.id)) {
+                fetch('/api/fee-invoices', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(lInv),
+                }).catch(() => {});
+              }
+            });
+            storageService.setItem(STORAGE_KEYS.FEE_INVOICES, localInvoices);
+          }
+        }
+      } catch (e) {
+        console.warn('API fee-invoices sync fallback to local cache:', e);
+      }
+    }
+
     let list = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES).filter(
       (inv) => inv.school_id === schoolId
     );
 
     const targetMonth = filter?.billingMonth || filter?.month;
-    if (filter?.studentId) list = list.filter((inv) => inv.student_id === filter.studentId);
+    if (filter?.studentId) {
+      const target = filter.studentId.trim().toLowerCase();
+      const clean = target.replace(/^usr-/, '');
+      list = list.filter((inv) => {
+        const sId = String(inv.student_id || '').toLowerCase();
+        const sReg = String(inv.registration_number || '').toLowerCase();
+        return sId === target || sId === clean || sReg === target || sReg === clean;
+      });
+    }
     if (filter?.status) list = list.filter((inv) => inv.status === filter.status);
     if (targetMonth) list = list.filter((inv) => inv.billing_month === targetMonth);
 
@@ -6144,6 +6195,13 @@ export const feeService = {
         allInvoices.unshift(newInvoice);
         list.push(newInvoice);
         generated = true;
+        if (typeof window !== 'undefined') {
+          fetch('/api/fee-invoices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newInvoice),
+          }).catch(() => {});
+        }
       }
 
       if (generated) {
@@ -6429,6 +6487,25 @@ export const feeService = {
       targetInvoice.payments.push(newPayment);
       remPay -= alloc;
       storageService.setItem(STORAGE_KEYS.FEE_INVOICES, invoices);
+
+      if (typeof window !== 'undefined') {
+        try {
+          const res = await fetch(`/api/fee-invoices/${targetInvoice.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(targetInvoice),
+          });
+          if (!res.ok) {
+            await fetch('/api/fee-invoices', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(targetInvoice),
+            });
+          }
+        } catch (e) {
+          console.warn('Could not sync updated invoice to server:', e);
+        }
+      }
     }
 
     selectedCharges.forEach((chg) => {
@@ -6439,6 +6516,13 @@ export const feeService = {
         chg.status = chg.paid_amount >= chg.amount ? 'paid' : 'partial';
         chg.updated_at = new Date().toISOString();
         remPay -= alloc;
+        if (typeof window !== 'undefined') {
+          fetch(`/api/student-charges/${chg.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chg),
+          }).catch(() => {});
+        }
       }
     });
     storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, charges);
@@ -6456,11 +6540,44 @@ export const chargeService = {
     schoolId: string,
     filter?: { studentId?: string; status?: StudentChargeStatus }
   ): Promise<StudentCharge[]> {
+    if (typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams();
+        if (filter?.studentId) queryParams.set('studentId', filter.studentId);
+        const res = await fetch(`/api/student-charges?${queryParams.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            const serverCharges = json.data as StudentCharge[];
+            const localCharges = storageService.getItem<StudentCharge[]>(STORAGE_KEYS.STUDENT_CHARGES, INITIAL_STUDENT_CHARGES);
+            serverCharges.forEach((sChg) => {
+              const idx = localCharges.findIndex((l) => l.id === sChg.id);
+              if (idx !== -1) {
+                localCharges[idx] = sChg;
+              } else {
+                localCharges.unshift(sChg);
+              }
+            });
+            storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, localCharges);
+          }
+        }
+      } catch (e) {
+        console.warn('API student-charges sync fallback to local cache:', e);
+      }
+    }
+
     let list = storageService.getItem<StudentCharge[]>(STORAGE_KEYS.STUDENT_CHARGES, INITIAL_STUDENT_CHARGES).filter(
       (c) => c.school_id === schoolId
     );
 
-    if (filter?.studentId) list = list.filter((c) => c.student_id === filter.studentId);
+    if (filter?.studentId) {
+      const target = filter.studentId.trim().toLowerCase();
+      const clean = target.replace(/^usr-/, '');
+      list = list.filter((c) => {
+        const sId = String(c.student_id || '').toLowerCase();
+        return sId === target || sId === clean;
+      });
+    }
     if (filter?.status) list = list.filter((c) => c.status === filter.status);
 
     return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -6507,6 +6624,18 @@ export const chargeService = {
 
     list.unshift(newCharge);
     storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, list);
+
+    if (typeof window !== 'undefined') {
+      try {
+        await fetch('/api/student-charges', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newCharge),
+        });
+      } catch (e) {
+        console.warn('Could not sync charge to server:', e);
+      }
+    }
 
     try {
       authLogService.logEvent({
@@ -6625,11 +6754,54 @@ export const receiptService = {
     schoolId: string,
     filter?: { studentId?: string; receiptNumber?: string }
   ): Promise<PaymentReceipt[]> {
+    if (typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams();
+        if (filter?.studentId) queryParams.set('studentId', filter.studentId);
+        const res = await fetch(`/api/payment-receipts?${queryParams.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            const serverReceipts = json.data as PaymentReceipt[];
+            const localReceipts = storageService.getItem<PaymentReceipt[]>(STORAGE_KEYS.PAYMENT_RECEIPTS, INITIAL_PAYMENT_RECEIPTS);
+            serverReceipts.forEach((sRcp) => {
+              const idx = localReceipts.findIndex((l) => l.id === sRcp.id || l.receipt_number === sRcp.receipt_number);
+              if (idx !== -1) {
+                localReceipts[idx] = sRcp;
+              } else {
+                localReceipts.unshift(sRcp);
+              }
+            });
+            localReceipts.forEach((lRcp) => {
+              if (lRcp.school_id === schoolId && !serverReceipts.some((s) => s.id === lRcp.id || s.receipt_number === lRcp.receipt_number)) {
+                fetch('/api/payment-receipts', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(lRcp),
+                }).catch(() => {});
+              }
+            });
+            storageService.setItem(STORAGE_KEYS.PAYMENT_RECEIPTS, localReceipts);
+          }
+        }
+      } catch (e) {
+        console.warn('API payment-receipts sync fallback to local cache:', e);
+      }
+    }
+
     let list = storageService.getItem<PaymentReceipt[]>(STORAGE_KEYS.PAYMENT_RECEIPTS, INITIAL_PAYMENT_RECEIPTS).filter(
       (r) => r.school_id === schoolId
     );
 
-    if (filter?.studentId) list = list.filter((r) => r.student_id === filter.studentId);
+    if (filter?.studentId) {
+      const target = filter.studentId.trim().toLowerCase();
+      const clean = target.replace(/^usr-/, '');
+      list = list.filter((r) => {
+        const sId = String(r.student_id || '').toLowerCase();
+        const sReg = String(r.registration_number_snapshot || '').toLowerCase();
+        return sId === target || sId === clean || sReg === target || sReg === clean;
+      });
+    }
     if (filter?.receiptNumber) list = list.filter((r) => r.receipt_number === filter.receiptNumber);
 
     return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -6665,6 +6837,18 @@ export const receiptService = {
 
     list.unshift(newReceipt);
     storageService.setItem(STORAGE_KEYS.PAYMENT_RECEIPTS, list);
+
+    if (typeof window !== 'undefined') {
+      try {
+        await fetch('/api/payment-receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newReceipt),
+        });
+      } catch (e) {
+        console.warn('Could not sync receipt to server:', e);
+      }
+    }
 
     try {
       authLogService.logEvent({

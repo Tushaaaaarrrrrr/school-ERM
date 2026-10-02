@@ -51,8 +51,8 @@ import { SchoolStatusBoard } from '@/components/school/school-status-board';
 
 export default function StudentDashboardPage() {
   const { currentUser, currentSchool } = useAuth();
-  const studentId = currentUser?.student_id || currentUser?.id || '';
-  const schoolId = currentSchool?.id || '';
+  const studentId = currentUser?.student_id || currentUser?.id?.replace(/^usr-/, '') || currentUser?.login_id || '';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
 
   const [student, setStudent] = useState<Student | null>(null);
   const [todayClasses, setTodayClasses] = useState<TimetableEntry[]>([]);

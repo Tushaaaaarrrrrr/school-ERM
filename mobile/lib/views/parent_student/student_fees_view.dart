@@ -296,10 +296,10 @@ class StudentFeesView extends StatelessWidget {
       'Receipt: ${receipt['receipt_number'] ?? '-'}',
       'Amount: ${AppFormatters.currency((receipt['amount_paid'] as num?) ?? 0)}',
       if (paidAt != null) 'Paid: ${AppFormatters.date(paidAt)}',
-      if ('${receipt['payment_mode'] ?? ''}'.isNotEmpty)
-        'Mode: ${receipt['payment_mode']}',
-      if ('${receipt['transaction_reference'] ?? ''}'.isNotEmpty)
-        'Reference: ${receipt['transaction_reference']}',
+      if ('${receipt['payment_method'] ?? receipt['payment_mode'] ?? ''}'.isNotEmpty)
+        'Mode: ${receipt['payment_method'] ?? receipt['payment_mode']}',
+      if ('${receipt['reference_number'] ?? receipt['transaction_reference'] ?? ''}'.isNotEmpty)
+        'Reference: ${receipt['reference_number'] ?? receipt['transaction_reference']}',
     ].join('\n');
   }
 

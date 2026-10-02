@@ -28,10 +28,11 @@ class FeeInvoiceModel {
     return FeeInvoiceModel(
       id: json['id'] as String? ?? '',
       studentId: json['student_id'] as String? ?? '',
-      invoiceNumber: json['invoice_number'] as String? ?? '',
+      invoiceNumber: json['invoice_number'] as String? ?? json['id'] as String? ?? '',
       month: json['month'] as String? ??
-          json['month_year'] as String? ??
           json['billing_month'] as String? ??
+          json['month_year'] as String? ??
+          json['fee_structure_name'] as String? ??
           '',
       amount: (json['amount'] as num? ??
               json['total_amount'] as num? ??

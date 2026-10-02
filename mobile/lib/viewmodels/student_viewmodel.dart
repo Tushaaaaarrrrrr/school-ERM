@@ -50,7 +50,11 @@ class StudentViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get transportEvents => _transportEvents;
 
   double get totalOutstandingFee {
-    return _invoices.fold(0, (acc, inv) => acc + inv.dueBalance);
+    final invoiceBalance = _invoices.fold(0.0, (acc, inv) => acc + inv.dueBalance);
+    final chargesBalance = _charges
+        .where((c) => c['status'] == 'pending' || c['status'] == 'partial')
+        .fold(0.0, (acc, c) => acc + (((c['remaining_amount'] ?? c['amount'] ?? 0) as num).toDouble()));
+    return invoiceBalance + chargesBalance;
   }
 
   double get totalPendingFees => totalOutstandingFee;
@@ -64,11 +68,15 @@ class StudentViewModel extends ChangeNotifier {
       final students = await ApiClient.getStudents(schoolId: user.schoolId);
       if (students.isNotEmpty) {
         final loginId = (user.loginId ?? '').toLowerCase();
+        final cleanUserId = user.id.replaceFirst(RegExp(r'^usr-'), '').toLowerCase();
         if (user.role == UserRole.parent) {
           _student = students.first;
         } else {
           _student = students.firstWhere(
-            (s) => s.admissionNumber.toLowerCase() == loginId,
+            (s) =>
+                s.admissionNumber.toLowerCase() == loginId ||
+                s.id.toLowerCase() == cleanUserId ||
+                s.id.toLowerCase() == user.id.toLowerCase(),
             orElse: () => _student,
           );
         }
@@ -82,18 +90,21 @@ class StudentViewModel extends ChangeNotifier {
       final notices = await ApiClient.getNotices();
       if (notices.isNotEmpty) _notices = notices;
     } catch (_) {}
+    final studentLookupId = _student.id.isNotEmpty
+        ? _student.id
+        : (user.loginId?.isNotEmpty == true ? user.loginId! : user.id.replaceFirst(RegExp(r'^usr-'), ''));
     try {
-      _invoices = await ApiClient.getFeeInvoices(studentId: _student.id);
+      _invoices = await ApiClient.getFeeInvoices(studentId: studentLookupId);
     } catch (_) {}
     try {
-      _receipts = await ApiClient.getPaymentReceipts(studentId: _student.id);
+      _receipts = await ApiClient.getPaymentReceipts(studentId: studentLookupId);
     } catch (_) {}
     try {
-      _charges = await ApiClient.getStudentCharges(studentId: _student.id);
+      _charges = await ApiClient.getStudentCharges(studentId: studentLookupId);
     } catch (_) {}
     try {
       _attendance =
-          await ApiClient.getStudentAttendance(studentId: _student.id);
+          await ApiClient.getStudentAttendance(studentId: studentLookupId);
     } catch (_) {}
     try {
       _leaves = await ApiClient.getStudentLeaves(studentId: _student.id);
