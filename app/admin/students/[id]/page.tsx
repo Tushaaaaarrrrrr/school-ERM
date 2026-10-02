@@ -23,6 +23,7 @@ import {
 } from '@/lib/services/api';
 import {
   Student,
+  LeaveType,
   StudentFeeInvoice,
   StudentCharge,
   PaymentReceipt,
@@ -144,6 +145,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [isGrantLeaveModalOpen, setIsGrantLeaveModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<StudentAttendance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -224,6 +226,14 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
   const [isParentEmailChecking, setIsParentEmailChecking] = useState(false);
 
   const [isDeactivating, setIsDeactivating] = useState(false);
+  const todayIso = new Date().toISOString().split('T')[0];
+  const [grantLeaveForm, setGrantLeaveForm] = useState({
+    leaveType: 'full_day' as LeaveType,
+    startDate: todayIso,
+    endDate: todayIso,
+    reason: '',
+  });
+  const [isGrantingLeave, setIsGrantingLeave] = useState(false);
 
   const handleToggleStudentStatus = async () => {
     if (!student || isDeactivating) return;
@@ -241,6 +251,42 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       toastError(errorMessage(err, 'Failed to update student status'));
     } finally {
       setIsDeactivating(false);
+    }
+  };
+
+  const handleGrantLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!student || isGrantingLeave) return;
+    if (grantLeaveForm.endDate < grantLeaveForm.startDate) {
+      toastError('End date cannot be before start date');
+      return;
+    }
+    setIsGrantingLeave(true);
+    try {
+      const granted = await leaveService.grantDirectLeave({
+        school_id: student.school_id,
+        student_id: student.id,
+        leave_type: grantLeaveForm.leaveType,
+        start_date: grantLeaveForm.startDate,
+        end_date: grantLeaveForm.endDate,
+        reason: grantLeaveForm.reason,
+        granterId: currentUser?.id || 'usr-admin',
+        granterName: currentUser?.name || 'School Admin',
+        granterRole: currentUser?.role === 'teacher' ? 'teacher' : 'school_admin',
+        student_name: `${student.first_name} ${student.last_name}`,
+        class_name: student.current_enrollment?.class_name,
+        section_name: student.current_enrollment?.section_name,
+      });
+      setAllLeaves((prev) => [granted, ...prev]);
+      const today = new Date().toISOString().split('T')[0];
+      if (granted.start_date <= today && granted.end_date >= today) setActiveLeave(granted);
+      setGrantLeaveForm({ leaveType: 'full_day', startDate: today, endDate: today, reason: '' });
+      setIsGrantLeaveModalOpen(false);
+      success('Leave granted and approved.');
+    } catch (err) {
+      toastError(errorMessage(err, 'Failed to grant leave'));
+    } finally {
+      setIsGrantingLeave(false);
     }
   };
 
@@ -1811,7 +1857,18 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-slate-900">Leave History</h4>
-            <span className="text-xs text-slate-500 font-semibold">{allLeaves.length} Total Requests</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 font-semibold">{allLeaves.length} Total Requests</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsGrantLeaveModalOpen(true)}
+              >
+                Grant Leave
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1844,6 +1901,70 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={isGrantLeaveModalOpen}
+        onClose={() => setIsGrantLeaveModalOpen(false)}
+        title="Grant Student Leave"
+        description={student ? `Approve leave for ${student.first_name} ${student.last_name}` : undefined}
+      >
+        <form onSubmit={handleGrantLeaveSubmit} className="space-y-4 text-xs text-left">
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Leave Type</label>
+            <select
+              value={grantLeaveForm.leaveType}
+              onChange={(e) => setGrantLeaveForm({ ...grantLeaveForm, leaveType: e.target.value as LeaveType })}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium"
+            >
+              <option value="full_day">Full Day Leave</option>
+              <option value="partial_day">Partial / Half Day Leave</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <DateInput
+              label="Start Date"
+              required
+              value={grantLeaveForm.startDate}
+              onChange={(e) => {
+                const startDate = e.target.value;
+                setGrantLeaveForm({
+                  ...grantLeaveForm,
+                  startDate,
+                  endDate: grantLeaveForm.endDate < startDate ? startDate : grantLeaveForm.endDate,
+                });
+              }}
+            />
+            <DateInput
+              label="End Date"
+              required
+              min={grantLeaveForm.startDate}
+              value={grantLeaveForm.endDate}
+              onChange={(e) => setGrantLeaveForm({ ...grantLeaveForm, endDate: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Reason</label>
+            <input
+              required
+              value={grantLeaveForm.reason}
+              onChange={(e) => setGrantLeaveForm({ ...grantLeaveForm, reason: e.target.value })}
+              placeholder="e.g. Medical leave, family function"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsGrantLeaveModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm" isLoading={isGrantingLeave}>
+              Grant & Approve Leave
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* TAB: EMERGENCY & MEDICAL INFORMATION */}
       {activeTab === 'emergency' && (
@@ -2370,7 +2491,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
         onClose={() => setIsComprehensivePaymentModalOpen(false)}
         title="Record Fee Payment & Generate Receipt"
         description={`Collecting fee from ${student.first_name} ${student.last_name} (${student.registration_number})`}
-        maxWidth="2xl"
+        maxWidth="lg"
       >
         <form onSubmit={handleComprehensivePaymentSubmit} className="space-y-4 text-xs text-left max-h-[75vh] overflow-y-auto pr-1">
           {/* Outstanding Items Selector */}

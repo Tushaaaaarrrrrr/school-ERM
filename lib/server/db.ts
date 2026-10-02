@@ -140,6 +140,7 @@ function schoolDatabaseFields(school: Partial<School>) {
     ...(school.phone !== undefined && { phone: school.phone }),
     ...(school.school_contact_phone !== undefined && { school_contact_phone: school.school_contact_phone }),
     ...(school.school_contact_alternate !== undefined && { school_contact_alternate: school.school_contact_alternate }),
+    ...(school.receipt_email !== undefined && { receipt_email: school.receipt_email }),
     ...(school.website !== undefined && { website: school.website }),
     ...(school.address !== undefined && { address: school.address }),
     ...(school.logo_url !== undefined && { logo_url: school.logo_url }),

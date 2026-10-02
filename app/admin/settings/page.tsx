@@ -80,6 +80,7 @@ export default function SchoolSettingsPage() {
     timezone: currentSchool?.timezone || 'Asia/Kolkata',
     schoolContactPhone: currentSchool?.school_contact_phone || '+91 98765 43210',
     schoolContactAlternate: currentSchool?.school_contact_alternate || '',
+    receiptEmail: currentSchool?.receipt_email || '',
   });
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -175,6 +176,7 @@ export default function SchoolSettingsPage() {
         timezone: currentSchool.timezone || 'Asia/Kolkata',
         schoolContactPhone: currentSchool.school_contact_phone || currentSchool.phone || '+91 98765 43210',
         schoolContactAlternate: currentSchool.school_contact_alternate || '',
+        receiptEmail: currentSchool.receipt_email || '',
       });
       setSchoolHours(defaultOrConfiguredHours(currentSchool.school_hours));
     }
@@ -205,6 +207,7 @@ export default function SchoolSettingsPage() {
         timezone: profileData.timezone,
         school_contact_phone: profileData.schoolContactPhone,
         school_contact_alternate: profileData.schoolContactAlternate,
+        receipt_email: profileData.receiptEmail.trim(),
         school_hours: schoolHours,
       });
       setCurrentSchool(updated);
@@ -344,6 +347,15 @@ export default function SchoolSettingsPage() {
           onChange={(e) => setProfileData({ ...profileData, adminEmail: e.target.value })}
           placeholder="e.g. admin1@school.com, admin2@school.com"
           helperText="Multiple school admin emails supported (comma-separated). Every listed admin has full school administrator access."
+        />
+
+        <Input
+          label="Receipt Contact Email (Optional)"
+          type="email"
+          value={profileData.receiptEmail}
+          onChange={(e) => setProfileData({ ...profileData, receiptEmail: e.target.value })}
+          placeholder="e.g. accounts@school.com"
+          helperText="Shown on fee receipts only. Leave blank to hide email from receipts."
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

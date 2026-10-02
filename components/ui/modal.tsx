@@ -51,12 +51,12 @@ export function Modal({
 
   const maxWidths = {
     sm: 'max-w-md',
-    md: 'max-w-lg md:max-w-2xl lg:max-w-3xl',
-    lg: 'max-w-xl md:max-w-3xl lg:max-w-4xl',
-    xl: 'max-w-2xl md:max-w-4xl lg:max-w-5xl',
-    '2xl': 'max-w-2xl md:max-w-5xl lg:max-w-6xl',
-    '3xl': 'max-w-2xl md:max-w-6xl lg:max-w-7xl',
-    '4xl': 'max-w-3xl md:max-w-7xl lg:max-w-[90vw]',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-3xl',
+    '2xl': 'max-w-4xl',
+    '3xl': 'max-w-5xl',
+    '4xl': 'max-w-6xl',
     full: 'max-w-full md:max-w-[98vw]',
   };
 
@@ -160,4 +160,3 @@ export function Modal({
     </div>
   );
 }
-

@@ -290,6 +290,7 @@ export interface School {
   phone: string;
   school_contact_phone?: string;
   school_contact_alternate?: string;
+  receipt_email?: string;
   website?: string;
   address?: string;
   logo_url?: string;

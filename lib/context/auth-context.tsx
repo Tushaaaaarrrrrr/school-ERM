@@ -46,6 +46,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'school_erp_active_user';
 const PIN_UNLOCKED_PREFIX = 'school_erp_pin_unlocked_';
 
+function clearStoredAuthSession() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem('school_erp_active_user');
+    sessionStorage.clear();
+    Object.keys(localStorage).forEach((key) => {
+      if (
+        key.startsWith('sb-') ||
+        key.startsWith(PIN_UNLOCKED_PREFIX) ||
+        key === 'school_erp_session' ||
+        key === 'sb-access-token' ||
+        key === 'school_erp_user'
+      ) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch {}
+  syncAuthSessionCookie(null);
+}
+
 export function syncAuthSessionCookie(user: UserPersona | null) {
   if (typeof document === 'undefined') return;
   if (user) {
@@ -180,6 +201,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const handled = await applyBackendAccess();
               if (handled) return;
             }
+            clearStoredAuthSession();
+            return;
           } catch (supaErr) {
             console.warn('Supabase session initialization warning:', supaErr);
           }
@@ -421,25 +444,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        localStorage.removeItem('school_erp_active_user');
-        sessionStorage.clear();
-
-        // Clear active user session and pin unlocks ONLY (never delete user passwords or app database)
-        Object.keys(localStorage).forEach((key) => {
-          if (
-            key.startsWith('sb-') ||
-            key.startsWith(PIN_UNLOCKED_PREFIX) ||
-            key === 'school_erp_active_user' ||
-            key === 'school_erp_session' ||
-            key === 'sb-access-token' ||
-            key === 'school_erp_user'
-          ) {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch {}
+      clearStoredAuthSession();
 
       // Hard redirect to login to wipe browser history
       window.location.replace('/login');

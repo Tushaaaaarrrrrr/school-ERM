@@ -19,18 +19,20 @@ import {
 
 interface SchoolStatusBoardProps {
   className?: string;
+  school?: School | null;
 }
 
-export function SchoolStatusBoard({ className = '' }: SchoolStatusBoardProps) {
+export function SchoolStatusBoard({ className = '', school }: SchoolStatusBoardProps) {
   const { currentSchool: authSchool } = useAuth();
-  const [liveSchool, setLiveSchool] = useState<School | null>(authSchool);
+  const activeSchool = school || authSchool;
+  const [liveSchool, setLiveSchool] = useState<School | null>(activeSchool);
   const [holidays, setHolidays] = useState<SchoolHoliday[]>([]);
   const [now, setNow] = useState(() => new Date());
 
   const refreshSchoolInfo = useCallback(async () => {
-    if (!authSchool?.id) return;
+    if (!activeSchool?.id) return;
     try {
-      const fresh = await schoolService.getSchoolById(authSchool.id);
+      const fresh = await schoolService.getSchoolById(activeSchool.id);
       if (fresh) {
         setLiveSchool((prev) => {
           if (!prev) return fresh;
@@ -49,7 +51,7 @@ export function SchoolStatusBoard({ className = '' }: SchoolStatusBoardProps) {
     } catch {
       // fallback to auth school
     }
-  }, [authSchool?.id]);
+  }, [activeSchool?.id]);
 
   // Auto-refresh clock every 15 seconds
   useEffect(() => {
@@ -59,17 +61,17 @@ export function SchoolStatusBoard({ className = '' }: SchoolStatusBoardProps) {
 
   // Fetch live school & holidays
   useEffect(() => {
-    setLiveSchool(authSchool);
-    if (!authSchool?.id) return;
+    setLiveSchool(activeSchool);
+    if (!activeSchool?.id) return;
     holidayService
-      .getHolidays(authSchool.id)
+      .getHolidays(activeSchool.id)
       .then((data) => setHolidays(data || []))
       .catch(() => {});
-  }, [authSchool?.id]);
+  }, [activeSchool?.id]);
 
   // Listen strictly to relevant storage sync events (schools or holidays only)
   useEffect(() => {
-    if (!authSchool?.id) return;
+    if (!activeSchool?.id) return;
 
     const handleSync = (e: any) => {
       const key = e?.detail?.key || e?.key;
@@ -77,7 +79,7 @@ export function SchoolStatusBoard({ className = '' }: SchoolStatusBoardProps) {
         refreshSchoolInfo();
       } else if (key === STORAGE_KEYS.HOLIDAYS) {
         holidayService
-          .getHolidays(authSchool.id)
+          .getHolidays(activeSchool.id)
           .then((data) => setHolidays(data || []))
           .catch(() => {});
       }
@@ -90,9 +92,9 @@ export function SchoolStatusBoard({ className = '' }: SchoolStatusBoardProps) {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('school_erp_data_sync', handleSync);
     };
-  }, [authSchool?.id, refreshSchoolInfo]);
+  }, [activeSchool?.id, refreshSchoolInfo]);
 
-  const targetSchool = liveSchool || authSchool;
+  const targetSchool = liveSchool || activeSchool;
   const status = calculateSchoolStatus(targetSchool, holidays, now);
 
   // Theme styling based on live status
@@ -133,7 +135,7 @@ export function SchoolStatusBoard({ className = '' }: SchoolStatusBoardProps) {
 
   return (
     <div
-      className={`bg-white rounded-xl border ${theme.border} shadow-xs overflow-hidden flex flex-col transition-all ${className}`}
+      className={`self-start bg-white rounded-xl border ${theme.border} shadow-xs overflow-hidden flex flex-col transition-all ${className}`}
     >
       {/* Header bar with Live Clock & School Name */}
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white">

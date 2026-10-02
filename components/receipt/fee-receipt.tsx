@@ -17,6 +17,10 @@ interface FeeReceiptProps {
   showActions?: boolean;
 }
 
+function getReceiptEmail(school?: Partial<School> | null) {
+  return school?.receipt_email?.trim() || '';
+}
+
 /**
  * Generates standalone clean HTML for a single fee receipt
  */
@@ -31,7 +35,7 @@ export function generateSingleReceiptHtml(
   const schoolCode = receipt.school_code_snapshot || school?.code || 'JDPS0123Q';
   const schoolAddress = receipt.school_address_snapshot || school?.address || 'Patna, Bihar - 800001';
   const schoolPhone = receipt.school_phone_snapshot || school?.phone || '+91 98765 43210';
-  const schoolEmail = receipt.school_email_snapshot || school?.email || 'admin@school.edu.in';
+  const schoolEmail = getReceiptEmail(school);
   const schoolLogo = receipt.school_logo_url_snapshot || school?.logo_url;
 
   const itemsHtml = (receipt.items || [])
@@ -335,8 +339,7 @@ export function generateSingleReceiptHtml(
       <p class="school-address">${schoolAddress}</p>
       <p class="school-contact">
         <span>Ph: <strong>${schoolPhone}</strong></span>
-        <span> • </span>
-        <span>Email: <strong>${schoolEmail}</strong></span>
+        ${schoolEmail ? `<span> • </span><span>Email: <strong>${schoolEmail}</strong></span>` : ''}
       </p>
     </div>
 
@@ -625,7 +628,7 @@ export function FeeReceipt({ receipt, onClose, showActions = true }: FeeReceiptP
       : (currentSchool?.name || 'JDPS');
   const schoolAddress = receipt.school_address_snapshot || currentSchool?.address || 'Patna, Bihar - 800001';
   const schoolPhone = receipt.school_phone_snapshot || currentSchool?.phone || '+91 98765 43210';
-  const schoolEmail = receipt.school_email_snapshot || currentSchool?.email || 'admin@school.edu.in';
+  const schoolEmail = getReceiptEmail(currentSchool);
   const schoolLogo = receipt.school_logo_url_snapshot || currentSchool?.logo_url;
 
   const handlePrint = () => {
@@ -734,8 +737,12 @@ export function FeeReceipt({ receipt, onClose, showActions = true }: FeeReceiptP
 
           <p className="text-[10.5px] text-slate-600 font-medium flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 pt-0.5">
             <span>Ph: <strong className="font-mono text-slate-900">{schoolPhone}</strong></span>
-            <span>•</span>
-            <span>Email: <strong className="font-mono text-slate-900">{schoolEmail}</strong></span>
+            {schoolEmail && (
+              <>
+                <span>•</span>
+                <span>Email: <strong className="font-mono text-slate-900">{schoolEmail}</strong></span>
+              </>
+            )}
           </p>
         </div>
 
@@ -944,4 +951,3 @@ export function BatchFourUpReceipts({
     </div>
   );
 }
-

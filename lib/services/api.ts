@@ -6333,7 +6333,7 @@ export const feeService = {
       school_name_snapshot: school?.name || 'School ERP',
       school_address_snapshot: school?.address || 'Patna, Bihar - 800001',
       school_phone_snapshot: school?.phone || '+91 98765 43210',
-      school_email_snapshot: school?.email || 'admin@school.edu.in',
+      school_email_snapshot: school?.receipt_email || undefined,
       school_logo_url_snapshot: school?.logo_url,
       subtotal: calculatedSubtotal,
       discount,

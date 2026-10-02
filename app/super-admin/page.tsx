@@ -30,6 +30,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { TableSkeleton, CardSkeleton } from '@/components/ui/skeleton';
+import { SchoolStatusBoard } from '@/components/school/school-status-board';
 
 export default function SuperAdminOverview() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -63,6 +64,7 @@ export default function SuperAdminOverview() {
   const totalStudents = schools.reduce((acc, s) => acc + (s.student_count || 0), 0);
   const totalTeachers = schools.reduce((acc, s) => acc + (s.teacher_count || 0), 0);
   const totalUsers = users.length;
+  const statusSchool = schools.find((s) => s.status === 'active') || schools[0] || null;
 
   // Role Breakdown
   const roleBreakdown = useMemo(() => {
@@ -124,6 +126,8 @@ export default function SuperAdminOverview() {
           </Link>
         </div>
       </div>
+
+      {statusSchool && <SchoolStatusBoard school={statusSchool} />}
 
       {/* 4 Real Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">

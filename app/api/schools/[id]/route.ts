@@ -99,6 +99,7 @@ export async function PUT(
       timezone: body.timezone,
       school_contact_phone: body.school_contact_phone,
       school_contact_alternate: body.school_contact_alternate,
+      receipt_email: body.receipt_email,
       school_hours: body.school_hours,
       ...(body.admin_email !== undefined && { admin_email: body.admin_email }),
     };
