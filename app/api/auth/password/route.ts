@@ -38,10 +38,18 @@ async function matchStoredPassword(key: string, cleanPass: string): Promise<bool
   return true;
 }
 
+async function hasStoredPassword(ids: string[]): Promise<boolean> {
+  for (const id of ids) {
+    if (await readCredential(id)) return true;
+  }
+  return false;
+}
+
 async function checkPassword(ids: string[], cleanPass: string, role?: string): Promise<boolean> {
   for (const id of ids) {
     if (await matchStoredPassword(id, cleanPass)) return true;
   }
+  if (await hasStoredPassword(ids)) return false;
 
   const superKeys = superAdminPasswordKeys();
   if (ids.some((id) => superKeys.includes(id))) {
@@ -159,14 +167,17 @@ export async function POST(request: Request) {
     const caller = context.user;
     const callerIsSuperAdmin = context.state === 'SUPER_ADMIN';
 
-    const { userId, email, loginId, password, isSuperAdmin } = body;
-    const targetIds = [userId, email, loginId]
+    const { identifier, userId, email, loginId, password, isSuperAdmin } = body;
+    const targetIds = [identifier, userId, email, loginId]
       .map((value) => String(value || '').trim().toLowerCase())
       .filter(Boolean);
     const callerIds = [caller.id, caller.email, caller.login_id]
       .map((value) => String(value || '').trim().toLowerCase())
       .filter(Boolean);
-    const isSelf = targetIds.length > 0 && targetIds.every((id) => callerIds.includes(id));
+    const callerAccountIds = new Set(
+      callerIds.flatMap((id) => id.startsWith('usr-') ? [id, id.slice(4)] : [id, `usr-${id}`])
+    );
+    const isSelf = targetIds.length > 0 && targetIds.every((id) => callerAccountIds.has(id));
     const callerCanManageTarget = !isSelf && !callerIsSuperAdmin
       ? await canSchoolAdminManageTarget(caller, targetIds)
       : false;

@@ -9689,6 +9689,8 @@ export const userPasswordService = {
 
     const map = this.getPasswordsMap();
     if (user.id) map[user.id] = cleanPass;
+    const alternateUserId = user.id?.startsWith('usr-') ? user.id.slice(4) : user.id ? `usr-${user.id}` : '';
+    if (alternateUserId) map[alternateUserId] = cleanPass;
     if (user.email) map[user.email.toLowerCase()] = cleanPass;
     if (user.login_id) map[user.login_id.toLowerCase()] = cleanPass;
 
@@ -9717,6 +9719,7 @@ export const userPasswordService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: user.id,
+            identifier: alternateUserId,
             email: user.email,
             loginId: user.login_id,
             password: cleanPass,
@@ -9790,6 +9793,7 @@ export const userPasswordService = {
     // 1. Local browser store (demo mode only; production verifies on the server)
     const customPass = demo ? map[userKey] || (emailKey && map[emailKey]) || (loginKey && map[loginKey]) : undefined;
     if (customPass && customPass === attempt) return true;
+    if (customPass) return false;
 
     // 2. Check server-side password API
     try {
@@ -9819,7 +9823,7 @@ export const userPasswordService = {
 
     // 3. Default student fallback password for newly registered or demo students
     const isStudent = typeof user !== 'string' && user.role === 'student';
-    if (isStudent && (attempt === 'student123' || attempt === 'Student@123' || attempt === 'password' || attempt === '123456')) {
+    if (demo && isStudent && (attempt === 'student123' || attempt === 'Student@123' || attempt === 'password' || attempt === '123456')) {
       return true;
     }
 
