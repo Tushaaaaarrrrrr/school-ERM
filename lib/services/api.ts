@@ -6935,6 +6935,7 @@ export const securityService = {
           targetRole: 'school_admin' | 'teacher' | 'student' | 'staff' | string;
           targetId: string;
           targetName?: string;
+          targetLoginId?: string;
           newPassword: string;
           requireChangeOnNextLogin?: boolean;
           actorUserId?: string;
@@ -6951,6 +6952,7 @@ export const securityService = {
     let pwd = '';
     let sId: string | undefined;
     let tUserId = '';
+    let tLoginId = '';
     let tRole = 'student';
     let reqChange = true;
 
@@ -6958,12 +6960,14 @@ export const securityService = {
       pwd = paramsOrSchoolId.newPassword;
       sId = paramsOrSchoolId.schoolId;
       tUserId = paramsOrSchoolId.targetId;
+      tLoginId = paramsOrSchoolId.targetLoginId || '';
       tRole = paramsOrSchoolId.targetRole;
       reqChange = paramsOrSchoolId.requireChangeOnNextLogin ?? true;
     } else {
       pwd = newPassword || '';
       sId = paramsOrSchoolId;
       tUserId = targetUserId || '';
+      tLoginId = targetUserId || '';
       tRole = targetRole || 'student';
       reqChange = requirePasswordChange;
     }
@@ -6971,6 +6975,18 @@ export const securityService = {
     const strength = validatePasswordStrength(pwd);
     if (!strength.isValid) {
       throw new Error(strength.message);
+    }
+
+    const user: UserPersona = {
+      id: tUserId,
+      name: typeof paramsOrSchoolId === 'object' ? paramsOrSchoolId.targetName || tUserId : tUserId,
+      role: tRole as UserRole,
+      school_id: sId,
+      login_id: tLoginId || tUserId,
+    };
+    const saved = await userPasswordService.setUserPassword(user, pwd);
+    if (!saved.success) {
+      throw new Error(saved.error || 'Failed to save reset password');
     }
 
     authLogService.logEvent({

@@ -14,7 +14,6 @@ import {
   ZoomOut,
   RotateCw,
   Check,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react';
 
@@ -25,7 +24,6 @@ export interface ImageCropperModalProps {
   onCropComplete: (croppedDataUrl: string) => void;
   aspectRatio?: '1:1';
   title?: string;
-  recommendedSizeText?: string;
 }
 
 export function ImageCropperModal({
@@ -34,7 +32,6 @@ export function ImageCropperModal({
   imageSrc,
   onCropComplete,
   title = 'Crop & Align Photo',
-  recommendedSizeText = '1:1 Square Avatar (Auto-Centered)',
 }: ImageCropperModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
@@ -282,21 +279,9 @@ export function ImageCropperModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      description="Position and zoom your photo for a clean 1:1 avatar"
       maxWidth="sm"
     >
       <div className="flex flex-col space-y-3 text-left">
-        {/* Helper Badge */}
-        <div className="flex items-center justify-between p-2 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs">
-          <div className="flex items-center gap-1.5 font-semibold text-indigo-900 truncate">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-            <span className="truncate">{recommendedSizeText}</span>
-          </div>
-          <span className="text-[11px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded shadow-2xs">
-            1:1 Square
-          </span>
-        </div>
-
         {/* Compact Responsive Canvas Viewport */}
         <div className="relative rounded-2xl border border-slate-200 bg-slate-950 overflow-hidden flex items-center justify-center select-none shadow-inner max-h-[220px]">
           <canvas
@@ -396,5 +381,3 @@ export function ImageCropperModal({
     </Modal>
   );
 }
-
-

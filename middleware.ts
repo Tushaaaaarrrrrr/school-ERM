@@ -28,6 +28,21 @@ function guardedPortal(pathname: string) {
   return Object.keys(PORTAL_ROLES).find((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+function sessionRoleFromCookie(request: NextRequest) {
+  const sessionCookie = request.cookies.get('school_erp_session')?.value;
+  if (!sessionCookie) return undefined;
+  try {
+    let raw = sessionCookie.trim();
+    if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.slice(1, -1);
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {}
+    return JSON.parse(raw)?.role as string | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const portal = guardedPortal(request.nextUrl.pathname);
@@ -41,23 +56,16 @@ export async function middleware(request: NextRequest) {
     !url?.includes('your-project-id') &&
     key !== 'demo-anon-key';
 
+  const cookieRole = sessionRoleFromCookie(request);
+  if (cookieRole) {
+    if (portal && !PORTAL_ROLES[portal].includes(cookieRole)) {
+      return NextResponse.redirect(new URL(portalForRole(cookieRole), request.url));
+    }
+    return response;
+  }
+
   // In demo / mock environment or when Supabase is not configured on hosting, allow client-side routing
   if (!isConfigured) {
-    const sessionCookie = request.cookies.get('school_erp_session')?.value;
-    if (sessionCookie) {
-      try {
-        let raw = sessionCookie.trim();
-        if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.slice(1, -1);
-        try {
-          raw = decodeURIComponent(raw);
-        } catch {}
-        const parsed = JSON.parse(raw);
-        const role = parsed?.role;
-        if (portal && (!role || !PORTAL_ROLES[portal].includes(role))) {
-          return NextResponse.redirect(new URL(portalForRole(role), request.url));
-        }
-      } catch {}
-    }
     return response;
   }
 

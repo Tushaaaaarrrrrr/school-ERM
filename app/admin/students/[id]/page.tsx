@@ -2735,6 +2735,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
         targetRole="student"
         targetId={student.id}
         targetName={`${student.first_name} ${student.last_name}`}
+        targetLoginId={student.registration_number}
       />
 
       {/* DAY DETAIL POPUP MODAL */}

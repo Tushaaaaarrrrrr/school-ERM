@@ -94,12 +94,7 @@ export function PhotoUpload({
     }
   };
 
-  const recommendedText = 'Recommended: 1:1 Square Photo (Auto-Centered)';
-  const resolvedHelperText =
-    helperText ??
-    (allowCrop
-      ? 'Recommended: Square 1:1 photo (Auto-crop supported)'
-      : 'Upload clear document photo or scan (PNG, JPG, WebP)');
+  const resolvedHelperText = helperText ?? (allowCrop ? '' : 'Upload clear document photo or scan (PNG, JPG, WebP)');
 
   return (
     <div className="space-y-1.5 text-left">
@@ -211,14 +206,16 @@ export function PhotoUpload({
               </>
             )}
           </div>
-          <p className="text-[10px] text-slate-400 flex items-center gap-1">
-            {allowCrop ? (
-              <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
-            ) : (
-              <FileText className="w-3 h-3 text-slate-400 shrink-0" />
-            )}
-            <span>{resolvedHelperText}</span>
-          </p>
+          {resolvedHelperText && (
+            <p className="text-[10px] text-slate-400 flex items-center gap-1">
+              {allowCrop ? (
+                <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
+              ) : (
+                <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+              )}
+              <span>{resolvedHelperText}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -233,7 +230,6 @@ export function PhotoUpload({
           }}
           imageSrc={rawImageSrc}
           onCropComplete={handleCropComplete}
-          recommendedSizeText={recommendedText}
         />
       )}
     </div>

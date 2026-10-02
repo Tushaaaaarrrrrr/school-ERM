@@ -85,6 +85,7 @@ export function ResetPasswordModal({
         schoolId,
         targetRole,
         targetId,
+        targetLoginId,
         targetName,
         newPassword,
         requireChangeOnNextLogin: requireChange,

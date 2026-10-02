@@ -201,8 +201,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const handled = await applyBackendAccess();
               if (handled) return;
             }
-            clearStoredAuthSession();
-            return;
           } catch (supaErr) {
             console.warn('Supabase session initialization warning:', supaErr);
           }
