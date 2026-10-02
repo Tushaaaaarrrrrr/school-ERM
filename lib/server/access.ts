@@ -64,6 +64,10 @@ async function getCookieSessionUser(): Promise<UserPersona | null> {
       school_name: parsed.school_name,
       school_code: parsed.school_code,
       login_id: parsed.login_id,
+      student_id: parsed.student_id,
+      teacher_id: parsed.teacher_id,
+      staff_id: parsed.staff_id,
+      parent_id: parsed.parent_id,
       permissions: parsed.permissions || [],
     };
   } catch {

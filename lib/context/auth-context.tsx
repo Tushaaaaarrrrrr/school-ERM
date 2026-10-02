@@ -78,6 +78,10 @@ export function syncAuthSessionCookie(user: UserPersona | null) {
         email: user.email,
         school_id: user.school_id,
         login_id: user.login_id,
+        student_id: user.student_id,
+        teacher_id: user.teacher_id,
+        staff_id: user.staff_id,
+        parent_id: user.parent_id,
       })
     );
     document.cookie = `school_erp_session=${data}; path=/; max-age=604800; SameSite=Lax`;

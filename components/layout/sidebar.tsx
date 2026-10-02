@@ -84,7 +84,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   React.useEffect(() => {
     if (role === 'student' && typeof window !== 'undefined') {
       try {
-        const studentId = currentUser?.student_id || currentUser?.id || 'std-001';
+        const studentId = currentUser?.student_id || currentUser?.id?.replace(/^usr-/, '') || '';
+        const loginId = currentUser?.login_id?.toLowerCase() || '';
         const raw = localStorage.getItem('school_erp_students');
         if (raw) {
           const list = JSON.parse(raw);
@@ -92,7 +93,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             (item: any) =>
               item.id === studentId ||
               item.auth_user_id === currentUser?.id ||
-              item.first_name?.toLowerCase() === currentUser?.name?.toLowerCase()?.split(' ')[0]
+              item.registration_number?.toLowerCase() === loginId
           );
           if (s) {
             const reg = s.registration_number ? `Reg: ${s.registration_number}` : '';
@@ -100,9 +101,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               ? `${s.current_enrollment.class_name}${s.current_enrollment.section_name ? ` (${s.current_enrollment.section_name})` : ''}`
               : '';
             setStudentSubtitle(reg || cls || 'Student ID');
+          } else {
+            setStudentSubtitle(currentUser?.login_id ? `Reg: ${currentUser.login_id}` : null);
           }
         }
       } catch {}
+    } else {
+      setStudentSubtitle(null);
     }
   }, [currentUser, role]);
 

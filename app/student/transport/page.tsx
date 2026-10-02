@@ -28,7 +28,8 @@ export default function StudentTransportPage() {
       if (!currentUser) return;
       setIsLoading(true);
       try {
-        const student = await studentService.getStudentById(currentUser.id);
+        const studentId = currentUser.student_id || currentUser.id.replace(/^usr-/, '');
+        const student = await studentService.getStudentById(studentId);
         const asgn = student?.transport_assignment || null;
         setAssignment(asgn);
 
@@ -52,7 +53,7 @@ export default function StudentTransportPage() {
           setDriver(d);
         }
 
-        const todayEvt = await transportService.getStudentTodayTransportStatus(currentUser.id, schoolId);
+        const todayEvt = await transportService.getStudentTodayTransportStatus(studentId, schoolId);
         setTodayStatus(todayEvt.todayEvent);
       } catch (err) {
         console.error('Failed to load transport details', err);

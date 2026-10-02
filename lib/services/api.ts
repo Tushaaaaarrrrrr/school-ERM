@@ -3574,8 +3574,9 @@ export const studentService = {
   },
 
   async getStudentById(id: string): Promise<Student | null> {
+    const cleanId = id.replace(/^usr-/, '');
     const list = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    let target = list.find((s) => s.id === id);
+    let target = list.find((s) => s.id === cleanId || s.registration_number.toLowerCase() === cleanId.toLowerCase());
 
     try {
       if (typeof window !== 'undefined') {
@@ -3586,7 +3587,7 @@ export const studentService = {
               const json = await res.json();
               return json.success && Array.isArray(json.data) ? json.data as Student[] : [];
             });
-        target = students.find((s) => s.id === id || s.registration_number === target?.registration_number) || target;
+        target = students.find((s) => s.id === cleanId || s.registration_number.toLowerCase() === cleanId.toLowerCase() || s.registration_number === target?.registration_number) || target;
       }
     } catch (e) {
       console.warn(`API student detail fallback for ${id}:`, e);
