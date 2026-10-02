@@ -9740,6 +9740,7 @@ export const userPasswordService = {
             identifier: alternateUserId,
             email: user.email,
             loginId: user.login_id,
+            role: user.role,
             password: cleanPass,
             isSuperAdmin: isSuper,
           }),

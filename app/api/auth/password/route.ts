@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     if (action === 'verify') {
       const { identifier, password, userId, email, loginId, role } = body;
       const cleanPass = String(password || '').trim();
-      const ids = [identifier, userId, email, loginId]
+      const ids = (role === 'student' && loginId ? [loginId] : [identifier, userId, email, loginId])
         .map((value) => String(value || '').trim().toLowerCase())
         .filter(Boolean);
 
@@ -167,8 +167,8 @@ export async function POST(request: Request) {
     const caller = context.user;
     const callerIsSuperAdmin = context.state === 'SUPER_ADMIN';
 
-    const { identifier, userId, email, loginId, password, isSuperAdmin } = body;
-    const targetIds = [identifier, userId, email, loginId]
+    const { identifier, userId, email, loginId, role, password, isSuperAdmin } = body;
+    const targetIds = (role === 'student' && loginId ? [loginId] : [identifier, userId, email, loginId])
       .map((value) => String(value || '').trim().toLowerCase())
       .filter(Boolean);
     const callerIds = [caller.id, caller.email, caller.login_id]
