@@ -12,6 +12,7 @@ import {
   timetableService,
   teacherService,
   subjectService,
+  roomService,
 } from '@/lib/services/api';
 import {
   Exam,
@@ -124,7 +125,7 @@ export default function ClassDetailsPage() {
     if (!schoolId || !classId) return;
     setIsLoading(true);
     try {
-      const [classes, studentList, attendanceList, examList, timetableList, teacherList, subjectList] =
+      const [classes, studentList, attendanceList, examList, timetableList, teacherList, subjectList, roomList] =
         await Promise.all([
           academicService.getClasses(schoolId),
           studentService.getStudents(schoolId, { classId }),
@@ -133,6 +134,7 @@ export default function ClassDetailsPage() {
           timetableService.getTimetable(schoolId, { classId }),
           teacherService.getTeachers(schoolId),
           subjectService.getSubjects(schoolId),
+          roomService.getRooms(schoolId),
         ]);
       const selected = classes.find((item) => item.id === classId) || null;
       setSchoolClass(selected);
@@ -142,6 +144,7 @@ export default function ClassDetailsPage() {
       setTimetable(timetableList);
       setTeachers(teacherList);
       setSubjects(subjectList);
+      setRooms(roomList);
       setName(selected?.name || '');
       setSortOrder(selected ? String(selected.sort_order) : '');
 
@@ -628,15 +631,18 @@ export default function ClassDetailsPage() {
             </Button>
           </section>
           <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="p-5 border-b">
+            <div className="p-5 border-b flex items-center justify-between">
               <h2 className="font-bold">Sections, Rooms & Class Teachers</h2>
+              <Button size="xs" variant="outline" onClick={handleOpenAddSection} leftIcon={<Plus className="w-3.5 h-3.5" />}>
+                Add Section
+              </Button>
             </div>
             {!schoolClass.sections?.length ? (
-              <p className="p-8 text-center text-sm text-slate-500">No sections created.</p>
+              <p className="p-8 text-center text-sm text-slate-500">No sections yet. Add one above.</p>
             ) : (
               <div className="divide-y">
                 {schoolClass.sections.map((section) => (
-                  <div key={section.id} className="p-5 grid sm:grid-cols-3 gap-3">
+                  <div key={section.id} className="p-5 grid sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-center">
                     <div>
                       <span className="text-xs text-slate-400 block">Section</span>
                       <strong>{section.name}</strong>
@@ -649,12 +655,69 @@ export default function ClassDetailsPage() {
                       <span className="text-xs text-slate-400 block">Class Teacher</span>
                       <strong>{section.class_teacher_name || 'Not assigned'}</strong>
                     </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => handleOpenEditSection(section)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="Edit section"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSection(section.id, section.name)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Delete section"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </section>
         </div>
+      )}
+
+      {/* Section Add/Edit Modal */}
+      {isSectionModalOpen && (
+        <Modal
+          isOpen={true}
+          onClose={() => setIsSectionModalOpen(false)}
+          title={editingSection ? `Edit Section ${editingSection.name}` : 'Add Section'}
+        >
+          <form onSubmit={handleSaveSection} className="space-y-4">
+            <Input
+              label="Section Name"
+              placeholder="e.g. A, B, Science"
+              value={secName}
+              onChange={(e) => setSecName(e.target.value)}
+              required
+            />
+            <Select
+              label="Room (optional)"
+              value={secRoomId}
+              onChange={(e) => setSecRoomId(e.target.value)}
+              options={[
+                { value: '', label: 'No room assigned' },
+                ...rooms.map((r) => ({ value: r.id, label: `${r.room_number} – ${r.name}` })),
+              ]}
+            />
+            <Select
+              label="Class Teacher (optional)"
+              value={secTeacherId}
+              onChange={(e) => setSecTeacherId(e.target.value)}
+              options={[
+                { value: '', label: 'No teacher assigned' },
+                ...teachers.map((t) => ({ value: t.id, label: `${t.first_name} ${t.last_name}` })),
+              ]}
+            />
+            <div className="flex gap-2 justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsSectionModalOpen(false)}>Cancel</Button>
+              <Button type="submit">{editingSection ? 'Save Changes' : 'Add Section'}</Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* TAB 2: STUDENTS */}

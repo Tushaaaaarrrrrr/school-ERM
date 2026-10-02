@@ -1299,9 +1299,13 @@ export const serverDb = {
       if (filters?.status) query = query.eq('status', filters.status);
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        // Load classes once to join class_teacher_name into current_enrollment
-        const { data: classRows } = await supabase.from('classes').select('id, class_teacher_name, room_number, default_room_number').eq('school_id', schoolId);
-        const classMap = new Map<string, any>((classRows || []).map((c: any) => [c.id, c]));
+        // Load classes + teachers to join class_teacher_name into current_enrollment
+        const [classResult, teacherResult] = await Promise.all([
+          supabase.from('classes').select('id, class_teacher_id, class_teacher_name, default_room_number').eq('school_id', schoolId),
+          supabase.from('teachers').select('id, first_name, last_name').eq('school_id', schoolId),
+        ]);
+        const classMap = new Map<string, any>((classResult.data || []).map((c: any) => [c.id, c]));
+        const teacherMap = new Map<string, any>((teacherResult.data || []).map((t: any) => [t.id, t]));
 
         const enriched = (data as Student[]).map((st) => {
           // Enrich from in-memory if no enrollment
@@ -1311,17 +1315,22 @@ export const serverDb = {
               st = { ...st, current_enrollment: memoryStudent.current_enrollment };
             }
           }
-          // Join class_teacher_name from classes table
           const enr = st.current_enrollment;
           if (enr?.class_id) {
             const cls = classMap.get(enr.class_id);
             if (cls) {
+              // Resolve teacher name: prefer stored name, then look up by ID
+              let teacherName = enr.class_teacher_name || cls.class_teacher_name;
+              if (!teacherName && cls.class_teacher_id) {
+                const tch = teacherMap.get(cls.class_teacher_id);
+                if (tch) teacherName = `${tch.first_name} ${tch.last_name}`;
+              }
               return {
                 ...st,
                 current_enrollment: {
                   ...enr,
-                  class_teacher_name: enr.class_teacher_name || cls.class_teacher_name || undefined,
-                  room_number: enr.room_number || cls.default_room_number || cls.room_number || undefined,
+                  class_teacher_name: teacherName || undefined,
+                  room_number: enr.room_number || cls.default_room_number || undefined,
                 },
               };
             }
