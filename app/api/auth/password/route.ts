@@ -75,6 +75,43 @@ async function checkPassword(ids: string[], cleanPass: string, role?: string): P
   return isDemoMode() && role === 'student' && ['student123', 'Student@123', 'password', '123456'].includes(cleanPass);
 }
 
+async function canSchoolAdminManageTarget(caller: any, targetIds: string[]): Promise<boolean> {
+  if (caller.role !== 'school_admin' || !caller.school_id || targetIds.length === 0) return false;
+  const ids = new Set(targetIds.map((id) => id.toLowerCase()));
+  const [students, teachers, staff, parents] = await Promise.all([
+    serverDb.getStudents(caller.school_id),
+    serverDb.getTeachers(caller.school_id),
+    serverDb.getStaff(caller.school_id),
+    serverDb.getParents(caller.school_id),
+  ]);
+
+  return (
+    students.some((s: any) =>
+      ids.has(String(s.id || '').toLowerCase()) ||
+      ids.has(`usr-${String(s.id || '').toLowerCase()}`) ||
+      ids.has(String(s.registration_number || '').toLowerCase())
+    ) ||
+    teachers.some((t: any) =>
+      ids.has(String(t.id || '').toLowerCase()) ||
+      ids.has(`usr-${String(t.id || '').toLowerCase()}`) ||
+      ids.has(String(t.email || '').toLowerCase()) ||
+      ids.has(String(t.employee_number || '').toLowerCase())
+    ) ||
+    staff.some((st: any) =>
+      ids.has(String(st.id || '').toLowerCase()) ||
+      ids.has(`usr-${String(st.id || '').toLowerCase()}`) ||
+      ids.has(String(st.email || '').toLowerCase()) ||
+      ids.has(String(st.employee_number || '').toLowerCase())
+    ) ||
+    parents.some((p: any) =>
+      ids.has(String(p.id || '').toLowerCase()) ||
+      ids.has(`usr-${String(p.id || '').toLowerCase()}`) ||
+      ids.has(String(p.email || '').toLowerCase()) ||
+      ids.has(String(p.primary_phone || '').replace(/\D/g, '').toLowerCase())
+    )
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const parsed = await parseJsonBody(request, passwordInput);
@@ -130,7 +167,10 @@ export async function POST(request: Request) {
       .map((value) => String(value || '').trim().toLowerCase())
       .filter(Boolean);
     const isSelf = targetIds.length > 0 && targetIds.every((id) => callerIds.includes(id));
-    if (!isSelf && !callerIsSuperAdmin) {
+    const callerCanManageTarget = !isSelf && !callerIsSuperAdmin
+      ? await canSchoolAdminManageTarget(caller, targetIds)
+      : false;
+    if (!isSelf && !callerIsSuperAdmin && !callerCanManageTarget) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
     if ((isSuperAdmin || isSuperAdminEmail(email)) && !callerIsSuperAdmin) {

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/context/auth-context';
 import { ToastProvider } from '@/components/ui/toast';
-import { PwaRegister } from '@/components/pwa/pwa-register';
 import { SafeAreaProvider } from '@/components/layout/safe-area-provider';
 import { AndroidBackButtonHandler } from '@/components/layout/android-back-button-handler';
 
@@ -68,7 +67,6 @@ export default function RootLayout({
               <RouteLoadingIndicator />
             </Suspense>
             {children}
-            <PwaRegister />
           </ToastProvider>
         </AuthProvider>
       </body>
