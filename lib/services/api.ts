@@ -4039,9 +4039,11 @@ export const teacherService = {
     if (!user) return null;
     const normalizedEmail = user.email?.trim().toLowerCase();
     const normalizedLoginId = user.login_id?.trim().toUpperCase();
-    const list = storageService
-      .getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS)
-      .filter((teacher) => (!schoolId || teacher.school_id === schoolId) && teacher.status === 'active');
+
+    // Fetch from server first so we always get fresh data (getTeachers caches to localStorage)
+    const list = schoolId
+      ? await this.getTeachers(schoolId, { status: 'active' })
+      : storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS).filter((t) => t.status === 'active');
 
     return (
       (user.teacher_id ? list.find((teacher) => teacher.id === user.teacher_id) : undefined) ||
@@ -4712,6 +4714,16 @@ export const academicService = {
 
     storageService.setItem(STORAGE_KEYS.SECTIONS, sections);
     return sections[index];
+  },
+
+  async deleteSection(id: string): Promise<void> {
+    try {
+      if (typeof window !== 'undefined') {
+        await fetch(`/api/sections/${id}`, { method: 'DELETE' });
+      }
+    } catch {}
+    const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS);
+    storageService.setItem(STORAGE_KEYS.SECTIONS, sections.filter((s) => s.id !== id));
   },
 
   async getSubjects(schoolId: string): Promise<Subject[]> {

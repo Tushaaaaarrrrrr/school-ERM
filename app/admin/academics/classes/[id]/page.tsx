@@ -212,6 +212,70 @@ export default function ClassDetailsPage() {
   const [editClassSortOrder, setEditClassSortOrder] = useState('');
   const [editClassStatus, setEditClassStatus] = useState<SchoolClass['status']>('active');
 
+  // Section Modal State
+  const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<{ id: string; name: string; room_number?: string; class_teacher_name?: string } | null>(null);
+  const [secName, setSecName] = useState('');
+  const [secRoomId, setSecRoomId] = useState('');
+  const [secTeacherId, setSecTeacherId] = useState('');
+  const [rooms, setRooms] = useState<import('@/lib/types').SchoolRoom[]>([]);
+
+  const handleOpenAddSection = () => {
+    setEditingSection(null);
+    setSecName('');
+    setSecRoomId('');
+    setSecTeacherId('');
+    setIsSectionModalOpen(true);
+  };
+
+  const handleOpenEditSection = (sec: NonNullable<SchoolClass['sections']>[number]) => {
+    setEditingSection({ id: sec.id, name: sec.name, room_number: sec.room_number, class_teacher_name: sec.class_teacher_name });
+    setSecName(sec.name);
+    setSecRoomId(sec.room_id || '');
+    setSecTeacherId(sec.class_teacher_id || '');
+    setIsSectionModalOpen(true);
+  };
+
+  const handleSaveSection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!secName.trim() || !schoolClass) return;
+    try {
+      if (editingSection) {
+        await academicService.updateSection(editingSection.id, {
+          name: secName.trim(),
+          room_id: secRoomId || undefined,
+          class_teacher_id: secTeacherId || undefined,
+        });
+        success('Section updated');
+      } else {
+        await academicService.createSection(schoolId, classId, secName.trim(), secRoomId || undefined, secTeacherId || undefined);
+        success('Section added');
+      }
+      setIsSectionModalOpen(false);
+      loadData();
+    } catch {
+      toastError('Failed to save section');
+    }
+  };
+
+  const handleDeleteSection = async (secId: string, secName: string) => {
+    if (!confirm(`Delete Section ${secName}? Students in this section will stay in the class but lose their section assignment.`)) return;
+    try {
+      // Clear section from affected students
+      const affected = students.filter((s) => s.current_enrollment?.section_id === secId);
+      await Promise.all(affected.map((s) =>
+        studentService.updateStudent(s.id, {
+          current_enrollment: { ...s.current_enrollment!, section_id: '', section_name: '' },
+        })
+      ));
+      await academicService.deleteSection(secId);
+      success(`Section ${secName} deleted. ${affected.length} student(s) kept in class without a section.`);
+      loadData();
+    } catch {
+      toastError('Failed to delete section');
+    }
+  };
+
   const handleOpenEditClassModal = () => {
     if (!schoolClass) return;
     setEditClassName(schoolClass.name);
