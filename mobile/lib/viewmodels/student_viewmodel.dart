@@ -60,10 +60,20 @@ class StudentViewModel extends ChangeNotifier {
   double get totalPendingFees => totalOutstandingFee;
   int get unpaidInvoicesCount =>
       _invoices.where((i) => i.status != FeeInvoiceStatus.paid).length;
+  UserModel? _currentUser;
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
-  Future<void> loadFor(UserModel user) async {
-    if (_loadedFor == user.id) return;
+  Future<void> refresh([UserModel? user]) =>
+      loadFor(user ?? _currentUser, force: true);
+
+  Future<void> loadFor(UserModel? user, {bool force = false}) async {
+    if (user == null) return;
+    _currentUser = user;
+    if (!force && _loadedFor == user.id) return;
     _loadedFor = user.id;
+    _isLoading = true;
+    notifyListeners();
     try {
       final students = await ApiClient.getStudents(schoolId: user.schoolId);
       if (students.isNotEmpty) {
@@ -130,6 +140,7 @@ class StudentViewModel extends ChangeNotifier {
       _transportEvents =
           await ApiClient.getTransportEvents(studentId: _student.id);
     } catch (_) {}
+    _isLoading = false;
     notifyListeners();
   }
 }

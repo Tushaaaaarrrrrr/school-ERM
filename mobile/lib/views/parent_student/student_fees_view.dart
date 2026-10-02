@@ -19,43 +19,60 @@ class StudentFeesView extends StatelessWidget {
     final receipts = vm.receipts;
     final charges = vm.charges;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            color: AppColors.secondary,
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                children: [
-                  const AppSvgIcon('receipt', size: 24, color: Colors.white),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Outstanding Balance',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          AppFormatters.currency(vm.totalOutstandingFee),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+    return RefreshIndicator(
+      onRefresh: () => vm.refresh(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              color: AppColors.secondary,
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    const AppSvgIcon('receipt', size: 24, color: Colors.white),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Outstanding Balance',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            AppFormatters.currency(vm.totalOutstandingFee),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    IconButton(
+                      icon: vm.isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.refresh, color: Colors.white),
+                      tooltip: 'Refresh fees',
+                      onPressed: vm.isLoading ? null : () => vm.refresh(),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 20),
           const Text(
             'Official Receipts',
@@ -210,7 +227,8 @@ class StudentFeesView extends StatelessWidget {
             }),
         ],
       ),
-    );
+    ),
+  );
   }
 
   static StatusBadge _status(FeeInvoiceStatus status) {

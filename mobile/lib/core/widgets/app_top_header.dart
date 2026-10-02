@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import 'app_svg_icon.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
+import '../../viewmodels/student_viewmodel.dart';
 
 class AppTopHeader extends StatelessWidget implements PreferredSizeWidget {
   final GlobalKey<ScaffoldState>? scaffoldKey;
@@ -107,6 +108,30 @@ class AppTopHeader extends StatelessWidget implements PreferredSizeWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+
+              // Refresh button
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20, color: AppColors.textPrimary),
+                tooltip: 'Refresh data',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () async {
+                  final auth = context.read<AuthService>();
+                  if (auth.currentUser.role == UserRole.student || auth.currentUser.role == UserRole.parent) {
+                    await context.read<StudentViewModel>().refresh(auth.currentUser);
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Data refreshed'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
 
               // Right Actions: Academic Year
               InkWell(

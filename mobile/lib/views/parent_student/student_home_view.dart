@@ -17,9 +17,12 @@ class StudentHomeView extends StatelessWidget {
     final vm = context.watch<StudentViewModel>();
     final student = vm.student;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: () => vm.refresh(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Quick Stat Cards
@@ -178,7 +181,8 @@ class StudentHomeView extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 

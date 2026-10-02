@@ -37,9 +37,12 @@ class _AdminFeesViewState extends State<AdminFeesView> {
         final pending =
             invoices.fold<double>(0, (sum, item) => sum + item.dueBalance);
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+        return RefreshIndicator(
+          onRefresh: () async => _refresh(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (snapshot.connectionState == ConnectionState.waiting)
@@ -136,8 +139,9 @@ class _AdminFeesViewState extends State<AdminFeesView> {
                 ),
             ],
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
