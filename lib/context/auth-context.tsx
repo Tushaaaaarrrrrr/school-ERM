@@ -78,6 +78,7 @@ export function syncAuthSessionCookie(user: UserPersona | null) {
         email: user.email,
         school_id: user.school_id,
         login_id: user.login_id,
+        photo_url: user.photo_url,
         student_id: user.student_id,
         teacher_id: user.teacher_id,
         staff_id: user.staff_id,
@@ -131,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: context.profile.email,
         role: context.profile.role || 'unassigned',
         school_id: context.profile.school_id,
+        photo_url: context.profile.photo_url || context.profile.avatar_url,
       } : null);
       setCurrentUser(personaUser);
       if (personaUser && typeof window !== 'undefined') {

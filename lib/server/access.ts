@@ -300,6 +300,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
           school_id: targetSchool.id,
           school_name: targetSchool.name,
           school_code: targetSchool.code,
+          photo_url: t.photo_url || profile.photo_url || profile.avatar_url,
           permissions: [],
         };
         return {
@@ -350,6 +351,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
           school_id: targetSchool.id,
           school_name: targetSchool.name,
           school_code: targetSchool.code,
+          photo_url: st.photo_url || profile.photo_url || profile.avatar_url,
           permissions: st.permissions || [],
         };
         return {
@@ -753,6 +755,7 @@ function persona(profile: any, membership?: any, school?: any): UserPersona {
     school_id: membership?.school_id,
     school_name: school?.name,
     school_code: school?.code,
+    photo_url: profile.photo_url || profile.avatar_url,
     permissions: membership?.permissions || [],
   };
 }
