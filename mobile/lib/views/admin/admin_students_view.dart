@@ -172,7 +172,7 @@ class _AdminStudentsViewState extends State<AdminStudentsView> {
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                               Text(
-                                '${student.className} • Adm: ${student.admissionNumber}',
+                                '${student.className} • Reg ID: ${student.admissionNumber}',
                                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                               ),
                             ],

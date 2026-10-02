@@ -79,9 +79,7 @@ declare global {
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (
     supabaseUrl &&
@@ -226,9 +224,6 @@ function emptyServerDb(): NonNullable<typeof globalThis.__SERVER_DB__> {
 }
 
 function initServerDb() {
-  if (!globalThis.__SERVER_DB__ && getSupabaseAdmin()) {
-    globalThis.__SERVER_DB__ = emptyServerDb();
-  }
   if (!globalThis.__SERVER_DB__) {
     const fileSchools = loadSchoolsFromFile();
     const mergedSchools = fileSchools ? [...fileSchools] : [...INITIAL_SCHOOLS];
@@ -1381,7 +1376,10 @@ export const serverDb = {
       }
     }
     const db = initServerDb();
-    const idx = db.students.findIndex((s) => s.id === id);
+    const cleanId = id.replace(/^usr-/, '').toLowerCase();
+    const idx = db.students.findIndex(
+      (s) => s.id.toLowerCase() === cleanId || String(s.registration_number || '').toLowerCase() === cleanId
+    );
     if (idx !== -1) {
       db.students[idx] = { ...db.students[idx], ...updates };
       saveStudentsToFile(db.students);

@@ -3,6 +3,46 @@ import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
 import { checkEmailRegistry } from '@/lib/server/email-registry';
 
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const access = await requireSchoolAccess(null, ['school_admin', 'teacher', 'staff', 'driver', 'student', 'parent']);
+    if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
+    const students = await serverDb.getStudents(access.schoolId);
+    const cleanId = id.replace(/^usr-/, '').toLowerCase();
+    const found = students.find((s: any) =>
+      s.id.toLowerCase() === cleanId ||
+      String(s.registration_number || '').toLowerCase() === cleanId
+    );
+    if (!found) return NextResponse.json({ success: false, error: 'Student not found' }, { status: 404 });
+
+    if (access.role === 'student' || access.role === 'parent') {
+      const login = String(access.context?.user?.login_id || access.context?.user?.email || '').toLowerCase();
+      const email = String(access.context?.user?.email || '').toLowerCase();
+      const studentId = String(access.context?.user?.student_id || '').toLowerCase();
+      const cleanUserId = String(access.context?.user?.id || '').replace(/^usr-/, '').toLowerCase();
+      const guardian = (found.guardian || {}) as any;
+      const foundAny = found as any;
+      const matches =
+        (studentId && String(found.id).toLowerCase() === studentId) ||
+        (cleanUserId && String(found.id).toLowerCase() === cleanUserId) ||
+        String(found.registration_number || foundAny.admission_number || '').toLowerCase() === login ||
+        String(foundAny.email || '').toLowerCase() === email ||
+        String(guardian.email || guardian.guardian_email || guardian.father_email || '').toLowerCase() === email;
+      if (!matches) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+    return NextResponse.json({ success: true, data: found });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : 'Error fetching student' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

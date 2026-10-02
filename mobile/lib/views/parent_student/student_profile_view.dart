@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../data/services/auth_service.dart';
 import '../../viewmodels/student_viewmodel.dart';
 
@@ -19,6 +20,10 @@ class StudentProfileView extends StatelessWidget {
     final studentId = student.admissionNumber.isNotEmpty
         ? student.admissionNumber
         : (user.loginId ?? '');
+    final resolvedPhoto = (student.photoUrl != null && student.photoUrl!.isNotEmpty)
+        ? student.photoUrl
+        : user.avatarUrl;
+    final photoProvider = UserAvatar.imageProviderOf(resolvedPhoto);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -97,10 +102,18 @@ class StudentProfileView extends StatelessWidget {
                         color: Colors.white24,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.white38, width: 2),
+                        image: photoProvider != null
+                            ? DecorationImage(
+                                image: photoProvider,
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
                       alignment: Alignment.center,
-                      child: const AppSvgIcon('graduation_cap',
-                          size: 36, color: Colors.white),
+                      child: photoProvider == null
+                          ? const AppSvgIcon('graduation_cap',
+                              size: 36, color: Colors.white)
+                          : null,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -130,7 +143,7 @@ class StudentProfileView extends StatelessWidget {
                           ),
                           if (studentId.isNotEmpty)
                             Text(
-                              'Student ID: $studentId',
+                              'Registration ID: $studentId',
                               style: const TextStyle(
                                   color: Colors.white70, fontSize: 11),
                             ),
@@ -211,7 +224,7 @@ class StudentProfileView extends StatelessWidget {
         if (student.section.isNotEmpty) _InfoLine('Section', student.section),
         if (student.rollNumber.isNotEmpty)
           _InfoLine('Roll', student.rollNumber),
-        if (studentId.isNotEmpty) _InfoLine('Student ID', studentId),
+        if (studentId.isNotEmpty) _InfoLine('Registration ID', studentId),
         if (student.gender.isNotEmpty) _InfoLine('Gender', student.gender),
       ],
     );

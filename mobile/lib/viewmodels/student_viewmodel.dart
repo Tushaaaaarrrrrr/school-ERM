@@ -73,6 +73,10 @@ class StudentViewModel extends ChangeNotifier {
           );
         }
       }
+      if ((_student.photoUrl == null || _student.photoUrl!.isEmpty) &&
+          (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)) {
+        _student = _student.copyWith(photoUrl: user.avatarUrl);
+      }
     } catch (_) {}
     try {
       final notices = await ApiClient.getNotices();

@@ -1052,6 +1052,7 @@ export const authService = {
           school_code: sch?.code,
           student_id: matchedStudentByReg.id,
           login_id: matchedStudentByReg.registration_number,
+          photo_url: matchedStudentByReg.photo_url,
         },
       };
     }
@@ -3574,20 +3575,43 @@ export const studentService = {
   },
 
   async getStudentById(id: string): Promise<Student | null> {
-    const cleanId = id.replace(/^usr-/, '');
+    if (!id || !id.trim()) return null;
+    const cleanId = id.trim().replace(/^usr-/, '');
     const list = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
     let target = list.find((s) => s.id === cleanId || s.registration_number.toLowerCase() === cleanId.toLowerCase());
 
     try {
       if (typeof window !== 'undefined') {
-        const students = target
-          ? await this.getStudents(target.school_id)
-          : await fetch('/api/students').then(async (res) => {
-              if (!res.ok) return [];
-              const json = await res.json();
-              return json.success && Array.isArray(json.data) ? json.data as Student[] : [];
-            });
-        target = students.find((s) => s.id === cleanId || s.registration_number.toLowerCase() === cleanId.toLowerCase() || s.registration_number === target?.registration_number) || target;
+        const directRes = await fetch(`/api/students/${encodeURIComponent(cleanId)}`);
+        if (directRes.ok) {
+          const directJson = await directRes.json();
+          if (directJson.success && directJson.data) {
+            target = directJson.data;
+          }
+        }
+        if (!target) {
+          const students = await fetch('/api/students').then(async (res) => {
+            if (!res.ok) return [];
+            const json = await res.json();
+            return json.success && Array.isArray(json.data) ? (json.data as Student[]) : [];
+          });
+          target =
+            students.find(
+              (s) =>
+                s.id === cleanId ||
+                s.registration_number.toLowerCase() === cleanId.toLowerCase()
+            ) || target;
+        }
+        if (target) {
+          const idx = list.findIndex(
+            (s) =>
+              s.id === target!.id ||
+              s.registration_number.toLowerCase() === target!.registration_number.toLowerCase()
+          );
+          if (idx !== -1) list[idx] = target;
+          else list.push(target);
+          storageService.setItem(STORAGE_KEYS.STUDENTS, list);
+        }
       }
     } catch (e) {
       console.warn(`API student detail fallback for ${id}:`, e);
@@ -3596,7 +3620,7 @@ export const studentService = {
     if (!target) return null;
 
     if (target.sibling_student_ids && target.sibling_student_ids.length > 0) {
-      const siblingStudents = list.filter((s) => target.sibling_student_ids?.includes(s.id));
+      const siblingStudents = list.filter((s) => target!.sibling_student_ids?.includes(s.id));
       target.siblings = siblingStudents.map((sib) => ({
         id: sib.id,
         first_name: sib.first_name,
@@ -3619,12 +3643,20 @@ export const studentService = {
   },
 
   async getStudentSiblings(studentId: string, schoolId: string): Promise<Student[]> {
+    if (!studentId || !studentId.trim()) return [];
+    const cleanId = studentId.trim().replace(/^usr-/, '');
     const list = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS).filter((s) => s.school_id === schoolId);
-    const student = list.find((s) => s.id === studentId);
+    let student = list.find((s) => s.id === cleanId || s.registration_number.toLowerCase() === cleanId.toLowerCase());
+    if (!student && typeof window !== 'undefined') {
+      try {
+        const fetched = await this.getStudentById(cleanId);
+        if (fetched) student = fetched;
+      } catch {}
+    }
     if (!student || !student.sibling_student_ids || student.sibling_student_ids.length === 0) {
       return [];
     }
-    return list.filter((s) => student.sibling_student_ids?.includes(s.id));
+    return list.filter((s) => student!.sibling_student_ids?.includes(s.id));
   },
 
   async registerStudent(studentData: RegisterStudentInput): Promise<Student> {
@@ -5271,6 +5303,23 @@ export const attendanceService = {
     schoolId: string,
     filter?: { classId?: string; sectionId?: string; date?: string; studentId?: string }
   ): Promise<StudentAttendance[]> {
+    try {
+      if (typeof window !== 'undefined') {
+        const queryParams = new URLSearchParams();
+        if (filter?.classId) queryParams.set('classId', filter.classId);
+        if (filter?.sectionId) queryParams.set('sectionId', filter.sectionId);
+        if (filter?.date) queryParams.set('date', filter.date);
+        if (filter?.studentId) queryParams.set('studentId', filter.studentId);
+        const res = await fetch(`/api/attendance/students?${queryParams.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            return json.data.sort((a: any, b: any) => b.attendance_date.localeCompare(a.attendance_date));
+          }
+        }
+      }
+    } catch {}
+
     const storedAttendance = storageService.getItem<StudentAttendance[]>(STORAGE_KEYS.ATTENDANCE, []);
     const allAttendance = storedAttendance.filter((record) => !record.id.startsWith('att-today-'));
     if (allAttendance.length !== storedAttendance.length) {

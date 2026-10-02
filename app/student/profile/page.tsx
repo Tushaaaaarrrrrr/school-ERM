@@ -14,9 +14,9 @@ import { CardSkeleton, TableSkeleton } from '@/components/ui/skeleton';
 import { UserPasswordCard } from '@/components/auth/user-password-modal';
 
 export default function StudentProfilePage() {
-  const { currentUser, currentSchool } = useAuth();
-  const studentId = currentUser?.student_id || '';
-  const schoolId = currentSchool?.id || '';
+  const { currentUser, currentSchool, isLoading: authLoading } = useAuth();
+  const studentId = currentUser?.student_id || currentUser?.id?.replace(/^usr-/, '') || currentUser?.login_id || '';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
 
   const [student, setStudent] = useState<Student | null>(null);
   const [siblings, setSiblings] = useState<Student[]>([]);
@@ -25,18 +25,24 @@ export default function StudentProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!studentId && !currentUser) {
+      setIsLoading(false);
+      return;
+    }
     async function loadStudent() {
       setIsLoading(true);
       try {
         const todayStr = new Date().toISOString().split('T')[0];
+        const idToQuery = studentId || currentUser?.login_id || '';
         const [s, attList, activeLv, sibList] = await Promise.all([
-          studentService.getStudentById(studentId),
-          attendanceService.getAttendance(schoolId, { studentId }),
-          leaveService.getActiveLeaveForStudent(studentId, todayStr),
-          studentService.getStudentSiblings(studentId, schoolId).catch(() => []),
+          studentService.getStudentById(idToQuery),
+          attendanceService.getAttendance(schoolId, { studentId: idToQuery }),
+          leaveService.getActiveLeaveForStudent(idToQuery, todayStr).catch(() => null),
+          studentService.getStudentSiblings(idToQuery, schoolId).catch(() => []),
         ]);
         setStudent(s);
-        setAttendance(attList);
+        setAttendance(attList || []);
         setActiveLeave(activeLv || s?.active_leave || null);
         setSiblings(sibList || []);
       } catch (err) {
@@ -46,7 +52,7 @@ export default function StudentProfilePage() {
       }
     }
     loadStudent();
-  }, [schoolId, studentId]);
+  }, [authLoading, schoolId, studentId, currentUser]);
 
   if (isLoading) {
     return (
@@ -91,19 +97,23 @@ export default function StudentProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl font-bold shadow-xs shrink-0 overflow-hidden">
-                  {student?.photo_url ? (
-                    <img src={student.photo_url} alt={student.first_name} className="w-full h-full object-cover" />
+                  {(student?.photo_url || currentUser?.photo_url) ? (
+                    <img
+                      src={student?.photo_url || currentUser?.photo_url}
+                      alt={student?.first_name || currentUser?.name || 'Student'}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    student?.first_name?.[0] || 'S'
+                    student?.first_name?.[0] || currentUser?.name?.[0] || 'S'
                   )}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">
-                    {student?.first_name} {student?.last_name}
+                    {student ? `${student.first_name} ${student.last_name}` : currentUser?.name || 'Student'}
                   </h2>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-1">
                     <span className="font-mono text-indigo-700 font-semibold bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-md">
-                      Reg: {student?.registration_number}
+                      Reg ID: {student?.registration_number || currentUser?.login_id}
                     </span>
                     <span>•</span>
                     <span className="font-medium text-slate-700">

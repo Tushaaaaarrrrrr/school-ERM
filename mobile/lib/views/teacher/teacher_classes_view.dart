@@ -113,7 +113,7 @@ class TeacherClassesView extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Adm: ${student.admissionNumber} • Parent: ${student.parentPhone}',
+                                'Reg ID: ${student.admissionNumber} • Parent: ${student.parentPhone}',
                                 style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                               ),
                             ],

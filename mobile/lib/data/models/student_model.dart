@@ -78,4 +78,42 @@ class StudentModel {
           (json['attendance_percentage'] as num?)?.toDouble() ?? 0,
     );
   }
+
+  StudentModel copyWith({
+    String? id,
+    String? fullName,
+    String? admissionNumber,
+    String? rollNumber,
+    String? className,
+    String? section,
+    String? classId,
+    String? sectionId,
+    String? gender,
+    String? parentName,
+    String? parentPhone,
+    String? busRouteNumber,
+    String? busStopName,
+    String? photoUrl,
+    String? healthInfo,
+    double? attendancePercentage,
+  }) {
+    return StudentModel(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      admissionNumber: admissionNumber ?? this.admissionNumber,
+      rollNumber: rollNumber ?? this.rollNumber,
+      className: className ?? this.className,
+      section: section ?? this.section,
+      classId: classId ?? this.classId,
+      sectionId: sectionId ?? this.sectionId,
+      gender: gender ?? this.gender,
+      parentName: parentName ?? this.parentName,
+      parentPhone: parentPhone ?? this.parentPhone,
+      busRouteNumber: busRouteNumber ?? this.busRouteNumber,
+      busStopName: busStopName ?? this.busStopName,
+      photoUrl: photoUrl ?? this.photoUrl,
+      healthInfo: healthInfo ?? this.healthInfo,
+      attendancePercentage: attendancePercentage ?? this.attendancePercentage,
+    );
+  }
 }

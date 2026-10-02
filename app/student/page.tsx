@@ -143,10 +143,22 @@ export default function StudentDashboardPage() {
         <div className="absolute right-48 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
-          <div className="space-y-3">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Hello, {student?.first_name || currentUser?.name?.split(' ')[0] || 'Student'}! 👋
-            </h1>
+          <div className="flex items-center gap-4 sm:gap-5">
+            {(student?.photo_url || currentUser?.photo_url) ? (
+              <img
+                src={student?.photo_url || currentUser?.photo_url}
+                alt={student?.first_name || currentUser?.name || 'Student'}
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-white/20 shadow-md shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-indigo-600/60 border-2 border-white/20 flex items-center justify-center text-white text-2xl font-bold shadow-md shrink-0">
+                {(student?.first_name?.[0] || currentUser?.name?.[0] || 'S').toUpperCase()}
+              </div>
+            )}
+            <div className="space-y-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                Hello, {student?.first_name || currentUser?.name?.split(' ')[0] || 'Student'}! 👋
+              </h1>
 
             {/* Quick Badges Pill Bar */}
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
@@ -163,7 +175,7 @@ export default function StudentDashboardPage() {
               )}
               {student?.registration_number && (
                 <span className="px-3 py-1 rounded-full bg-indigo-900/50 border border-indigo-400/30 text-indigo-200 font-mono">
-                  Reg: {student.registration_number}
+                  Reg ID: {student.registration_number}
                 </span>
               )}
               <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 flex items-center gap-1.5 font-semibold">
@@ -172,6 +184,7 @@ export default function StudentDashboardPage() {
               </span>
             </div>
           </div>
+        </div>
 
           {/* Quick Action Navigation Buttons */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">

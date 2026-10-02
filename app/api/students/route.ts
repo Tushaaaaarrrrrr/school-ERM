@@ -12,9 +12,13 @@ export async function GET(request: Request) {
     if (access.role === 'student' || access.role === 'parent') {
       const login = String(access.context.user?.login_id || access.context.user?.email || '').toLowerCase();
       const email = String(access.context.user?.email || '').toLowerCase();
+      const studentId = String(access.context.user?.student_id || '').toLowerCase();
+      const cleanUserId = String(access.context.user?.id || '').replace(/^usr-/, '').toLowerCase();
       list = list.filter((student: any) => {
         const guardian = student.guardian || {};
         return (
+          (studentId && String(student.id).toLowerCase() === studentId) ||
+          (cleanUserId && String(student.id).toLowerCase() === cleanUserId) ||
           String(student.registration_number || student.admission_number || '').toLowerCase() === login ||
           String(student.email || '').toLowerCase() === email ||
           String(guardian.email || guardian.guardian_email || guardian.father_email || '').toLowerCase() === email

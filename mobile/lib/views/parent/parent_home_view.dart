@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/student_model.dart';
 import '../../viewmodels/student_viewmodel.dart';
@@ -65,19 +66,10 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      avatar: CircleAvatar(
-                        backgroundColor:
-                            isSelected ? Colors.white : AppColors.primaryLight,
-                        child: Text(
-                          child.fullName[0],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.textPrimary,
-                          ),
-                        ),
+                      avatar: UserAvatar(
+                        name: child.fullName,
+                        imageUrl: child.photoUrl,
+                        radius: 11,
                       ),
                       label: Text(
                           '${child.fullName} (${child.className}-${child.section})'),

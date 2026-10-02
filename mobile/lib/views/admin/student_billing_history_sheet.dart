@@ -147,7 +147,7 @@ class StudentBillingHistorySheet extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Adm: ${record.admissionNumber} • Roll: ${record.rollNumber} • Parent: ${record.parentName}',
+                            'Reg ID: ${record.admissionNumber} • Roll: ${record.rollNumber} • Parent: ${record.parentName}',
                             style: const TextStyle(
                                 fontSize: 11, color: AppColors.textSecondary),
                           ),

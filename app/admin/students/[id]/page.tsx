@@ -820,7 +820,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs">
               <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md font-mono">
-                Reg: {student.registration_number}
+                Reg ID: {student.registration_number}
               </span>
               <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
                 {student.current_enrollment?.class_name || 'Class not assigned'}
@@ -1141,7 +1141,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               <div>
                 <span className="text-slate-400 block">Student Portal Login</span>
                 <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold mt-1">
-                  <ShieldCheck className="w-4 h-4" /> Enabled (School Code: {currentSchool?.code || 'JDPS0123Q'} / Reg No: {student.registration_number})
+                  <ShieldCheck className="w-4 h-4" /> Enabled (School Code: {currentSchool?.code || 'JDPS0123Q'} / Registration ID: {student.registration_number})
                 </span>
               </div>
             </div>
@@ -2111,7 +2111,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               <strong className="font-mono text-slate-900 text-sm">{currentSchool?.code || 'JDPS0123Q'}</strong>
             </div>
             <div>
-              <span className="text-slate-400 block">Student User ID / Registration Number</span>
+              <span className="text-slate-400 block">Registration ID</span>
               <strong className="font-mono text-slate-900 text-sm">{student.registration_number}</strong>
             </div>
             <div className="pt-2">

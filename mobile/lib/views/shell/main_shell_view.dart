@@ -7,6 +7,7 @@ import '../../core/widgets/app_top_header.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/app_drawer.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_client.dart';
 import '../../data/services/auth_service.dart';
@@ -359,7 +360,7 @@ class _MainShellViewState extends State<MainShellView>
                     controller: admission,
                     onChanged: (_) => setSheetState(() {}),
                     decoration:
-                        const InputDecoration(labelText: 'Admission number'),
+                        const InputDecoration(labelText: 'Registration ID'),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -627,7 +628,7 @@ class _MainShellViewState extends State<MainShellView>
               items: [
                 'Student fee profiles',
                 'Parent contact',
-                'Admission numbers'
+                'Registration IDs'
               ]),
           const MobileModuleView(
               title: 'Login History',
@@ -749,7 +750,6 @@ class _MoreProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = user.avatarUrl;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -760,24 +760,10 @@ class _MoreProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          UserAvatar(
+            name: user.name,
+            imageUrl: user.avatarUrl,
             radius: 34,
-            backgroundColor: AppColors.primaryLight,
-            backgroundImage: avatarUrl == null || avatarUrl.isEmpty
-                ? null
-                : NetworkImage(avatarUrl),
-            child: avatarUrl == null || avatarUrl.isEmpty
-                ? Text(
-                    user.name.isEmpty
-                        ? 'U'
-                        : user.name.characters.first.toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
-                  )
-                : null,
           ),
           const SizedBox(width: 14),
           Expanded(

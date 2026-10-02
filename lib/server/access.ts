@@ -31,12 +31,16 @@ export async function getAccessibleStudentIds(access: any, schoolId: string) {
   if (access.role !== 'student' && access.role !== 'parent') return null;
   const login = String(access.context?.user?.login_id || access.context?.user?.email || '').toLowerCase();
   const email = String(access.context?.user?.email || '').toLowerCase();
+  const studentId = String(access.context?.user?.student_id || '').toLowerCase();
+  const cleanUserId = String(access.context?.user?.id || '').replace(/^usr-/, '').toLowerCase();
   const students = await serverDb.getStudents(schoolId);
   return new Set(
     students
       .filter((student: any) => {
         const guardian = student.guardian || {};
         return (
+          (studentId && String(student.id).toLowerCase() === studentId) ||
+          (cleanUserId && String(student.id).toLowerCase() === cleanUserId) ||
           String(student.registration_number || student.admission_number || '').toLowerCase() === login ||
           String(student.email || '').toLowerCase() === email ||
           String(guardian.email || guardian.guardian_email || guardian.father_email || '').toLowerCase() === email
@@ -69,6 +73,7 @@ async function getCookieSessionUser(): Promise<UserPersona | null> {
       staff_id: parsed.staff_id,
       parent_id: parsed.parent_id,
       permissions: parsed.permissions || [],
+      photo_url: parsed.photo_url || parsed.avatar_url,
     };
   } catch {
     return null;

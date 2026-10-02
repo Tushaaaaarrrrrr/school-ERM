@@ -96,13 +96,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               item.registration_number?.toLowerCase() === loginId
           );
           if (s) {
-            const reg = s.registration_number ? `Reg: ${s.registration_number}` : '';
+            const reg = s.registration_number ? `Reg ID: ${s.registration_number}` : '';
             const cls = s.current_enrollment?.class_name
               ? `${s.current_enrollment.class_name}${s.current_enrollment.section_name ? ` (${s.current_enrollment.section_name})` : ''}`
               : '';
-            setStudentSubtitle(reg || cls || 'Student ID');
+            setStudentSubtitle(reg || cls || 'Registration ID');
           } else {
-            setStudentSubtitle(currentUser?.login_id ? `Reg: ${currentUser.login_id}` : null);
+            setStudentSubtitle(currentUser?.login_id ? `Reg ID: ${currentUser.login_id}` : null);
           }
         }
       } catch {}

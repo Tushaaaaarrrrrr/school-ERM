@@ -268,13 +268,29 @@ export default function StudentsDirectoryPage() {
                       <td className="px-5 py-3.5">
                         <Link
                           href={`/admin/students/${student.id}`}
-                          className="font-bold text-slate-900 hover:text-indigo-600"
+                          className="inline-flex items-center gap-2.5 group hover:text-indigo-600 transition-colors"
                         >
-                          {student.first_name} {student.last_name}
+                          {student.photo_url ? (
+                            <img
+                              src={student.photo_url}
+                              alt={`${student.first_name} ${student.last_name}`}
+                              className="w-8 h-8 rounded-lg object-cover border border-slate-200 group-hover:border-indigo-400 transition-colors shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs group-hover:bg-indigo-700 transition-colors shrink-0">
+                              {student.first_name?.[0] || 'S'}
+                              {student.last_name ? student.last_name[0] : ''}
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-bold text-slate-900 group-hover:text-indigo-600 group-hover:underline block">
+                              {student.first_name} {student.last_name}
+                            </span>
+                            <div className="text-[11px] text-slate-400 capitalize font-normal">
+                              {student.gender || 'student'}
+                            </div>
+                          </div>
                         </Link>
-                        <div className="text-[11px] text-slate-400 capitalize">
-                          {student.gender || 'student'}
-                        </div>
                       </td>
                       <td className="px-5 py-3.5 font-mono text-indigo-600 font-semibold">
                         {student.registration_number}
@@ -339,17 +355,31 @@ export default function StudentsDirectoryPage() {
               const latestInvoice = student.fee_invoices?.[0];
               return (
                 <div key={student.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <Link
-                        href={`/admin/students/${student.id}`}
-                        className="text-sm font-bold text-slate-900 hover:text-indigo-600"
-                      >
-                        {student.first_name} {student.last_name}
-                      </Link>
-                      <p className="font-mono text-xs text-indigo-600 font-semibold">
-                        Reg: {student.registration_number}
-                      </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {student.photo_url ? (
+                        <img
+                          src={student.photo_url}
+                          alt={`${student.first_name} ${student.last_name}`}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                          {student.first_name?.[0] || 'S'}
+                          {student.last_name ? student.last_name[0] : ''}
+                        </div>
+                      )}
+                      <div>
+                        <Link
+                          href={`/admin/students/${student.id}`}
+                          className="text-sm font-bold text-slate-900 hover:text-indigo-600"
+                        >
+                          {student.first_name} {student.last_name}
+                        </Link>
+                        <p className="font-mono text-xs text-indigo-600 font-semibold">
+                          Reg: {student.registration_number}
+                        </p>
+                      </div>
                     </div>
                     <StatusBadge status={student.status} />
                   </div>

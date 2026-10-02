@@ -413,7 +413,7 @@ class _StudentAttendanceCard extends StatelessWidget {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         Text(
-                          'Adm: ${student.admissionNumber} • Ph: ${student.parentPhone}',
+                          'Reg ID: ${student.admissionNumber} • Ph: ${student.parentPhone}',
                           style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                         ),
                       ],

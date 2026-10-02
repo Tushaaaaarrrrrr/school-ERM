@@ -116,7 +116,7 @@ class _StudentDetailSheetState extends State<StudentDetailSheet> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Class: ${s.className}-${s.section} • Roll: ${s.rollNumber} • Adm: ${s.admissionNumber}',
+                            'Class: ${s.className}-${s.section} • Roll: ${s.rollNumber} • Reg ID: ${s.admissionNumber}',
                             style: const TextStyle(
                                 fontSize: 11, color: AppColors.textSecondary),
                           ),
