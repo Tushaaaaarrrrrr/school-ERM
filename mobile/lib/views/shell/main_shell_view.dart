@@ -232,9 +232,9 @@ class _MainShellViewState extends State<MainShellView>
       },
       child: Scaffold(
         key: _scaffoldKey,
-        appBar: currentRole == UserRole.teacher ? null : AppTopHeader(scaffoldKey: _scaffoldKey),
+        appBar: currentRole == UserRole.teacher && !(_showMore && _morePage == null) ? null : AppTopHeader(scaffoldKey: _scaffoldKey),
         drawer: AppDrawer(onNavigate: _navigate),
-        body: _showMore && _morePage == null
+        body: SafeArea(top: currentRole == UserRole.teacher, bottom: false, child: _showMore && _morePage == null
             ? _MoreMenu(
                 user: auth.currentUser,
                 items: _moreItemsForRole(currentRole),
@@ -262,7 +262,7 @@ class _MainShellViewState extends State<MainShellView>
                                   fontWeight: FontWeight.w600))),
                     ]),
                   ),
-                if (currentRole != UserRole.teacher && !_showMore && _currentIndex == 0)
+                if (!_showMore && _currentIndex == 0)
                   SchoolStatusCard(key: ValueKey(auth.currentUser.schoolId)),
                 Expanded(
                     child: currentRole == UserRole.teacher
@@ -271,7 +271,7 @@ class _MainShellViewState extends State<MainShellView>
                   index: _morePage ?? _currentIndex,
                   children: _getScreensForRole(currentRole),
                 )),
-              ]),
+              ])),
         bottomNavigationBar: AppBottomNav(
           role: currentRole,
           currentIndex: _showMore ? -1 : _currentIndex,

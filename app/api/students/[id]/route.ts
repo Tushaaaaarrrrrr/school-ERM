@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
+import { attendanceRoster } from '@/lib/server/student-attendance';
 import { requireSchoolAccess } from '@/lib/server/access';
 import { checkEmailRegistry } from '@/lib/server/email-registry';
 
@@ -11,7 +12,7 @@ export async function GET(
     const { id } = await params;
     const access = await requireSchoolAccess(null, ['school_admin', 'teacher', 'staff', 'driver', 'student', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
-    const students = await serverDb.getStudents(access.schoolId);
+    const students = access.role === 'teacher' ? await attendanceRoster(access, true) : await serverDb.getStudents(access.schoolId);
     const cleanId = id.replace(/^usr-/, '').toLowerCase();
     const found = students.find((s: any) =>
       s.id.toLowerCase() === cleanId ||

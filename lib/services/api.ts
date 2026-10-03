@@ -3508,74 +3508,14 @@ export const studentService = {
     schoolId: string,
     filter?: { classId?: string; sectionId?: string; search?: string }
   ): Promise<Student[]> {
-    try {
-      if (typeof window !== 'undefined') {
-        const res = await fetch(`/api/students?schoolId=${schoolId}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            const localStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, []);
-            const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
-            const merged = (json.data as Student[]).map((srv) => this.mergeStudentRecord(srv, localStudents));
-
-            storageService.setItem(STORAGE_KEYS.STUDENTS, merged);
-            let serverList: Student[] = merged;
-            if (filter?.classId) {
-              const targetClass = classes.find((c) => c.id === filter.classId);
-              serverList = serverList.filter(
-                (s) =>
-                  s.current_enrollment?.class_id === filter.classId ||
-                  (targetClass && s.current_enrollment?.class_name?.toLowerCase() === targetClass.name.toLowerCase())
-              );
-            }
-            if (filter?.sectionId) {
-              serverList = serverList.filter((s) => s.current_enrollment?.section_id === filter.sectionId);
-            }
-            if (filter?.search) {
-              const q = filter.search.toLowerCase();
-              serverList = serverList.filter(
-                (s) =>
-                  s.first_name.toLowerCase().includes(q) ||
-                  s.last_name.toLowerCase().includes(q) ||
-                  s.registration_number.toLowerCase().includes(q) ||
-                  s.current_enrollment?.roll_number?.toLowerCase().includes(q) ||
-                  s.guardian?.primary_phone?.includes(q)
-              );
-            }
-            return serverList;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('API students fetch fallback:', e);
-    }
-
-    let list = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS).filter((s) => s.school_id === schoolId);
-
-    if (filter?.classId) {
-      const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
-      const targetClass = classes.find((c) => c.id === filter.classId);
-      list = list.filter(
-        (s) =>
-          s.current_enrollment?.class_id === filter.classId ||
-          (targetClass && s.current_enrollment?.class_name?.toLowerCase() === targetClass.name.toLowerCase())
-      );
-    }
-    if (filter?.sectionId) {
-      list = list.filter((s) => s.current_enrollment?.section_id === filter.sectionId);
-    }
+    let list = await schoolApi<Student[]>(`/api/students?schoolId=${encodeURIComponent(schoolId)}`, { cache: 'no-store' });
+    storageService.setItem(STORAGE_KEYS.STUDENTS, list);
+    if (filter?.classId) list = list.filter((st) => st.current_enrollment?.class_id === filter.classId);
+    if (filter?.sectionId) list = list.filter((st) => st.current_enrollment?.section_id === filter.sectionId);
     if (filter?.search) {
       const q = filter.search.toLowerCase();
-      list = list.filter(
-        (s) =>
-          s.first_name.toLowerCase().includes(q) ||
-          s.last_name.toLowerCase().includes(q) ||
-          s.registration_number.toLowerCase().includes(q) ||
-          s.current_enrollment?.roll_number?.toLowerCase().includes(q) ||
-          s.guardian?.primary_phone?.includes(q)
-      );
+      list = list.filter((st) => `${st.first_name} ${st.last_name} ${st.registration_number} ${st.current_enrollment?.roll_number || ''} ${st.guardian?.primary_phone || ''}`.toLowerCase().includes(q));
     }
-
     return list;
   },
 
@@ -3587,7 +3527,9 @@ export const studentService = {
 
     try {
       if (typeof window !== 'undefined') {
+        target = undefined;
         const directRes = await fetch(`/api/students/${encodeURIComponent(cleanId)}`, { cache: 'no-store' });
+        if (directRes.status === 403 || directRes.status === 404) return null;
         if (directRes.ok) {
           const directJson = await directRes.json();
           if (directJson.success && directJson.data) {
@@ -5797,7 +5739,7 @@ export const noticeService = {
     schoolId: string,
     filter?: { audience?: Notice['audience']; includeExpired?: boolean }
   ): Promise<Notice[]> {
-    let list = storageService.getItem<Notice[]>(STORAGE_KEYS.NOTICES, INITIAL_NOTICES).filter((n) => n.school_id === schoolId);
+    let list = await schoolApi<Notice[]>('/api/notices', { cache: 'no-store' });
     const today = new Date().toISOString().split('T')[0];
 
     if (!filter?.includeExpired) {
@@ -8098,7 +8040,7 @@ export const insightService = {
     const [allStudents, exams, results, classes, sections] = await Promise.all([
       studentService.getStudents(schoolId, { classId, sectionId }),
       examService.getExams(schoolId),
-      storageService.getItem<ExamResult[]>(STORAGE_KEYS.EXAM_RESULTS, INITIAL_EXAM_RESULTS),
+      schoolApi<ExamResult[]>('/api/exam-results'),
       academicService.getClasses(schoolId),
       academicService.getSections(schoolId),
     ]);
@@ -8283,7 +8225,7 @@ export const insightService = {
         .sort((a, b) => b.attendance_date.localeCompare(a.attendance_date));
 
       let consecutiveAbsences = 0;
-      let lastPresentDate = '07 Aug 2026';
+      let lastPresentDate = '';
       let foundPresent = false;
 
       for (const rec of records) {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
+import { teacherForAccess } from '@/lib/server/student-attendance';
 import { requireSchoolAccess } from '@/lib/server/access';
 
 export async function GET(request: Request) {
@@ -10,6 +11,9 @@ export async function GET(request: Request) {
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     
     let list = await serverDb.getTimetable(access.schoolId);
+    if (access.role === 'teacher') { const teacher = await teacherForAccess(access); list = list.filter((entry: any) => entry.teacher_id === teacher?.id); }
+    const [classes, sections, subjects, rooms] = await Promise.all([serverDb.getClasses(access.schoolId), serverDb.getSections(access.schoolId), serverDb.getSubjects(access.schoolId), serverDb.getRooms(access.schoolId)]);
+    list = list.map((entry: any) => ({ ...entry, class_name: classes.find((c: any) => c.id === entry.class_id)?.name, section_name: sections.find((s: any) => s.id === entry.section_id)?.name, subject_name: subjects.find((s: any) => s.id === entry.subject_id)?.name, room: rooms.find((r: any) => r.id === entry.room_id)?.room_number || entry.room }));
     const classId = searchParams.get('classId');
     const sectionId = searchParams.get('sectionId');
     const dayOfWeek = searchParams.get('dayOfWeek');

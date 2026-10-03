@@ -61,12 +61,13 @@ function TeacherExamsContent() {
         teacherService.getAssignments(schoolId, teacherId),
       ]);
       setExams(exList);
-      setAssignments(asgList);
+      const subjectAssignments = asgList.filter((a) => !!a.subject_id);
+      setAssignments(subjectAssignments);
 
       const defaultId = examIdParam || (exList[0]?.id ?? '');
       setSelectedExamId(defaultId);
-      if (asgList.length > 0) {
-        setFormData((prev) => ({ ...prev, assignmentId: asgList[0].id }));
+      if (subjectAssignments.length > 0) {
+        setFormData((prev) => ({ ...prev, assignmentId: subjectAssignments[0].id }));
       }
     } catch {
       toastError('Failed to load exams');

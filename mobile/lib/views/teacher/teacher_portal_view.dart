@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../data/services/api_client.dart';
@@ -33,7 +34,10 @@ class _TeacherPortalViewState extends State<TeacherPortalView> {
       final origin = Uri.parse(await ApiClient.baseUrl);
       _origin = origin;
       final cookies = WebViewCookieManager();
-      await cookies.setCookie(WebViewCookie(name: 'school_erp_session', value: Uri.encodeComponent(jsonEncode({...user.toSessionJson(), 'name': user.name})), domain: origin.host, path: '/'));
+      final session = jsonEncode({...user.toSessionJson(), 'name': user.name});
+      // Android's cookie manager encodes the value; WebKit accepts it as supplied.
+      final cookieValue = defaultTargetPlatform == TargetPlatform.android ? session : Uri.encodeComponent(session);
+      await cookies.setCookie(WebViewCookie(name: 'school_erp_session', value: cookieValue, domain: origin.host, path: '/'));
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setUserAgent('GI Campus Mobile')

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/services/api_client.dart';
 import 'data/services/auth_service.dart';
-import 'viewmodels/teacher_viewmodel.dart';
 import 'viewmodels/student_viewmodel.dart';
 import 'viewmodels/driver_viewmodel.dart';
 import 'views/auth/login_view.dart';
@@ -18,14 +17,6 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProxyProvider<AuthService, TeacherViewModel>(
-          create: (_) => TeacherViewModel(),
-          update: (_, auth, vm) {
-            final model = vm ?? TeacherViewModel();
-            if (auth.isAuthenticated) model.loadFor(auth.currentUser);
-            return model;
-          },
-        ),
         ChangeNotifierProxyProvider<AuthService, StudentViewModel>(
           create: (_) => StudentViewModel(),
           update: (_, auth, vm) {

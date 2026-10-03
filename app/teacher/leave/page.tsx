@@ -19,6 +19,7 @@ export default function MyTeacherLeavePage() {
   const [leaves, setLeaves] = useState<TeacherLeave[]>([]);
   const [attendance, setAttendance] = useState<TeacherAttendance[]>([]);
   const [open, setOpen] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ leaveType: 'full_day' as LeaveType, startDate: today, endDate: today, returnDate: today, reason: '' });
 
@@ -29,10 +30,14 @@ export default function MyTeacherLeavePage() {
       setTeacher(null);
       return;
     }
+    setTeacher(profile);
+    setLoadError('');
     const [leaveList, history] = await Promise.all([teacherWorkforceService.getLeaves(schoolId, { teacherId: profile.id }), teacherWorkforceService.getAttendance(schoolId, { teacherId: profile.id })]);
     setTeacher(profile); setLeaves(leaveList); setAttendance(history);
   };
-  useEffect(() => { load().catch(() => error('Failed to load your attendance and leaves')); }, [schoolId, currentUser]);
+  useEffect(() => { load().catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load attendance and leave records')); }, [schoolId, currentUser]);
+
+  if (loadError) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-6"><h1 className="font-bold">Attendance &amp; leave could not load</h1><p className="mt-2 text-sm">{loadError}</p><Button className="mt-4" onClick={() => load().catch((err) => setLoadError(err.message))}>Retry</Button></div>;
 
   if (!teacher) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-6"><h1 className="font-bold text-amber-950">Teacher profile setup is incomplete</h1><p className="mt-1 text-sm text-amber-800">Your school administrator must finish linking your approved account to a teacher record before you can request leave.</p></div>;
 

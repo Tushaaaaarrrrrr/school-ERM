@@ -1677,6 +1677,7 @@ export const serverDb = {
       if (filter?.status) query = query.eq('status', filter.status);
 
       const { data, error } = await query;
+      if (error?.code === 'PGRST205') return []; // Missing coverage table grants no extra access.
       if (error) throw new Error(`Database coverage read failed: ${error.message}`);
       return (data || []) as TemporaryAssignment[];
     }
