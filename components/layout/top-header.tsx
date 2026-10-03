@@ -48,7 +48,32 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   const [showYearMenu, setShowYearMenu] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [studentPhoto, setStudentPhoto] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (currentUser?.role === 'student' && !currentUser?.photo_url && typeof window !== 'undefined') {
+      try {
+        const studentId = currentUser?.student_id || currentUser?.id?.replace(/^usr-/, '') || '';
+        const loginId = currentUser?.login_id?.toLowerCase() || '';
+        const raw = localStorage.getItem('school_erp_students');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const s = list.find(
+            (item: any) =>
+              item.id === studentId ||
+              item.auth_user_id === currentUser?.id ||
+              item.registration_number?.toLowerCase() === loginId
+          );
+          if (s?.photo_url) {
+            setStudentPhoto(s.photo_url);
+          }
+        }
+      } catch {}
+    } else {
+      setStudentPhoto(null);
+    }
+  }, [currentUser]);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const yearMenuRef = useRef<HTMLDivElement>(null);
@@ -190,10 +215,10 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
             }}
             className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 transition-colors text-xs font-medium cursor-pointer"
           >
-            {currentUser?.photo_url ? (
+            {(currentUser?.photo_url || studentPhoto) ? (
               <img
-                src={currentUser.photo_url}
-                alt={currentUser.name}
+                src={currentUser?.photo_url || studentPhoto || ''}
+                alt={currentUser?.name || 'Account'}
                 className="w-6 h-6 rounded-full object-cover border border-slate-300 shrink-0"
               />
             ) : (
@@ -216,10 +241,10 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
           {showUserMenu && (
             <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-50 text-left animate-in fade-in">
               <div className="px-3.5 py-2 border-b border-slate-100 flex items-center gap-3">
-                {currentUser?.photo_url ? (
+                {(currentUser?.photo_url || studentPhoto) ? (
                   <img
-                    src={currentUser.photo_url}
-                    alt={currentUser.name}
+                    src={currentUser?.photo_url || studentPhoto || ''}
+                    alt={currentUser?.name || 'User'}
                     className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
                   />
                 ) : (

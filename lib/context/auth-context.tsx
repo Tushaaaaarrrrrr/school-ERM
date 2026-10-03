@@ -230,6 +230,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (activeUser) {
+          if (!activeUser.photo_url && activeUser.role === 'student' && typeof window !== 'undefined') {
+            try {
+              const studentId = activeUser.student_id || activeUser.id?.replace(/^usr-/, '') || '';
+              const loginId = activeUser.login_id?.toLowerCase() || '';
+              const rawStudents = localStorage.getItem('school_erp_students');
+              if (rawStudents) {
+                const sList = JSON.parse(rawStudents);
+                const matched = sList.find(
+                  (s: any) =>
+                    s.id === studentId ||
+                    s.auth_user_id === activeUser?.id ||
+                    s.registration_number?.toLowerCase() === loginId
+                );
+                if (matched?.photo_url) {
+                  activeUser = { ...activeUser, photo_url: matched.photo_url };
+                  storageService.setItem(AUTH_STORAGE_KEY, activeUser);
+                }
+              }
+            } catch {}
+          }
           setCurrentUser(activeUser);
           setAccessState(activeUser.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
           syncAuthSessionCookie(activeUser);
