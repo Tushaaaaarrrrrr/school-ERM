@@ -22,7 +22,11 @@ class _SchoolStatusCardState extends State<SchoolStatusCard> {
   }
 
   void _refresh() {
-    if (mounted) setState(() => _status = ApiClient.getSchoolStatus());
+    if (mounted) {
+      setState(() {
+        _status = ApiClient.getSchoolStatus();
+      });
+    }
   }
 
   @override

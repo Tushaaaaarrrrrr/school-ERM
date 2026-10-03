@@ -14,6 +14,7 @@ import '../models/user_model.dart';
 class ApiClient {
   static const _baseUrlKey = 'api_base_url';
   static const _sessionKey = 'api_session_cookie';
+  static const _signedSessionKey = 'api_signed_session_cookie';
   static const _defaultBaseUrl = String.fromEnvironment('API_BASE_URL',
       defaultValue: 'https://school-erm.onrender.com');
   static const _supabaseUrl = String.fromEnvironment('SUPABASE_URL',
@@ -114,7 +115,7 @@ class ApiClient {
           json['error'] ?? 'No school access found for this Google account.');
     }
     final user = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
-    await _saveSession(user);
+    await _saveSession(user, signedSession: json['session'] as String?);
     return user;
   }
 
@@ -133,15 +134,23 @@ class ApiClient {
             lookup['error'] ?? 'Account not found in school database.');
       }
 
+      final lookupUser = Map<String, dynamic>.from(lookup['user']);
       final pass = await _post(
           '/api/auth/password',
           {
             'action': 'verify',
             'identifier': identifier,
-            'userId': lookup['user']['id'],
-            'email': lookup['user']['email'],
-            'loginId': lookup['user']['login_id'],
-            'role': lookup['user']['role'],
+            'userId': lookupUser['id'],
+            'email': lookupUser['email'],
+            'loginId': lookupUser['login_id'],
+            'role': lookupUser['role'],
+            'schoolId': lookupUser['school_id'],
+            'school_id': lookupUser['school_id'],
+            'name': lookupUser['name'],
+            'teacherId': lookupUser['teacher_id'],
+            'studentId': lookupUser['student_id'],
+            'staffId': lookupUser['staff_id'],
+            'parentId': lookupUser['parent_id'],
             'password': password,
           },
           includeSession: false);
@@ -149,9 +158,9 @@ class ApiClient {
         throw Exception('Invalid password. Please check your credentials.');
       }
 
-      final user =
-          UserModel.fromJson(Map<String, dynamic>.from(lookup['user']));
-      await _saveSession(user);
+      final user = UserModel.fromJson(lookupUser);
+      final signedSession = pass['session'] as String?;
+      await _saveSession(user, signedSession: signedSession);
       return user;
     } catch (e) {
       final errStr = e.toString().toLowerCase();
@@ -439,8 +448,32 @@ class ApiClient {
     if (bearerToken != null) headers['authorization'] = 'Bearer $bearerToken';
     if (includeSession) {
       final prefs = await SharedPreferences.getInstance();
+      var signed = prefs.getString(_signedSessionKey);
       final session = prefs.getString(_sessionKey);
-      if (session != null) {
+
+      // Auto-exchange legacy unsigned session for signed HMAC cookie
+      if ((signed == null || signed.isEmpty) && session != null) {
+        try {
+          final userJson = jsonDecode(Uri.decodeComponent(session));
+          final base = await baseUrl;
+          final res = await http.post(
+            Uri.parse('$base/api/auth/session'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'user': userJson}),
+          ).timeout(const Duration(seconds: 4));
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
+            if (data['session'] is String && (data['session'] as String).isNotEmpty) {
+              signed = data['session'] as String;
+              await prefs.setString(_signedSessionKey, signed);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (signed != null && signed.isNotEmpty) {
+        headers['cookie'] = 'school_erp_session=$signed';
+      } else if (session != null) {
         final user = UserModel.fromJson(Map<String, dynamic>.from(
             jsonDecode(Uri.decodeComponent(session))));
         final compact = Uri.encodeComponent(jsonEncode(user.toSessionJson()));
@@ -470,14 +503,18 @@ class ApiClient {
     return json;
   }
 
-  static Future<void> _saveSession(UserModel user) async {
+  static Future<void> _saveSession(UserModel user, {String? signedSession}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
         _sessionKey, Uri.encodeComponent(jsonEncode(user.toSessionJson())));
+    if (signedSession != null && signedSession.isNotEmpty) {
+      await prefs.setString(_signedSessionKey, signedSession);
+    }
   }
 
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);
+    await prefs.remove(_signedSessionKey);
   }
 }

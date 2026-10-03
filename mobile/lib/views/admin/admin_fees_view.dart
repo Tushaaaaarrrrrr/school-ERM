@@ -23,7 +23,9 @@ class _AdminFeesViewState extends State<AdminFeesView> {
   }
 
   void _refresh() {
-    setState(() => _future = ApiClient.getFeeInvoices());
+    setState(() {
+      _future = ApiClient.getFeeInvoices();
+    });
   }
 
   @override

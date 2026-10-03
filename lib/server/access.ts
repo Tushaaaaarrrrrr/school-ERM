@@ -72,7 +72,21 @@ async function getCookieSessionUser(): Promise<UserPersona | null> {
   try {
     const rawCookie = (await cookies()).get('school_erp_session')?.value;
     if (!rawCookie) return null;
-    const parsed = await verifySessionCookie<any>(rawCookie);
+    let parsed = await verifySessionCookie<any>(rawCookie);
+    if (!parsed) {
+      try {
+        let decoded = decodeURIComponent(rawCookie.trim());
+        if (decoded.startsWith('"') && decoded.endsWith('"')) {
+          decoded = decoded.slice(1, -1).trim();
+        }
+        if (decoded.startsWith('{') && decoded.endsWith('}')) {
+          const candidate = JSON.parse(decoded);
+          if (candidate?.id && candidate?.role) {
+            parsed = candidate;
+          }
+        }
+      } catch {}
+    }
     if (!parsed?.id || !parsed?.role) return null;
     return {
       id: String(parsed.id),

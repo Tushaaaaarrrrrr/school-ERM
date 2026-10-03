@@ -10,6 +10,15 @@ const passwordInput = z.object({
   userId: optionalId,
   email: optionalId,
   loginId: optionalId,
+  name: optionalId,
+  teacherId: optionalId,
+  teacher_id: optionalId,
+  studentId: optionalId,
+  student_id: optionalId,
+  staffId: optionalId,
+  staff_id: optionalId,
+  parentId: optionalId,
+  parent_id: optionalId,
   role: z.string().max(40).nullish(),
   password: z.string().max(200).nullish(),
   isSuperAdmin: z.boolean().nullish(),
@@ -152,15 +161,69 @@ export async function POST(request: Request) {
       const valid = await checkPassword(ids, cleanPass, role ?? undefined);
       if (valid) {
         accountKeys.forEach(clearFailures);
+        let resolvedSchoolId = body.schoolId || body.school_id;
+        let resolvedTeacherId = body.teacherId || body.teacher_id;
+        let resolvedStudentId = body.studentId || body.student_id;
+        let resolvedStaffId = body.staffId || body.staff_id;
+        let resolvedParentId = body.parentId || body.parent_id;
+        let resolvedName = body.name;
+
+        if (!resolvedSchoolId) {
+          try {
+            const schools = await serverDb.getSchools();
+            for (const s of schools) {
+              const [teachers, students, staff, parents] = await Promise.all([
+                serverDb.getTeachers(s.id),
+                serverDb.getStudents(s.id),
+                serverDb.getStaff(s.id),
+                serverDb.getParents(s.id),
+              ]);
+              const matchT = teachers.find((t: any) => ids.includes(String(t.id).toLowerCase()) || ids.includes(String(t.email || '').toLowerCase()) || ids.includes(String(t.employee_number || '').toLowerCase()));
+              if (matchT) {
+                resolvedSchoolId = s.id;
+                resolvedTeacherId = resolvedTeacherId || matchT.id;
+                resolvedName = resolvedName || `${matchT.first_name} ${matchT.last_name}`.trim();
+                break;
+              }
+              const matchS = students.find((st: any) => ids.includes(String(st.id).toLowerCase()) || ids.includes(String(st.registration_number || '').toLowerCase()) || ids.includes(String(st.email || '').toLowerCase()));
+              if (matchS) {
+                resolvedSchoolId = s.id;
+                resolvedStudentId = resolvedStudentId || matchS.id;
+                resolvedName = resolvedName || `${matchS.first_name} ${matchS.last_name}`.trim();
+                break;
+              }
+              const matchSt = staff.find((st: any) => ids.includes(String(st.id).toLowerCase()) || ids.includes(String(st.email || '').toLowerCase()) || ids.includes(String(st.employee_number || '').toLowerCase()));
+              if (matchSt) {
+                resolvedSchoolId = s.id;
+                resolvedStaffId = resolvedStaffId || matchSt.id;
+                resolvedName = resolvedName || `${matchSt.first_name} ${matchSt.last_name}`.trim();
+                break;
+              }
+              const matchP = parents.find((p: any) => ids.includes(String(p.id).toLowerCase()) || ids.includes(String(p.email || '').toLowerCase()) || ids.includes(String(p.primary_phone || '').replace(/\D/g, '')));
+              if (matchP) {
+                resolvedSchoolId = s.id;
+                resolvedParentId = resolvedParentId || matchP.id;
+                resolvedName = resolvedName || matchP.full_name;
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+
         const sessionPayload = {
           id: userId || identifier || 'user',
           role: role || 'student',
+          name: resolvedName,
           email: email || (identifier?.includes('@') ? identifier : undefined),
           login_id: loginId || identifier,
-          school_id: body.schoolId || body.school_id,
+          school_id: resolvedSchoolId,
+          teacher_id: resolvedTeacherId,
+          student_id: resolvedStudentId,
+          staff_id: resolvedStaffId,
+          parent_id: resolvedParentId,
         };
         const session = await signSessionCookie(sessionPayload);
-        const response = NextResponse.json({ success: true, valid: true, session });
+        const response = NextResponse.json({ success: true, valid: true, session, user: sessionPayload });
         response.cookies.set('school_erp_session', session, {
           path: '/',
           maxAge: 604800,
