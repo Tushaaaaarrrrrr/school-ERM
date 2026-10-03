@@ -71,13 +71,15 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function FeesManagementPage() {
   const { currentSchool, currentUser } = useAuth();
-  const schoolId = currentSchool?.id || 'sch-001';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
   const { success, error: toastError } = useToast();
 
   // Tab view: 'invoices' | 'receipts' | 'collections' | 'structures' | 'bulk_charges'
   const [activeView, setActiveView] = useState<'invoices' | 'receipts' | 'collections' | 'structures' | 'bulk_charges'>('invoices');
 
   const [invoices, setInvoices] = useState<StudentFeeInvoice[]>([]);
+  const [recoveryInvoices, setRecoveryInvoices] = useState<StudentFeeInvoice[]>([]);
+  const [recoveringId, setRecoveringId] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
@@ -170,6 +172,7 @@ export default function FeesManagementPage() {
       ]);
 
       setInvoices(invList);
+      setRecoveryInvoices(feeService.getInvoiceRecoveryCandidates(schoolId));
       setReceipts(rcpList);
       setClasses(clsList);
       setFeeSummary(fSummary);
@@ -187,6 +190,17 @@ export default function FeesManagementPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const restoreInvoice = async (invoice: StudentFeeInvoice) => {
+    setRecoveringId(invoice.id);
+    try {
+      await feeService.recoverInvoice(schoolId, invoice);
+      success('Saved invoice restored to the database.');
+      await loadData();
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : 'Invoice recovery failed.');
+    } finally { setRecoveringId(null); }
   };
 
   const loadCollections = async () => {
@@ -409,6 +423,16 @@ export default function FeesManagementPage() {
   return (
     <FeatureGuard feature="fees">
       <div className="space-y-6 text-left w-full">
+      {recoveryInvoices.length > 0 && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+          <p className="font-semibold text-amber-900">Saved browser invoices need recovery</p>
+          <p className="text-sm text-amber-800">These records were not confirmed in the database. Review each record before restoring it. Payment receipts are not recreated.</p>
+          {recoveryInvoices.map((invoice) => <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-amber-200 pt-3">
+            <p className="text-sm">{invoice.registration_number || invoice.student_name || invoice.student_id} · {invoice.billing_month} · Total {formatCurrency(invoice.final_amount)} · Paid {formatCurrency(invoice.paid_amount)}</p>
+            <Button size="sm" variant="secondary" isLoading={recoveringId === invoice.id} disabled={recoveringId !== null} onClick={() => restoreInvoice(invoice)}>Restore saved invoice</Button>
+          </div>)}
+        </section>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

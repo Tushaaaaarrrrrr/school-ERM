@@ -21,7 +21,8 @@ export async function GET(request: Request) {
         allowedStudentIds?.has(invoice.registration_number) ||
         allowedStudentIds?.has(String(invoice.registration_number || '').toLowerCase())
       );
-    } else if (requestedStudentId) {
+    }
+    if (requestedStudentId) {
       const target = requestedStudentId.toLowerCase();
       const clean = target.replace(/^usr-/, '');
       data = data.filter((invoice: any) => {
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
         return sId === target || sId === clean || sReg === target || sReg === clean;
       });
     }
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     return errorResponse(error);
   }
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const body = await request.json();
     const data = await serverDb.createFeeInvoice({ ...body, school_id: access.schoolId });
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     return errorResponse(error);
   }

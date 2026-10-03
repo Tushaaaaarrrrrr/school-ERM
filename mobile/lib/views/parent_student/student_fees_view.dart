@@ -174,25 +174,10 @@ class StudentFeesView extends StatelessWidget {
                             fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       subtitle: Text(
-                        invoice.invoiceNumber,
-                        style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 11),
+                        'Paid ${AppFormatters.currency(invoice.paidAmount)} · Due ${AppFormatters.currency(invoice.dueBalance)}',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                       ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${AppFormatters.currency(invoice.paidAmount)} / ${AppFormatters.currency(invoice.amount)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          _status(invoice.status),
-                        ],
-                      ),
+                      trailing: _status(invoice.status),
                     ),
                   );
                 },

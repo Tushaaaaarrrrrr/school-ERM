@@ -12,6 +12,7 @@ import '../../core/widgets/user_avatar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_client.dart';
 import '../../data/services/auth_service.dart';
+import '../../viewmodels/student_viewmodel.dart';
 import '../auth/pin_lock_screen.dart';
 
 // Teacher Views
@@ -81,6 +82,7 @@ class _MainShellViewState extends State<MainShellView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshStudentFees();
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
@@ -123,7 +125,15 @@ class _MainShellViewState extends State<MainShellView>
     } catch (_) {}
   }
 
+  void _refreshStudentFees() {
+    final user = context.read<AuthService>().currentUser;
+    if (user.role == UserRole.student || user.role == UserRole.parent) {
+      context.read<StudentViewModel>().refresh(user);
+    }
+  }
+
   void _onTabSelected(int index) {
+    if (index == 4) _refreshStudentFees();
     if (_currentIndex == index && !_showMore) return;
     setState(() {
       _showMore = false;

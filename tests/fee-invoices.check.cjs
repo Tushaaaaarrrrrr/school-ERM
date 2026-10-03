@@ -1,0 +1,35 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const path = require('node:path');
+function load(file) {
+  const compiled = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../lib/utils', file), 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS}}).outputText;
+  const exports = {};
+  new Function('exports', compiled)(exports);
+  return exports;
+}
+const {feeInvoiceRow, displayFeeInvoice} = load('fee-invoices.ts');
+const {reconcileChargePayments} = load('charge-payments.ts');
+const original = {id: 'legacy-local-id', school_id:'school', student_id:'student', academic_year_id:'year', billing_month:'2026-08', base_amount:2000, final_amount:2000, paid_amount:2000, due_date:'2026-08-10', fine_amount:0, remaining_amount:0, student_name:'Display', payments:[{amount:2000}]};
+const row = feeInvoiceRow(original);
+assert.equal(row.billing_month,'2026-08-01');
+assert.equal(row.status,'paid');
+assert.equal(row.paid_amount,2000);
+for(const key of ['id','payments','remaining_amount','student_name','fine_amount']) assert.equal(key in row,false);
+assert.deepEqual(displayFeeInvoice({...row,id:'database-id'}).remaining_amount,0);
+assert.equal(displayFeeInvoice({...row,id:'database-id'}).billing_month,'2026-08');
+assert.throws(()=>feeInvoiceRow({...original,paid_amount:2001}));
+assert.throws(()=>feeInvoiceRow({...original,billing_month:'2026-99'}));
+assert.throws(()=>feeInvoiceRow({...original,final_amount:NaN}));
+const invoices = [{id:'invoice', school_id:'school', student_id:'student', amount:2000, paid_amount:0, status:'pending'}];
+const receipt = {id:'receipt',school_id:'school',student_id:'student',amount_paid:2000,items:[{item_reference_id:'invoice',item_type:'tuition',amount:2000}]};
+assert.equal(reconcileChargePayments(invoices,[receipt],true)[0].paid_amount,2000);
+assert.equal(reconcileChargePayments(invoices,[receipt,receipt],true)[0].paid_amount,2000);
+assert.equal(reconcileChargePayments(invoices,[{...receipt,student_id:'other'}],true)[0].paid_amount,0);
+assert.equal(reconcileChargePayments(invoices,[{...receipt,is_reversed:true}],true)[0].paid_amount,0);
+const source = fs.readFileSync(path.join(__dirname,'../lib/services/api.ts'),'utf8');
+const read = source.slice(source.indexOf('  async getInvoices('),source.indexOf('  getInvoiceRecoveryCandidates('));
+assert(!read.includes("method: 'POST'"));
+assert(!read.includes("method: 'PUT'"));
+assert(read.includes('return serverInvoices.filter'));
+console.log('Invoice database payload, balances, and read-only server source checks passed');

@@ -1,3 +1,4 @@
+import { feeInvoiceRow, displayFeeInvoice } from '@/lib/utils/fee-invoices';
 import { reconcileChargePayments } from '@/lib/utils/charge-payments';
 // ============================================================================
 // Server Database Engine (Supabase PostgreSQL + Central Enterprise Store)
@@ -2662,13 +2663,13 @@ export const serverDb = {
 
   async createFeeStructure(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      const payload = sanitizeSupabasePayload(data);
-      const { data: created, error } = await supabase.from('fee_structures').insert(payload).select().single();
-      if (!error && created) return created;
-      if (error) throw new Error(`Database createFeeStructure failed: ${error.message}`);
-    }
-    return data;
+    if (!supabase) throw new Error('Fee database is not configured.');
+    if (!Number.isFinite(Number(data.amount)) || Number(data.amount) <= 0) throw new Error('A fee amount greater than zero is required.');
+    const academicYearId = await this.resolveAcademicYearId(data.school_id, data.academic_year_id, new Date().toISOString().slice(0, 10));
+    const payload = sanitizeSupabasePayload({ ...data, academic_year_id: academicYearId });
+    const { data: created, error } = await supabase.from('fee_structures').insert(payload).select().single();
+    if (error || !created) throw new Error(`Fee structure was not saved: ${error?.message || 'No saved record returned'}`);
+    return created;
   },
 
   async updateFeeStructure(id: string, updates: any): Promise<any> {
@@ -2691,107 +2692,47 @@ export const serverDb = {
   },
 
   async getFeeInvoices(schoolId: string): Promise<any[]> {
-    const db = initServerDb();
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      const { data, error } = await supabase.from('student_fee_invoices').select('*').eq('school_id', schoolId);
-      if (!error && data && data.length > 0) return data;
-      if (error) console.warn('Supabase getFeeInvoices fallback to serverDb:', error.message);
-    }
-    const schoolInvoices = db.feeInvoices.filter((i) => i.school_id === schoolId);
-    const students = db.students.filter((s) => s.school_id === schoolId && s.status === 'active');
-    const billingMonth = '2026-08';
-    let generated = false;
-    for (const student of students) {
-      const hasInv = schoolInvoices.some(
-        (inv) =>
-          inv.student_id === student.id ||
-          inv.student_id === student.registration_number ||
-          inv.registration_number === student.registration_number
-      );
-      if (!hasInv) {
-        const studentFullName = `${student.first_name} ${student.last_name}`.trim();
-        const baseAmount = student.monthly_fee_amount || 2000;
-        const newInvoice: StudentFeeInvoice = {
-          id: `inv-${billingMonth.replace('-', '')}-${student.id.slice(-4)}-${Math.floor(Math.random() * 900 + 100)}`,
-          school_id: schoolId,
-          student_id: student.id,
-          academic_year_id: student.current_enrollment?.academic_year_id || 'ay-2026',
-          fee_structure_id: 'fs-default',
-          fee_structure_name: 'Monthly Tuition Fee',
-          billing_month: billingMonth,
-          base_amount: baseAmount,
-          discount_amount: 0,
-          fine_amount: 0,
-          final_amount: baseAmount,
-          paid_amount: 0,
-          remaining_amount: baseAmount,
-          due_date: `${billingMonth}-10`,
-          status: 'pending',
-          student_name: studentFullName,
-          registration_number: student.registration_number,
-          class_name: student.current_enrollment?.class_name || 'Class 6',
-          section_name: student.current_enrollment?.section_name || 'A',
-          created_at: new Date().toISOString(),
-          payments: [],
-        };
-        db.feeInvoices.unshift(newInvoice);
-        schoolInvoices.unshift(newInvoice);
-        generated = true;
-      }
-    }
-    if (generated) {
-      saveFeeInvoicesToFile(db.feeInvoices);
-    }
-    return schoolInvoices;
+    if (!supabase) throw new Error('Fee database is not configured.');
+    const { data, error } = await supabase.from('student_fee_invoices').select('*').eq('school_id', schoolId);
+    if (error) throw new Error(`Database invoice read failed: ${error.message}`);
+    const [students, structures] = await Promise.all([this.getStudents(schoolId), this.getFeeStructures(schoolId)]);
+    const invoices = (data || []).map((row: any) => displayFeeInvoice(row, students.find((student) => student.id === row.student_id), structures.find((structure: any) => structure.id === row.fee_structure_id)));
+    const balances = reconcileChargePayments(invoices.map((invoice: any) => ({ ...invoice, amount: invoice.final_amount })), await this.getPaymentReceipts(schoolId), true);
+    return invoices.map((invoice: any, index: number) => ({ ...invoice, paid_amount: balances[index].paid_amount, remaining_amount: balances[index].remaining_amount, status: balances[index].status }));
   },
 
   async createFeeInvoice(data: any): Promise<any> {
-    const db = initServerDb();
     const supabase = getSupabaseAdmin();
-    let createdItem = data;
-    if (supabase) {
-      try {
-        const payload = sanitizeSupabasePayload(data);
-        const { data: created, error } = await supabase.from('student_fee_invoices').insert(payload).select().single();
-        if (!error && created) createdItem = created;
-      } catch (e) {
-        console.warn('Supabase createFeeInvoice fallback to serverDb:', e);
-      }
-    }
-    const idx = db.feeInvoices.findIndex((i) => i.id === createdItem.id);
-    if (idx !== -1) {
-      db.feeInvoices[idx] = { ...db.feeInvoices[idx], ...createdItem };
-    } else {
-      db.feeInvoices.unshift(createdItem);
-    }
-    saveFeeInvoicesToFile(db.feeInvoices);
-    return createdItem;
+    if (!supabase) throw new Error('Fee database is not configured.');
+    const students = await this.getStudents(data.school_id);
+    const student = students.find((s) => s.id === data.student_id);
+    if (!student) throw new Error('Student not found in this school.');
+    const month = String(data.billing_month || '').slice(0, 7);
+    const years = await this.getAcademicYears(data.school_id);
+    const year = years.find((y: any) => y.id === data.academic_year_id) || years.find((y: any) => y.start_date <= `${month}-01` && `${month}-01` <= y.end_date);
+    if (!year) throw new Error('No academic year matches this invoice.');
+    const structures = await this.getFeeStructures(data.school_id);
+    const structure = structures.find((f: any) => f.id === data.fee_structure_id);
+    if (data.fee_structure_id && isUuidString(data.fee_structure_id) && !structure) throw new Error('Fee structure not found in this school.');
+    const row = feeInvoiceRow({ ...data, academic_year_id: year.id, fee_structure_id: structure?.id || null });
+    const { data: existing, error: lookupError } = await supabase.from('student_fee_invoices').select('*').eq('school_id', data.school_id).eq('student_id', student.id).eq('academic_year_id', year.id).eq('billing_month', row.billing_month);
+    if (lookupError) throw new Error(`Could not check existing invoices: ${lookupError.message}`);
+    if (existing?.length) throw new Error('An invoice already exists for this student and billing month. Refresh before recording another invoice.');
+    const { data: created, error } = await supabase.from('student_fee_invoices').insert(row).select().single();
+    if (error || !created) throw new Error(`Invoice was not saved: ${error?.message || 'No saved record returned'}`);
+    return displayFeeInvoice(created, student, structure);
   },
 
-  async updateFeeInvoice(id: string, updates: any): Promise<any> {
-    const db = initServerDb();
+  async updateFeeInvoice(id: string, updates: any, schoolId: string): Promise<any> {
     const supabase = getSupabaseAdmin();
-    let updatedItem = { id, ...updates };
-    if (supabase && isUuidString(id)) {
-      try {
-        const payload = sanitizeSupabasePayload(updates);
-        delete payload.id;
-        const { data: updated, error } = await supabase.from('student_fee_invoices').update(payload).eq('id', id).select().single();
-        if (!error && updated) updatedItem = updated;
-      } catch (e) {
-        console.warn('Supabase updateFeeInvoice fallback to serverDb:', e);
-      }
-    }
-    const idx = db.feeInvoices.findIndex((i) => i.id === id);
-    if (idx !== -1) {
-      db.feeInvoices[idx] = { ...db.feeInvoices[idx], ...updates, id };
-      updatedItem = db.feeInvoices[idx];
-    } else {
-      db.feeInvoices.push(updatedItem);
-    }
-    saveFeeInvoicesToFile(db.feeInvoices);
-    return updatedItem;
+    if (!supabase || !isUuidString(id)) throw new Error('A saved database invoice is required before recording payment.');
+    const { data: existing, error: readError } = await supabase.from('student_fee_invoices').select('*').eq('id', id).eq('school_id', schoolId).single();
+    if (readError || !existing) throw new Error('Invoice not found in this school.');
+    const row = feeInvoiceRow({ ...existing, ...updates, school_id: schoolId, student_id: existing.student_id, academic_year_id: existing.academic_year_id, fee_structure_id: existing.fee_structure_id });
+    const { data: updated, error } = await supabase.from('student_fee_invoices').update(row).eq('id', id).eq('school_id', schoolId).select().single();
+    if (error || !updated) throw new Error(`Invoice payment was not saved: ${error?.message || 'No saved record returned'}`);
+    return displayFeeInvoice(updated);
   },
 
   async getStudentCharges(schoolId: string): Promise<any[]> {
@@ -2860,19 +2801,11 @@ export const serverDb = {
   },
 
   async getPaymentReceipts(schoolId: string): Promise<any[]> {
-    const db = initServerDb();
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      const { data, error } = await supabase.from('payment_receipts').select('*, items:payment_receipt_items(*)').eq('school_id', schoolId);
-      if (error) throw new Error(`Database receipts read failed: ${error.message}`);
-      const stored = db.paymentReceipts.filter((r) => r.school_id === schoolId);
-      const receipts = (data || []).map((receipt) => {
-        const legacy = stored.find((r) => r.id === receipt.id || r.receipt_number === receipt.receipt_number);
-        return { ...receipt, items: receipt.items?.length ? receipt.items : legacy?.items || [] };
-      });
-      return [...receipts, ...stored.filter((r) => !receipts.some((d) => d.id === r.id || d.receipt_number === r.receipt_number))];
-    }
-    return db.paymentReceipts.filter((r) => r.school_id === schoolId);
+    if (!supabase) throw new Error('Fee database is not configured.');
+    const { data, error } = await supabase.from('payment_receipts').select('*, items:payment_receipt_items(*)').eq('school_id', schoolId);
+    if (error) throw new Error(`Database receipts read failed: ${error.message}`);
+    return data || [];
   },
 
   async createPaymentReceipt(data: any): Promise<any> {
@@ -2884,6 +2817,7 @@ export const serverDb = {
     }
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('Fee database is not configured.');
     let createdItem = data;
     if (supabase) {
       try {

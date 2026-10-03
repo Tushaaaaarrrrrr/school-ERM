@@ -1,7 +1,7 @@
 import type { PaymentReceipt, StudentCharge } from '@/lib/types';
 
 // Receipts allocate cash in item order, with tuition before extra charges.
-export function reconcileChargePayments(charges: StudentCharge[], receipts: PaymentReceipt[]): StudentCharge[] {
+export function reconcileChargePayments(charges: StudentCharge[], receipts: PaymentReceipt[], tuition = false): StudentCharge[] {
   const cents = (value: unknown) => Math.max(0, Math.round((Number(value) || 0) * 100));
   const paid = new Map<string, number>();
   const seen = new Set<string>();
@@ -20,7 +20,7 @@ export function reconcileChargePayments(charges: StudentCharge[], receipts: Paym
       const allocation = Math.min(remaining, cents(item.amount));
       remaining -= allocation;
       const charge = charges.find((c) => c.id === item.item_reference_id && c.school_id === receipt.school_id && c.student_id === receipt.student_id);
-      if (charge && item.item_type !== 'tuition') paid.set(charge.id, (paid.get(charge.id) || 0) + allocation);
+      if (charge && (tuition ? item.item_type === 'tuition' : item.item_type !== 'tuition')) paid.set(charge.id, (paid.get(charge.id) || 0) + allocation);
     }
   }
   return charges.map((charge) => {

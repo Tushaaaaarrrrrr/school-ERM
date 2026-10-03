@@ -6039,219 +6039,93 @@ export const noticeService = {
 
 export const feeService = {
   async getFeeStructures(schoolId: string): Promise<FeeStructure[]> {
-    return storageService.getItem<FeeStructure[]>(STORAGE_KEYS.FEE_STRUCTURES, INITIAL_FEE_STRUCTURES).filter((f) => f.school_id === schoolId);
+    const response = await fetch('/api/fee-structures', { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok || !result.success || !Array.isArray(result.data)) throw new Error(result.error || 'Could not load fee structures.');
+    const list = result.data.filter((row: FeeStructure) => row.school_id === schoolId);
+    storageService.setItem(STORAGE_KEYS.FEE_STRUCTURES, list);
+    return list;
   },
 
-  async createFeeStructure(
-    data: Omit<FeeStructure, 'id' | 'created_at' | 'status'> & { status?: FeeStructure['status'] }
-  ): Promise<FeeStructure> {
-    const list = storageService.getItem<FeeStructure[]>(STORAGE_KEYS.FEE_STRUCTURES, INITIAL_FEE_STRUCTURES);
-    const newFs: FeeStructure = {
-      ...data,
-      id: `fs-${Date.now().toString().slice(-4)}`,
-      status: data.status || 'active',
-      created_at: new Date().toISOString(),
-    };
-    list.push(newFs);
-    storageService.setItem(STORAGE_KEYS.FEE_STRUCTURES, list);
-    return newFs;
+  async createFeeStructure(data: Omit<FeeStructure, 'id' | 'created_at' | 'status'> & { status?: FeeStructure['status'] }): Promise<FeeStructure> {
+    const response = await fetch('/api/fee-structures', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const result = await response.json();
+    if (!response.ok || !result.success || !result.data?.id) throw new Error(result.error || 'Fee structure was not saved.');
+    await this.getFeeStructures(data.school_id);
+    return result.data;
   },
 
   async getInvoices(
     schoolId: string,
     filter?: { studentId?: string; status?: StudentFeeInvoice['status']; month?: string; billingMonth?: string }
   ): Promise<StudentFeeInvoice[]> {
-    if (typeof window !== 'undefined') {
-      try {
-        const queryParams = new URLSearchParams();
-        if (filter?.studentId) queryParams.set('studentId', filter.studentId);
-        const res = await fetch(`/api/fee-invoices?${queryParams.toString()}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            const serverInvoices = json.data as StudentFeeInvoice[];
-            const localInvoices = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
-            serverInvoices.forEach((sInv) => {
-              const idx = localInvoices.findIndex((l) => l.id === sInv.id);
-              if (idx !== -1) {
-                if ((localInvoices[idx].paid_amount || 0) > (sInv.paid_amount || 0)) {
-                  fetch(`/api/fee-invoices/${localInvoices[idx].id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(localInvoices[idx]),
-                  }).catch(() => {});
-                } else {
-                  localInvoices[idx] = sInv;
-                }
-              } else {
-                localInvoices.unshift(sInv);
-              }
-            });
-            localInvoices.forEach((lInv) => {
-              if (lInv.school_id === schoolId && !serverInvoices.some((s) => s.id === lInv.id)) {
-                fetch('/api/fee-invoices', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(lInv),
-                }).catch(() => {});
-              }
-            });
-            storageService.setItem(STORAGE_KEYS.FEE_INVOICES, localInvoices);
-          }
-        }
-      } catch (e) {
-        console.warn('API fee-invoices sync fallback to local cache:', e);
+    const params = new URLSearchParams();
+    if (filter?.studentId) params.set('studentId', filter.studentId);
+    const response = await fetch(`/api/fee-invoices?${params}`, { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok || !result.success || !Array.isArray(result.data)) throw new Error(result.error || 'Could not load saved invoices.');
+    // Preserve old browser records for an administrator to recover; never treat them as server data.
+    const local = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, []);
+    const backup = storageService.getItem<StudentFeeInvoice[]>('school_erp_fee_invoice_recovery', []).filter((invoice) => !result.data.some((row: StudentFeeInvoice) => row.id === invoice.id && Number(row.paid_amount) >= Number(invoice.paid_amount) && Number(row.final_amount) === Number(invoice.final_amount)));
+    local.filter((invoice) => invoice.school_id === schoolId).forEach((invoice) => {
+      const saved = result.data.find((row: StudentFeeInvoice) => row.id === invoice.id);
+      if (!saved || Number(invoice.paid_amount) > Number(saved.paid_amount)) {
+        const index = backup.findIndex((row) => row.id === invoice.id);
+        if (index < 0) backup.push(invoice);
+        else if (invoice.paid_amount > backup[index].paid_amount) backup[index] = invoice;
       }
-    }
-
-    let list = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES).filter(
-      (inv) => inv.school_id === schoolId
-    );
-
-    const targetMonth = filter?.billingMonth || filter?.month;
-    if (filter?.studentId) {
-      const target = filter.studentId.trim().toLowerCase();
-      const clean = target.replace(/^usr-/, '');
-      list = list.filter((inv) => {
-        const sId = String(inv.student_id || '').toLowerCase();
-        const sReg = String(inv.registration_number || '').toLowerCase();
-        return sId === target || sId === clean || sReg === target || sReg === clean;
-      });
-    }
-    if (filter?.status) list = list.filter((inv) => inv.status === filter.status);
-    if (targetMonth) list = list.filter((inv) => inv.billing_month === targetMonth);
-
-    // Auto-generate invoices for school's active students if none exist for this month
-    if (list.length === 0 && targetMonth) {
-      const allInvoices = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
-      const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS).filter(
-        (s) => s.school_id === schoolId && s.status === 'active'
-      );
-      const feeStructures = storageService.getItem<FeeStructure[]>(STORAGE_KEYS.FEE_STRUCTURES, INITIAL_FEE_STRUCTURES).filter(
-        (fs) => fs.school_id === schoolId && fs.status === 'active'
-      );
-      const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter(
-        (c) => c.school_id === schoolId
-      );
-
-      let generated = false;
-      for (const student of students) {
-        const classId = student.current_enrollment?.class_id;
-        const studentClass = classes.find((c) => c.id === classId);
-        const matchingStructure =
-          feeStructures[0] || { id: 'fs-default', name: 'Monthly Tuition Fee', amount: 2000 };
-
-        const baseAmount = student.monthly_fee_amount || matchingStructure.amount || 2000;
-        const finalAmount = baseAmount;
-        const studentFullName = `${student.first_name} ${student.last_name}`.trim();
-
-        const newInvoice: StudentFeeInvoice = {
-          id: `inv-${targetMonth.replace('-', '')}-${student.id.slice(-4)}-${Math.floor(Math.random() * 900 + 100)}`,
-          school_id: schoolId,
-          student_id: student.id,
-          academic_year_id: student.current_enrollment?.academic_year_id || 'ay-2026',
-          fee_structure_id: matchingStructure.id,
-          fee_structure_name: matchingStructure.name,
-          billing_month: targetMonth,
-          base_amount: baseAmount,
-          discount_amount: 0,
-          fine_amount: 0,
-          final_amount: finalAmount,
-          paid_amount: 0,
-          remaining_amount: finalAmount,
-          due_date: `${targetMonth}-10`,
-          status: 'pending',
-          student_name: studentFullName,
-          registration_number: student.registration_number,
-          class_name: studentClass?.name || 'Class 10',
-          section_name: student.current_enrollment?.section_name || 'A',
-          created_at: new Date().toISOString(),
-          payments: [],
-        };
-        allInvoices.unshift(newInvoice);
-        list.push(newInvoice);
-        generated = true;
-        if (typeof window !== 'undefined') {
-          fetch('/api/fee-invoices', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newInvoice),
-          }).catch(() => {});
-        }
-      }
-
-      if (generated) {
-        storageService.setItem(STORAGE_KEYS.FEE_INVOICES, allInvoices);
-      }
-    }
-
-    return list;
+    });
+    storageService.setItem('school_erp_fee_invoice_recovery', backup);
+    const serverInvoices = result.data.filter((invoice: StudentFeeInvoice) => invoice.school_id === schoolId) as StudentFeeInvoice[];
+    storageService.setItem(STORAGE_KEYS.FEE_INVOICES, [...local.filter((invoice) => invoice.school_id !== schoolId || (filter?.studentId && invoice.student_id !== filter.studentId && !serverInvoices.some((row) => row.id === invoice.id))), ...serverInvoices]);
+    const month = filter?.billingMonth || filter?.month;
+    return serverInvoices.filter((invoice) => (!month || invoice.billing_month === month) && (!filter?.status || invoice.status === filter.status));
   },
 
-  async generateMonthlyInvoices(
-    schoolId: string,
-    billingMonth: string = '2026-08'
-  ): Promise<{ generated: number; total: number }> {
-    const list = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
-    const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS).filter(
-      (s) => s.school_id === schoolId && s.status === 'active'
-    );
-    const feeStructures = storageService.getItem<FeeStructure[]>(STORAGE_KEYS.FEE_STRUCTURES, INITIAL_FEE_STRUCTURES).filter(
-      (fs) => fs.school_id === schoolId && fs.status === 'active'
-    );
-    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter(
-      (c) => c.school_id === schoolId
-    );
+  getInvoiceRecoveryCandidates(schoolId: string): StudentFeeInvoice[] {
+    return storageService.getItem<StudentFeeInvoice[]>('school_erp_fee_invoice_recovery', []).filter((invoice) => invoice.school_id === schoolId && invoice.paid_amount > 0);
+  },
 
-    let generatedCount = 0;
-    for (const student of students) {
-      const existing = list.find(
-        (inv) => inv.school_id === schoolId && inv.student_id === student.id && inv.billing_month === billingMonth
-      );
-      if (!existing) {
-        const classId = student.current_enrollment?.class_id;
-        const studentClass = classes.find((c) => c.id === classId);
-        const matchingStructure =
-          feeStructures[0] || { id: 'fs-default', name: 'Monthly Tuition Fee', amount: 2000 };
-
-        const baseAmount = student.monthly_fee_amount || matchingStructure.amount || 2000;
-        const finalAmount = baseAmount;
-        const studentFullName = `${student.first_name} ${student.last_name}`.trim();
-
-        const newInvoice: StudentFeeInvoice = {
-          id: `inv-${billingMonth.replace('-', '')}-${student.id.slice(-4)}-${Math.floor(Math.random() * 900 + 100)}`,
-          school_id: schoolId,
-          student_id: student.id,
-          academic_year_id: student.current_enrollment?.academic_year_id || 'ay-2026',
-          fee_structure_id: matchingStructure.id,
-          fee_structure_name: matchingStructure.name,
-          billing_month: billingMonth,
-          base_amount: baseAmount,
-          discount_amount: 0,
-          fine_amount: 0,
-          final_amount: finalAmount,
-          paid_amount: 0,
-          remaining_amount: finalAmount,
-          due_date: `${billingMonth}-10`,
-          status: 'pending',
-          student_name: studentFullName,
-          registration_number: student.registration_number,
-          class_name: studentClass?.name || 'Class 10',
-          section_name: student.current_enrollment?.section_name || 'A',
-          created_at: new Date().toISOString(),
-          payments: [],
-        };
-        list.unshift(newInvoice);
-        generatedCount++;
-      }
+  async recoverInvoice(schoolId: string, invoice: StudentFeeInvoice): Promise<void> {
+    if (invoice.school_id !== schoolId) throw new Error('Invoice belongs to another school.');
+    const students = await studentService.getStudents(schoolId);
+    const matches = students.filter((student) => student.id === invoice.student_id || (invoice.registration_number && student.registration_number === invoice.registration_number));
+    if (matches.length !== 1) throw new Error('Cannot uniquely identify the student for this invoice.');
+    const existing = (await this.getInvoices(schoolId)).filter((row) => row.student_id === matches[0].id && row.billing_month === invoice.billing_month);
+    if (existing.length > 1) throw new Error('Multiple invoices exist for this month. Review them before recovery.');
+    if (existing.length && (existing[0].final_amount !== invoice.final_amount || existing[0].paid_amount !== invoice.paid_amount)) throw new Error('Database and browser amounts differ. Recovery stopped to avoid overwriting payments.');
+    if (!existing.length) {
+      const response = await fetch('/api/fee-invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...invoice, student_id: matches[0].id }) });
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.data?.id) throw new Error(result.error || 'Invoice recovery was not saved.');
     }
+    const backup = storageService.getItem<StudentFeeInvoice[]>('school_erp_fee_invoice_recovery', []);
+    storageService.setItem('school_erp_fee_invoice_recovery', backup.filter((row) => row.id !== invoice.id));
+  },
 
-    if (generatedCount > 0) {
-      storageService.setItem(STORAGE_KEYS.FEE_INVOICES, list);
+  async generateMonthlyInvoices(schoolId: string, billingMonth: string): Promise<{ generated: number; total: number }> {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(billingMonth)) throw new Error('Select a valid billing month.');
+    const [existing, students] = await Promise.all([this.getInvoices(schoolId, { billingMonth }), studentService.getStudents(schoolId)]);
+    const structures = await this.getFeeStructures(schoolId);
+    let generated = 0;
+    for (const student of students.filter((row) => row.status === 'active')) {
+      if (existing.some((invoice) => invoice.student_id === student.id)) continue;
+      const matching = structures.filter((row) => row.status === 'active' && row.billing_frequency === 'monthly');
+      const structure = matching.length === 1 ? matching[0] : undefined;
+      const amount = student.monthly_fee_amount ?? structure?.amount;
+      if (!Number.isFinite(amount) || Number(amount) <= 0) throw new Error(`Set a monthly fee for ${student.registration_number} before generating invoices.`);
+      if (!structure?.due_day) throw new Error('Set the monthly fee due day before generating invoices.');
+      const lastDay = new Date(Number(billingMonth.slice(0, 4)), Number(billingMonth.slice(5, 7)), 0).getDate();
+      const response = await fetch('/api/fee-invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        school_id: schoolId, student_id: student.id, academic_year_id: student.current_enrollment?.academic_year_id,
+        fee_structure_id: structure.id, billing_month: billingMonth, base_amount: amount, final_amount: amount,
+        paid_amount: 0, due_date: `${billingMonth}-${String(Math.min(structure.due_day, lastDay)).padStart(2, '0')}`,
+      }) });
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.data?.id) throw new Error(result.error || 'Invoice was not saved.');
+      generated++;
     }
-
-    const schoolInvoices = list.filter((inv) => inv.school_id === schoolId && inv.billing_month === billingMonth);
-    return { generated: generatedCount, total: schoolInvoices.length };
+    return { generated, total: (await this.getInvoices(schoolId, { billingMonth })).length };
   },
 
   async getFeeSummary(schoolId: string, month?: string): Promise<{
@@ -6303,31 +6177,11 @@ export const feeService = {
       payment = paymentData!;
     }
 
-    const list = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
-    const index = list.findIndex((inv) => inv.id === invoiceId);
-    if (index === -1) throw new Error('Invoice not found');
-
-    const inv = list[index];
-    const newPayment: StudentPayment = {
-      ...payment,
-      id: `pmt-${Date.now().toString().slice(-4)}`,
-      invoice_id: invoiceId,
-      created_at: new Date().toISOString(),
-    };
-
-    inv.payments = inv.payments || [];
-    inv.payments.push(newPayment);
-    inv.paid_amount += payment.amount;
-    inv.remaining_amount = Math.max(0, inv.final_amount - inv.paid_amount);
-
-    if (inv.paid_amount >= inv.final_amount) {
-      inv.status = 'paid';
-    } else if (inv.paid_amount > 0) {
-      inv.status = 'partial';
-    }
-
-    storageService.setItem(STORAGE_KEYS.FEE_INVOICES, list);
-    return inv;
+    const result = await this.recordComprehensivePayment({ schoolId: payment.school_id, studentId: payment.student_id, invoiceId,
+      amountPaid: payment.amount, paymentMethod: payment.payment_method, paymentDate: payment.payment_date,
+      referenceNumber: payment.reference_number, receivedByName: payment.received_by_name || '', receivedById: payment.received_by, notes: payment.notes });
+    if (!result.invoice) throw new Error('Payment invoice was not returned.');
+    return result.invoice;
   },
 
   async recordComprehensivePayment(params: {
@@ -6350,8 +6204,8 @@ export const feeService = {
     const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
     const school = schools.find((sc) => sc.id === params.schoolId);
 
-    const invoices = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
-    const charges = storageService.getItem<StudentCharge[]>(STORAGE_KEYS.STUDENT_CHARGES, INITIAL_STUDENT_CHARGES);
+    const invoices = await this.getInvoices(params.schoolId, { studentId: params.studentId });
+    const charges = await chargeService.getStudentCharges(params.schoolId, { studentId: params.studentId });
 
     let targetInvoice = params.invoiceId ? invoices.find((i) => i.id === params.invoiceId) : undefined;
     const selectedCharges = (params.chargeIds || [])
@@ -6404,7 +6258,7 @@ export const feeService = {
     if (params.amountPaid > netTotal) throw new Error('Payment exceeds the selected outstanding balance.');
     const paymentDateStr = params.paymentDate || new Date().toISOString().split('T')[0];
     const nowTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const paymentId = `pmt-${Date.now().toString().slice(-4)}`;
+    const paymentId = crypto.randomUUID();
 
     const balanceAfter = Math.max(0, netTotal - params.amountPaid);
 
@@ -6467,8 +6321,6 @@ export const feeService = {
       targetInvoice.payments = targetInvoice.payments || [];
       targetInvoice.payments.push(newPayment);
       remPay -= alloc;
-      storageService.setItem(STORAGE_KEYS.FEE_INVOICES, invoices);
-
       if (typeof window !== 'undefined') {
         try {
           const res = await fetch(`/api/fee-invoices/${targetInvoice.id}`, {
@@ -6477,7 +6329,9 @@ export const feeService = {
             body: JSON.stringify(targetInvoice),
           });
           const result = await res.json();
-          if (!res.ok || !result.success) throw new Error(result.error || 'Receipt issued, but invoice synchronization failed. Refresh before recording another payment.');
+          if (!res.ok || !result.success || !result.data) throw new Error(result.error || 'Receipt issued, but invoice synchronization failed. Refresh before recording another payment.');
+          targetInvoice = result.data;
+          storageService.setItem(STORAGE_KEYS.FEE_INVOICES, invoices.map((invoice) => invoice.id === targetInvoice?.id ? targetInvoice : invoice));
         } catch (e) {
           throw e;
         }
