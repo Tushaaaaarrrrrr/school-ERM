@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_top_header.dart';
+import '../../core/widgets/school_status_card.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/app_drawer.dart';
 import '../../core/widgets/app_svg_icon.dart';
@@ -62,6 +63,8 @@ class _MainShellViewState extends State<MainShellView>
   int _studentsVersion = 0;
   List<int> _tabHistory = [0];
   UserRole? _lastRole;
+  bool _showMore = false;
+  int? _morePage;
 
   @override
   void initState() {
@@ -121,8 +124,10 @@ class _MainShellViewState extends State<MainShellView>
   }
 
   void _onTabSelected(int index) {
-    if (_currentIndex == index) return;
+    if (_currentIndex == index && !_showMore) return;
     setState(() {
+      _showMore = false;
+      _morePage = null;
       _currentIndex = index;
       _tabHistory.remove(index);
       _tabHistory.add(index);
@@ -130,7 +135,34 @@ class _MainShellViewState extends State<MainShellView>
     _saveNavState();
   }
 
+  void _navigate(int index) {
+    final role = context.read<AuthService>().currentUser.role;
+    if (_moreItemsForRole(role).any((item) => item.index == index)) {
+      _openMorePage(index);
+    } else {
+      _onTabSelected(index);
+    }
+  }
+
+  void _openMorePage(int index) {
+    setState(() {
+      _showMore = true;
+      _morePage = index;
+    });
+  }
+
   void _handleDeviceBack() {
+    if (_showMore) {
+      setState(() {
+        if (_morePage != null) {
+          _morePage = null;
+        } else {
+          _showMore = false;
+        }
+      });
+      return;
+    }
+
     // 1. Close drawer if open
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
       _scaffoldKey.currentState?.closeDrawer();
@@ -168,10 +200,22 @@ class _MainShellViewState extends State<MainShellView>
 
     // Reset tab index if user switches persona
     if (_lastRole != currentRole) {
+      _showMore = false;
+      _morePage = null;
       _lastRole = currentRole;
       _currentIndex = 0;
       _tabHistory = [0];
       _saveNavState();
+    }
+
+    // Older installs saved secondary pages as primary tabs.
+    if (!_showMore &&
+        _moreItemsForRole(currentRole)
+            .any((item) => item.index == _currentIndex)) {
+      _morePage = _currentIndex;
+      _showMore = true;
+      _currentIndex = 0;
+      _tabHistory = [0];
     }
 
     return PopScope(
@@ -183,27 +227,54 @@ class _MainShellViewState extends State<MainShellView>
       child: Scaffold(
         key: _scaffoldKey,
         appBar: AppTopHeader(scaffoldKey: _scaffoldKey),
-        drawer: AppDrawer(onNavigate: _onTabSelected),
-        endDrawer: _MoreDrawer(
-          user: auth.currentUser,
-          items: _moreItemsForRole(currentRole),
-          onNavigate: (index) {
-            Navigator.of(context).pop();
-            _onTabSelected(index);
-          },
-        ),
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _getScreensForRole(currentRole),
-        ),
+        drawer: AppDrawer(onNavigate: _navigate),
+        body: _showMore && _morePage == null
+            ? _MoreMenu(
+                user: auth.currentUser,
+                items: _moreItemsForRole(currentRole),
+                onNavigate: _openMorePage,
+              )
+            : Column(children: [
+                if (_showMore)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
+                    child: Row(children: [
+                      TextButton.icon(
+                        onPressed: () => setState(() => _morePage = null),
+                        icon: const Icon(Icons.arrow_back_ios_new, size: 16),
+                        label: const Text('More'),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(
+                              _moreItemsForRole(currentRole)
+                                      .where((item) => item.index == _morePage)
+                                      .map((item) => item.label)
+                                      .firstOrNull ??
+                                  'Details',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600))),
+                    ]),
+                  ),
+                if (!_showMore && _currentIndex == 0)
+                  SchoolStatusCard(key: ValueKey(auth.currentUser.schoolId)),
+                Expanded(
+                    child: IndexedStack(
+                  index: _morePage ?? _currentIndex,
+                  children: _getScreensForRole(currentRole),
+                )),
+              ]),
         bottomNavigationBar: AppBottomNav(
           role: currentRole,
-          currentIndex: _currentIndex,
+          currentIndex: _showMore ? -1 : _currentIndex,
           onTap: _onTabSelected,
           onCreateStudent: currentRole == UserRole.schoolAdmin
               ? _showCreateStudentSheet
               : null,
-          onMore: () => _scaffoldKey.currentState?.openEndDrawer(),
+          onMore: () => setState(() {
+            _showMore = true;
+            _morePage = null;
+          }),
         ),
       ),
     );
@@ -402,7 +473,7 @@ class _MainShellViewState extends State<MainShellView>
     switch (role) {
       case UserRole.teacher:
         return [
-          TeacherHomeView(onTabSelected: _onTabSelected),
+          TeacherHomeView(onTabSelected: _navigate),
           const TeacherAttendanceView(),
           const MobileModuleView(
             title: 'My Attendance & Leave',
@@ -444,7 +515,7 @@ class _MainShellViewState extends State<MainShellView>
         ];
       case UserRole.student:
         return [
-          StudentHomeView(onTabSelected: _onTabSelected),
+          StudentHomeView(onTabSelected: _navigate),
           const StudentClassesView(),
           const StudentTransportView(),
           const StudentResultsView(),
@@ -460,7 +531,7 @@ class _MainShellViewState extends State<MainShellView>
         ];
       case UserRole.parent:
         return [
-          ParentHomeView(onTabSelected: _onTabSelected),
+          ParentHomeView(onTabSelected: _navigate),
           const StudentClassesView(),
           const StudentTransportView(),
           const StudentResultsView(),
@@ -471,10 +542,12 @@ class _MainShellViewState extends State<MainShellView>
             icon: 'sparkles',
             items: ['PIN security', 'Notification preferences', 'App settings'],
           ),
+          const StudentAttendanceView(),
+          const StudentNoticesView(),
         ];
       case UserRole.superAdmin:
         return [
-          SuperAdminOverviewView(onTabSelected: _onTabSelected),
+          SuperAdminOverviewView(onTabSelected: _navigate),
           const SuperAdminSchoolsView(),
           const SuperAdminUsersView(),
           const SuperAdminAccessRequestsView(),
@@ -492,7 +565,7 @@ class _MainShellViewState extends State<MainShellView>
         ];
       case UserRole.schoolAdmin:
         return [
-          AdminHomeView(onTabSelected: _onTabSelected),
+          AdminHomeView(onTabSelected: _navigate),
           AdminStudentsView(key: ValueKey(_studentsVersion)),
           const MobileModuleView(title: 'Teachers', icon: 'teacher', items: [
             'Teacher directory',
@@ -595,7 +668,7 @@ class _MainShellViewState extends State<MainShellView>
         ];
       case UserRole.staff:
         return [
-          AdminHomeView(onTabSelected: _onTabSelected),
+          AdminHomeView(onTabSelected: _navigate),
           const MobileModuleView(title: 'Visitor Lookup', icon: 'bell', items: [
             'Find visitor records',
             'Check student pickup authority'
@@ -616,7 +689,7 @@ class _MainShellViewState extends State<MainShellView>
         ];
       case UserRole.accountant:
         return [
-          AdminHomeView(onTabSelected: _onTabSelected),
+          AdminHomeView(onTabSelected: _navigate),
           const AdminFeesView(),
           const MobileModuleView(
               title: 'Employee Payroll',
@@ -644,6 +717,7 @@ class _MainShellViewState extends State<MainShellView>
             'Notification preferences',
             'App settings'
           ]),
+          const AdminNoticesView(),
         ];
       case UserRole.driver:
         return [
@@ -673,74 +747,66 @@ class _MoreNavItem {
   const _MoreNavItem(this.label, this.index, this.icon);
 }
 
-class _MoreDrawer extends StatelessWidget {
+class _MoreMenu extends StatelessWidget {
   final UserModel user;
   final List<_MoreNavItem> items;
   final ValueChanged<int> onNavigate;
-
-  const _MoreDrawer({
-    required this.user,
-    required this.items,
-    required this.onNavigate,
-  });
+  const _MoreMenu(
+      {required this.user, required this.items, required this.onNavigate});
 
   @override
-  Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top;
-    return Drawer(
-      width: MediaQuery.sizeOf(context).width,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: top),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 12, 16, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        children: [
+          const Text('More',
+              style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 16),
+          _MoreProfileHeader(user: user),
+          const SizedBox(height: 24),
+          const Text('YOUR WORKSPACE',
+              style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted)),
+          const SizedBox(height: 10),
+          Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: AppColors.border)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: 64, endIndent: 16),
+                ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: AppSvgIcon(items[i].icon,
+                        size: 20, color: AppColors.primary),
                   ),
-                  const SizedBox(width: 4),
-                  const Text(
-                    'More',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                children: [
-                  _MoreProfileHeader(user: user),
-                  const SizedBox(height: 14),
-                  ...items.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: ListTile(
-                        leading: AppSvgIcon(
-                          item.icon,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                        title: Text(item.label),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => onNavigate(item.index),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+                  title: Text(items[i].label,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary)),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      size: 20, color: AppColors.textMuted),
+                  onTap: () => onNavigate(items[i].index),
+                ),
+              ],
+            ]),
+          ),
+        ],
+      );
 }
 
 class _MoreProfileHeader extends StatelessWidget {
@@ -754,8 +820,8 @@ class _MoreProfileHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(

@@ -1,3 +1,4 @@
+import { ownPayrollPayments } from '@/lib/utils/payroll-access';
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
 import { requireSchoolAccess } from '@/lib/server/access';
@@ -10,7 +11,11 @@ export async function GET() {
   try {
     const access = await requireSchoolAccess(null, ['school_admin', 'accountant', 'teacher', 'staff']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
-    const data = await serverDb.getEmployeePayments(access.schoolId);
+    let data = await serverDb.getEmployeePayments(access.schoolId);
+    if (access.role === 'teacher' || access.role === 'staff') {
+      const employees = access.role === 'teacher' ? await serverDb.getTeachers(access.schoolId) : await serverDb.getStaff(access.schoolId);
+      data = ownPayrollPayments(data, employees, access.context.user!, access.schoolId, access.role);
+    }
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     return errorResponse(error);

@@ -1,0 +1,16 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const compiled = ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname, '../lib/utils/payroll-access.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+const output = {};
+new Function('exports', compiled)(output);
+const { ownPayrollPayments } = output;
+const employee = { id: 'teacher', school_id: 'school', email: 'teacher@example.com', employee_number: 'T-1' };
+const paid = { id: 'paid', employee_id: 'teacher', school_id: 'school', employee_type: 'teacher', status: 'paid', amount: 25000 };
+const rows = [paid, { ...paid, id: 'other', employee_id: 'another' }, { ...paid, id: 'staff', employee_type: 'staff' }, { ...paid, id: 'other-school', school_id: 'elsewhere' }];
+assert.deepEqual(ownPayrollPayments(rows, [employee], { id: 'profile', email: 'TEACHER@example.com' }, 'school', 'teacher'), [paid]);
+assert.deepEqual(ownPayrollPayments(rows, [employee], { id: 'profile', teacher_id: 'teacher' }, 'school', 'teacher'), [paid]);
+assert.deepEqual(ownPayrollPayments(rows, [employee], { id: 'profile', login_id: 'T-1' }, 'school', 'teacher'), [paid]);
+assert.throws(() => ownPayrollPayments(rows, [employee], { id: 'unknown' }, 'school', 'teacher'));
+assert.throws(() => ownPayrollPayments(rows, [employee, { ...employee, id: 'duplicate' }], { id: 'profile', email: employee.email }, 'school', 'teacher'));
+console.log('Payroll access checks passed');

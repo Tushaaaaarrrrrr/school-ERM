@@ -2925,7 +2925,7 @@ export const serverDb = {
       if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
     }
-    return [];
+    throw new Error('Payroll database is not configured.');
   },
 
   async createEmployeePayment(data: any): Promise<any> {
@@ -2936,19 +2936,21 @@ export const serverDb = {
       if (!error && created) return created;
       if (error) throw new Error(`Database createEmployeePayment failed: ${error.message}`);
     }
-    return data;
+    throw new Error('Payroll database is not configured.');
   },
 
-  async updateEmployeePayment(id: string, updates: any): Promise<any> {
+  async updateEmployeePayment(id: string, updates: any, schoolId?: string): Promise<any> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(id)) {
       const payload = sanitizeSupabasePayload(updates);
       delete payload.id;
-      const { data: updated, error } = await supabase.from('employee_payments').update(payload).eq('id', id).select().single();
+      let query = supabase.from('employee_payments').update(payload).eq('id', id);
+      if (schoolId) query = query.eq('school_id', schoolId);
+      const { data: updated, error } = await query.select().single();
       if (!error && updated) return updated;
       if (error) throw new Error(`Database updateEmployeePayment failed: ${error.message}`);
     }
-    return { id, ...updates };
+    throw new Error('A persisted payroll record is required before marking payment status.');
   },
 
   async getTeacherPayments(schoolId: string): Promise<any[]> {

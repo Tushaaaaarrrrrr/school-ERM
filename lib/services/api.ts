@@ -3164,6 +3164,16 @@ export const payrollService = {
       INITIAL_EMPLOYEE_PAYMENTS
     ).filter((p) => p.school_id === schoolId);
 
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/employee-payments', { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok || !result.success || !Array.isArray(result.data)) throw new Error(result.error || 'Could not load payroll records.');
+      list = result.data.filter((p: EmployeePayment) => p.school_id === schoolId);
+      storageService.setItem(STORAGE_KEYS.EMPLOYEE_PAYMENTS, list);
+      return list.filter((p) => (!filter?.month || p.billing_month === filter.month) && (!filter?.employeeType || p.employee_type === filter.employeeType) && (!filter?.status || p.status === filter.status))
+        .sort((a, b) => b.billing_month.localeCompare(a.billing_month));
+    }
+
     if (filter?.month) list = list.filter((p) => p.billing_month === filter.month);
     if (filter?.employeeType) list = list.filter((p) => p.employee_type === filter.employeeType);
     if (filter?.status) list = list.filter((p) => p.status === filter.status);
@@ -3208,12 +3218,18 @@ export const payrollService = {
       INITIAL_EMPLOYEE_PAYMENTS
     );
 
-    const newPayment: EmployeePayment = {
+    let newPayment: EmployeePayment = {
       ...payment,
       id: `emp-pmt-${Date.now().toString().slice(-4)}`,
       created_at: new Date().toISOString(),
     };
 
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/employee-payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newPayment) });
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.data) throw new Error(result.error || 'Payroll record was not saved.');
+      newPayment = result.data;
+    }
     list.unshift(newPayment);
     storageService.setItem(STORAGE_KEYS.EMPLOYEE_PAYMENTS, list);
     return newPayment;
@@ -3238,6 +3254,12 @@ export const payrollService = {
       payment_date: status === 'paid' ? details?.payment_date || new Date().toISOString().split('T')[0] : list[index].payment_date,
     };
 
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/employee-payments/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(list[index]) });
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.data) throw new Error(result.error || 'Payment status was not saved.');
+      list[index] = result.data;
+    }
     storageService.setItem(STORAGE_KEYS.EMPLOYEE_PAYMENTS, list);
     return list[index];
   },
@@ -3268,10 +3290,8 @@ export const payrollService = {
     teachers: Teacher[],
     staffList: Staff[]
   ): Promise<EmployeePayment[]> {
-    let list = storageService.getItem<EmployeePayment[]>(
-      STORAGE_KEYS.EMPLOYEE_PAYMENTS,
-      INITIAL_EMPLOYEE_PAYMENTS
-    );
+    const list = await this.getEmployeePayments(schoolId);
+    const savedIds = new Set(list.map((p) => p.id));
 
     const existingKeys = new Set(
       list.filter((p) => p.school_id === schoolId && p.billing_month === billingMonth).map((p) => `${p.employee_type}_${p.employee_id}`)
@@ -3283,7 +3303,7 @@ export const payrollService = {
     teachers.filter((t) => t.status === 'active').forEach((t) => {
       const key = `teacher_${t.id}`;
       if (!existingKeys.has(key)) {
-        const baseSal = t.monthly_salary || t.salary || 35000;
+        const baseSal = t.monthly_salary ?? t.salary ?? 0;
         list.push({
           id: `emp-pmt-${Date.now().toString().slice(-4)}-${t.id.slice(-4)}`,
           school_id: schoolId,
@@ -3306,7 +3326,7 @@ export const payrollService = {
     staffList.filter((s) => s.status === 'active').forEach((s) => {
       const key = `staff_${s.id}`;
       if (!existingKeys.has(key)) {
-        const baseSal = s.salary || 25000;
+        const baseSal = s.salary ?? 0;
         list.push({
           id: `emp-pmt-${Date.now().toString().slice(-4)}-${s.id.slice(-4)}`,
           school_id: schoolId,
@@ -3325,6 +3345,9 @@ export const payrollService = {
       }
     });
 
+    for (let index = 0; index < list.length; index++) {
+      if (!savedIds.has(list[index].id)) list[index] = await this.recordEmployeePayment(list[index]);
+    }
     storageService.setItem(STORAGE_KEYS.EMPLOYEE_PAYMENTS, list);
     return this.getEmployeePayments(schoolId, { month: billingMonth });
   },
@@ -3334,26 +3357,10 @@ export const payrollService = {
     billingMonth: string,
     paymentMethod: EmployeePayment['payment_method'] = 'bank'
   ): Promise<void> {
-    let list = storageService.getItem<EmployeePayment[]>(
-      STORAGE_KEYS.EMPLOYEE_PAYMENTS,
-      INITIAL_EMPLOYEE_PAYMENTS
-    );
-    const today = new Date().toISOString().split('T')[0];
-
-    list = list.map((p) => {
-      if (p.school_id === schoolId && p.billing_month === billingMonth && p.status !== 'paid') {
-        return {
-          ...p,
-          status: 'paid',
-          payment_date: today,
-          payment_method: paymentMethod,
-          reference_number: `BULK-NEFT-${Math.floor(100000 + Math.random() * 900000)}`,
-        };
-      }
-      return p;
-    });
-
-    storageService.setItem(STORAGE_KEYS.EMPLOYEE_PAYMENTS, list);
+    const list = await this.getEmployeePayments(schoolId, { month: billingMonth });
+    for (const payment of list) {
+      if (payment.status !== 'paid') await this.updatePaymentStatus(payment.id, 'paid', { payment_method: paymentMethod });
+    }
   },
 };
 

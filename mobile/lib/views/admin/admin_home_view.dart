@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../data/services/auth_service.dart';
+import '../../data/models/user_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/stat_card.dart';
@@ -13,6 +16,7 @@ class AdminHomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<AuthService>().currentUser.role;
     return FutureBuilder<_AdminHomeData>(
       future: _AdminHomeData.load(),
       builder: (context, snapshot) {
@@ -85,18 +89,21 @@ class AdminHomeView extends StatelessWidget {
                       iconName: 'graduation_cap',
                       title: 'Students',
                       subtitle: 'Directory & admissions',
-                      onTap: () => onTabSelected?.call(1),
+                      onTap: () => onTabSelected
+                          ?.call(role == UserRole.schoolAdmin ? 1 : 3),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _QuickActionCard(
-                      iconName: 'attendance',
-                      title: 'Attendance',
-                      subtitle: 'Live records only',
-                      onTap: () => onTabSelected?.call(5),
+                  if (role != UserRole.accountant)
+                    Expanded(
+                      child: _QuickActionCard(
+                        iconName: 'attendance',
+                        title: 'Attendance',
+                        subtitle: 'Live records only',
+                        onTap: () => onTabSelected
+                            ?.call(role == UserRole.schoolAdmin ? 5 : 4),
+                      ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -107,7 +114,12 @@ class AdminHomeView extends StatelessWidget {
                       iconName: 'receipt',
                       title: 'Fee Desk',
                       subtitle: 'Invoices & receipts',
-                      onTap: () => onTabSelected?.call(14),
+                      onTap: () =>
+                          onTabSelected?.call(role == UserRole.schoolAdmin
+                              ? 14
+                              : role == UserRole.accountant
+                                  ? 1
+                                  : 2),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -116,7 +128,12 @@ class AdminHomeView extends StatelessWidget {
                       iconName: 'bell',
                       title: 'Notices',
                       subtitle: 'Circulars & alerts',
-                      onTap: () => onTabSelected?.call(18),
+                      onTap: () =>
+                          onTabSelected?.call(role == UserRole.schoolAdmin
+                              ? 18
+                              : role == UserRole.accountant
+                                  ? 7
+                                  : 5),
                     ),
                   ),
                 ],

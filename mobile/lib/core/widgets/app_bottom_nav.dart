@@ -172,20 +172,33 @@ class AppBottomNav extends StatelessWidget {
                 return Expanded(
                   child: InkWell(
                     onTap: onMore,
-                    child: const Column(
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.apps_rounded,
-                            size: 21, color: AppColors.textMuted),
-                        SizedBox(height: 4),
-                        Text(
-                          'More',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
-                          ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: currentIndex == -1
+                                  ? AppColors.primaryLight
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20)),
+                          child: Icon(Icons.grid_view_rounded,
+                              size: 21,
+                              color: currentIndex == -1
+                                  ? AppColors.primary
+                                  : AppColors.textMuted),
                         ),
+                        const SizedBox(height: 4),
+                        Text('More',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: currentIndex == -1
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: currentIndex == -1
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary)),
                       ],
                     ),
                   ),

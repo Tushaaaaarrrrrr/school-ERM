@@ -6,68 +6,37 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
-import { payrollService, teacherPaymentService, teacherService } from '@/lib/services/api';
-import { TeacherPayment, Teacher } from '@/lib/types';
+import { payrollService, teacherService } from '@/lib/services/api';
+import { EmployeePayment, Teacher } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { IndianRupee, Receipt, CheckCircle2, Clock } from 'lucide-react';
 import { TableSkeleton, CardSkeleton } from '@/components/ui/skeleton';
 
 export default function TeacherPaymentsPage() {
   const { currentUser, currentSchool } = useAuth();
-  const schoolId = currentSchool?.id || 'sch-001';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [payments, setPayments] = useState<TeacherPayment[]>([]);
+  const [payments, setPayments] = useState<EmployeePayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     async function loadSalaryInfo() {
       setIsLoading(true);
+      setLoadError('');
       try {
         const resolvedTeacher = await teacherService.getTeacherForUser(currentUser, schoolId);
         const teacherId = resolvedTeacher?.id || '';
-        const employeeNumber = resolvedTeacher?.employee_number || '';
-        const teacherFullName = resolvedTeacher ? `${resolvedTeacher.first_name} ${resolvedTeacher.last_name}`.trim().toLowerCase() : '';
-
-        const [tch, empPayments, legacyPayments] = await Promise.all([
-          Promise.resolve(resolvedTeacher),
-          payrollService.getEmployeePayments(schoolId, { employeeType: 'teacher' }),
-          teacherPaymentService.getPayments(schoolId, { teacherId }),
-        ]);
-
-        const matchedPayroll = empPayments.filter((p) => {
-          if (teacherId && p.employee_id === teacherId) return true;
-          if (employeeNumber && p.employee_number === employeeNumber) return true;
-          if (teacherFullName && p.employee_name?.trim().toLowerCase() === teacherFullName) return true;
-          return false;
-        });
-
-        const payrollAsTeacherPayments: TeacherPayment[] = matchedPayroll.map((p) => ({
-          id: p.id,
-          school_id: p.school_id,
-          teacher_id: p.employee_id,
-          teacher_name: p.employee_name,
-          amount: p.amount,
-          billing_month: p.billing_month,
-          payment_date: p.payment_date || p.created_at || new Date().toISOString().split('T')[0],
-          payment_method: p.payment_method || 'bank',
-          reference_number: p.reference_number,
-          status: p.status,
-          notes: p.notes,
-          created_at: p.created_at,
-        }));
-
-        const combined = [
-          ...payrollAsTeacherPayments,
-          ...legacyPayments.filter(
-            (lp) => !payrollAsTeacherPayments.some((pp) => pp.billing_month === lp.billing_month)
-          ),
-        ];
+        if (!schoolId || !teacherId) throw new Error('Your teacher profile could not be resolved.');
+        const tch = resolvedTeacher;
+        const empPayments = await payrollService.getEmployeePayments(schoolId, { employeeType: 'teacher' });
+        const combined = empPayments.filter((p) => p.employee_id === teacherId);
 
         setTeacher(tch);
         setPayments(combined);
       } catch (err) {
-        console.error(err);
+        setLoadError(err instanceof Error ? err.message : 'Could not load salary records.');
       } finally {
         setIsLoading(false);
       }
@@ -89,7 +58,7 @@ export default function TeacherPaymentsPage() {
             Monthly Base Salary
           </span>
           <div className="text-2xl font-bold text-slate-900 mt-1">
-            {formatCurrency(teacher?.monthly_salary || 35000)}
+            {teacher ? formatCurrency(teacher.monthly_salary ?? teacher.salary ?? 0) : '—'}
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Faculty ID: <strong className="text-slate-700 font-mono">{teacher?.employee_number}</strong>
@@ -98,7 +67,7 @@ export default function TeacherPaymentsPage() {
 
         <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Active Direct Bank Deposit</span>
+          <span>Salary payment history</span>
         </div>
       </div>
 
@@ -114,7 +83,7 @@ export default function TeacherPaymentsPage() {
           <div className="p-5">
             <TableSkeleton rows={3} cols={4} />
           </div>
-        ) : payments.length === 0 ? (
+        ) : loadError ? <p role="alert" className="p-5 text-rose-600">{loadError}</p> : payments.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-400">
             No salary disbursement records found.
           </div>
@@ -131,18 +100,18 @@ export default function TeacherPaymentsPage() {
                       Salary Statement ({p.billing_month})
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Credited: {formatDate(p.payment_date)} • Mode:{' '}
-                      <span className="capitalize font-mono">{p.payment_method}</span>
+                      Payment date: {p.payment_date ? formatDate(p.payment_date) : 'Not recorded'} • Mode:{' '}
+                      <span className="capitalize font-mono">{p.payment_method || 'Not recorded'}</span>
                       {p.reference_number && ` (Ref: ${p.reference_number})`}
                     </p>
                   </div>
                 </div>
 
                 <div className="text-left sm:text-right">
-                  <span className="text-base font-bold text-emerald-600">
-                    +{formatCurrency(p.amount)}
+                  <span className={`text-base font-bold ${p.status === 'paid' ? 'text-emerald-600' : 'text-amber-700'}`}>
+                    {formatCurrency(p.amount)}
                   </span>
-                  <span className="block text-[10px] font-bold text-emerald-700 uppercase">
+                  <span className={`block text-[10px] font-bold uppercase ${p.status === 'paid' ? 'text-emerald-700' : 'text-amber-700'}`}>
                     {p.status}
                   </span>
                 </div>

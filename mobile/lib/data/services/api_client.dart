@@ -332,6 +332,11 @@ class ApiClient {
     });
   }
 
+  static Future<Map<String, dynamic>> getSchoolStatus() async {
+    final json = await _get('/api/school-status');
+    return Map<String, dynamic>.from(json['data']);
+  }
+
   static Future<List<Map<String, dynamic>>> getSchools() async {
     final json = await _get('/api/schools');
     return _listFromJson(json);

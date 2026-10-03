@@ -248,7 +248,7 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                     ),
                   ),
                   OutlinedButton(
-                    onPressed: () => widget.onTabSelected?.call(2),
+                    onPressed: () => widget.onTabSelected?.call(4),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF854D0E),
                       padding: const EdgeInsets.symmetric(
@@ -281,7 +281,7 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'award',
                   title: 'Report Cards',
-                  onTap: () => widget.onTabSelected?.call(1),
+                  onTap: () => widget.onTabSelected?.call(3),
                 ),
               ),
               const SizedBox(width: 12),
@@ -289,7 +289,7 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'receipt',
                   title: 'Fee Invoices',
-                  onTap: () => widget.onTabSelected?.call(2),
+                  onTap: () => widget.onTabSelected?.call(4),
                 ),
               ),
             ],
@@ -301,7 +301,7 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'bus',
                   title: 'Bus Transport',
-                  onTap: () => widget.onTabSelected?.call(3),
+                  onTap: () => widget.onTabSelected?.call(2),
                 ),
               ),
               const SizedBox(width: 12),
@@ -309,7 +309,7 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                 child: _ActionCard(
                   icon: 'attendance',
                   title: 'Attendance Record',
-                  onTap: () => widget.onTabSelected?.call(0),
+                  onTap: () => widget.onTabSelected?.call(7),
                 ),
               ),
             ],

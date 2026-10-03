@@ -87,7 +87,8 @@ class TeacherHomeView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.center,
-                      child: const AppSvgIcon('attendance', size: 24, color: Colors.white),
+                      child: const AppSvgIcon('attendance',
+                          size: 24, color: Colors.white),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -135,10 +136,13 @@ class TeacherHomeView extends StatelessWidget {
                 ),
               ),
               InkWell(
-                onTap: () => onTabSelected?.call(4),
+                onTap: () => onTabSelected?.call(5),
                 child: const Text(
                   'View All',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary),
                 ),
               ),
             ],
@@ -156,17 +160,22 @@ class TeacherHomeView extends StatelessWidget {
               child: Center(
                 child: Column(
                   children: [
-                    AppSvgIcon('calendar', size: 36, color: AppColors.textMuted),
+                    AppSvgIcon('calendar',
+                        size: 36, color: AppColors.textMuted),
                     SizedBox(height: 12),
                     Text(
                       'No Schedule Assigned',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppColors.textPrimary),
                     ),
                     SizedBox(height: 4),
                     Text(
                       'Your real timetable will appear here once it is published by the administrator.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),

@@ -18,6 +18,18 @@ class StudentFeesView extends StatelessWidget {
     final vm = context.watch<StudentViewModel>();
     final receipts = vm.receipts;
     final charges = vm.charges;
+    if (vm.feeError != null) {
+      return Center(
+          child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(vm.feeError!, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                FilledButton(
+                    onPressed: vm.isLoading ? null : () => vm.refresh(),
+                    child: const Text('Retry')),
+              ])));
+    }
 
     return RefreshIndicator(
       onRefresh: () => vm.refresh(),
@@ -41,11 +53,15 @@ class StudentFeesView extends StatelessWidget {
                         children: [
                           const Text(
                             'Outstanding Balance',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            AppFormatters.currency(vm.totalOutstandingFee),
+                            vm.isLoading
+                                ? 'Loading…'
+                                : AppFormatters.currency(
+                                    vm.totalOutstandingFee),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
@@ -73,162 +89,162 @@ class StudentFeesView extends StatelessWidget {
                 ),
               ),
             ),
-          const SizedBox(height: 20),
-          const Text(
-            'Official Receipts',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (receipts.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(18),
-                child: Text(
-                  'No payment receipts returned by the school yet.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
+            const SizedBox(height: 20),
+            const Text(
+              'Official Receipts',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
-            )
-          else
-            ...receipts.map((receipt) {
-              final paidAt = DateTime.tryParse(
-                  '${receipt['payment_date'] ?? receipt['created_at'] ?? ''}');
-              return Card(
-                child: ListTile(
-                  title: Text(
-                    '${receipt['receipt_number'] ?? 'Receipt'}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  subtitle: Text(
-                    paidAt == null
-                        ? 'Payment receipt'
-                        : 'Paid ${AppFormatters.date(paidAt)}',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 11),
-                  ),
-                  trailing: Text(
-                    AppFormatters.currency(
-                        (receipt['amount_paid'] as num?) ?? 0),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  onTap: () => _showReceipt(context, receipt),
-                ),
-              );
-            }),
-          const SizedBox(height: 20),
-          const Text(
-            'Invoices',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
             ),
-          ),
-          const SizedBox(height: 12),
-          if (vm.invoices.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(
+            const SizedBox(height: 12),
+            if (receipts.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
                   child: Text(
-                    'No fee invoices returned by the server yet.',
+                    'No payment receipts returned by the school yet.',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: vm.invoices.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final invoice = vm.invoices[index];
+              )
+            else
+              ...receipts.map((receipt) {
+                final paidAt = DateTime.tryParse(
+                    '${receipt['payment_date'] ?? receipt['created_at'] ?? ''}');
                 return Card(
                   child: ListTile(
                     title: Text(
-                      invoice.month.isEmpty ? 'Invoice' : invoice.month,
+                      '${receipt['receipt_number'] ?? 'Receipt'}',
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     subtitle: Text(
-                      invoice.invoiceNumber,
+                      paidAt == null
+                          ? 'Payment receipt'
+                          : 'Paid ${AppFormatters.date(paidAt)}',
                       style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 11),
+                          color: AppColors.textSecondary, fontSize: 11),
                     ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${AppFormatters.currency(invoice.paidAmount)} / ${AppFormatters.currency(invoice.amount)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                    trailing: Text(
+                      AppFormatters.currency(
+                          (receipt['amount_paid'] as num?) ?? 0),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onTap: () => _showReceipt(context, receipt),
+                  ),
+                );
+              }),
+            const SizedBox(height: 20),
+            const Text(
+              'Invoices',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (vm.invoices.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(
+                    child: Text(
+                      'No fee invoices returned by the server yet.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: vm.invoices.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final invoice = vm.invoices[index];
+                  return Card(
+                    child: ListTile(
+                      title: Text(
+                        invoice.month.isEmpty ? 'Invoice' : invoice.month,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        invoice.invoiceNumber,
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 11),
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${AppFormatters.currency(invoice.paidAmount)} / ${AppFormatters.currency(invoice.amount)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                        ),
-                        _status(invoice.status),
-                      ],
+                          _status(invoice.status),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 20),
+            const Text(
+              'Extra Charges & Fines',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (charges.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text(
+                    'No extra charges returned by the school yet.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ),
+              )
+            else
+              ...charges.map((charge) {
+                return Card(
+                  child: ListTile(
+                    title: Text(
+                      '${charge['charge_name'] ?? 'Charge'}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    subtitle: Text(
+                      '${charge['description'] ?? charge['status'] ?? ''}',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 11),
+                    ),
+                    trailing: Text(
+                      AppFormatters.currency(
+                          (charge['remaining_amount'] as num?) ??
+                              (charge['amount'] as num?) ??
+                              0),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 );
-              },
-            ),
-          const SizedBox(height: 20),
-          const Text(
-            'Extra Charges & Fines',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (charges.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(18),
-                child: Text(
-                  'No extra charges returned by the school yet.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-            )
-          else
-            ...charges.map((charge) {
-              return Card(
-                child: ListTile(
-                  title: Text(
-                    '${charge['charge_name'] ?? 'Charge'}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  subtitle: Text(
-                    '${charge['description'] ?? charge['status'] ?? ''}',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 11),
-                  ),
-                  trailing: Text(
-                    AppFormatters.currency(
-                        (charge['remaining_amount'] as num?) ??
-                            (charge['amount'] as num?) ??
-                            0),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              );
-            }),
-        ],
+              }),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   static StatusBadge _status(FeeInvoiceStatus status) {
@@ -314,9 +330,11 @@ class StudentFeesView extends StatelessWidget {
       'Receipt: ${receipt['receipt_number'] ?? '-'}',
       'Amount: ${AppFormatters.currency((receipt['amount_paid'] as num?) ?? 0)}',
       if (paidAt != null) 'Paid: ${AppFormatters.date(paidAt)}',
-      if ('${receipt['payment_method'] ?? receipt['payment_mode'] ?? ''}'.isNotEmpty)
+      if ('${receipt['payment_method'] ?? receipt['payment_mode'] ?? ''}'
+          .isNotEmpty)
         'Mode: ${receipt['payment_method'] ?? receipt['payment_mode']}',
-      if ('${receipt['reference_number'] ?? receipt['transaction_reference'] ?? ''}'.isNotEmpty)
+      if ('${receipt['reference_number'] ?? receipt['transaction_reference'] ?? ''}'
+          .isNotEmpty)
         'Reference: ${receipt['reference_number'] ?? receipt['transaction_reference']}',
     ].join('\n');
   }

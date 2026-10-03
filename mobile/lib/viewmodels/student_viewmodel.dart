@@ -32,6 +32,8 @@ class StudentViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _transportStops = const [];
   List<Map<String, dynamic>> _transportEvents = const [];
   String? _loadedFor;
+  String? _feeError;
+  String? get feeError => _feeError;
 
   StudentModel get student => _student;
   List<FeeInvoiceModel> get invoices => _invoices;
@@ -50,10 +52,16 @@ class StudentViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get transportEvents => _transportEvents;
 
   double get totalOutstandingFee {
-    final invoiceBalance = _invoices.fold(0.0, (acc, inv) => acc + inv.dueBalance);
+    final invoiceBalance =
+        _invoices.fold(0.0, (acc, inv) => acc + inv.dueBalance);
     final chargesBalance = _charges
         .where((c) => c['status'] == 'pending' || c['status'] == 'partial')
-        .fold(0.0, (acc, c) => acc + (((c['remaining_amount'] ?? c['amount'] ?? 0) as num).toDouble()));
+        .fold(
+            0.0,
+            (acc, c) =>
+                acc +
+                (((c['remaining_amount'] ?? c['amount'] ?? 0) as num)
+                    .toDouble()));
     return invoiceBalance + chargesBalance;
   }
 
@@ -69,22 +77,41 @@ class StudentViewModel extends ChangeNotifier {
 
   Future<void> loadFor(UserModel? user, {bool force = false}) async {
     if (user == null) return;
+    if (_currentUser?.id != user.id ||
+        _currentUser?.schoolId != user.schoolId) {
+      _student = const StudentModel(
+          id: '',
+          fullName: '',
+          admissionNumber: '',
+          rollNumber: '',
+          className: '',
+          section: '',
+          gender: '');
+      _invoices = const [];
+      _receipts = const [];
+      _charges = const [];
+      _loadedFor = null;
+    }
     _currentUser = user;
     if (!force && _loadedFor == user.id) return;
-    _loadedFor = user.id;
+    _feeError = null;
     _isLoading = true;
     notifyListeners();
     try {
       final students = await ApiClient.getStudents(schoolId: user.schoolId);
       if (students.isNotEmpty) {
         final loginId = (user.loginId ?? '').toLowerCase();
-        final cleanUserId = user.id.replaceFirst(RegExp(r'^usr-'), '').toLowerCase();
+        final cleanUserId =
+            user.id.replaceFirst(RegExp(r'^usr-'), '').toLowerCase();
         if (user.role == UserRole.parent) {
           _student = students.first;
         } else {
           _student = students.firstWhere(
             (s) =>
-                s.admissionNumber.toLowerCase() == loginId ||
+                (user.studentId?.isNotEmpty == true &&
+                    s.id == user.studentId) ||
+                (loginId.isNotEmpty &&
+                    s.admissionNumber.toLowerCase() == loginId) ||
                 s.id.toLowerCase() == cleanUserId ||
                 s.id.toLowerCase() == user.id.toLowerCase(),
             orElse: () => _student,
@@ -100,18 +127,30 @@ class StudentViewModel extends ChangeNotifier {
       final notices = await ApiClient.getNotices();
       if (notices.isNotEmpty) _notices = notices;
     } catch (_) {}
-    final studentLookupId = _student.id.isNotEmpty
-        ? _student.id
-        : (user.loginId?.isNotEmpty == true ? user.loginId! : user.id.replaceFirst(RegExp(r'^usr-'), ''));
+    final studentLookupId = user.studentId?.isNotEmpty == true
+        ? user.studentId!
+        : _student.id.isNotEmpty
+            ? _student.id
+            : (user.loginId?.isNotEmpty == true
+                ? user.loginId!
+                : user.id.replaceFirst(RegExp(r'^usr-'), ''));
     try {
-      _invoices = await ApiClient.getFeeInvoices(studentId: studentLookupId);
-    } catch (_) {}
-    try {
-      _receipts = await ApiClient.getPaymentReceipts(studentId: studentLookupId);
-    } catch (_) {}
-    try {
-      _charges = await ApiClient.getStudentCharges(studentId: studentLookupId);
-    } catch (_) {}
+      if (studentLookupId.isEmpty)
+        throw Exception(
+            'Student identity is unavailable. Please sign in again.');
+      final invoices =
+          await ApiClient.getFeeInvoices(studentId: studentLookupId);
+      final receipts =
+          await ApiClient.getPaymentReceipts(studentId: studentLookupId);
+      final charges =
+          await ApiClient.getStudentCharges(studentId: studentLookupId);
+      _invoices = invoices;
+      _receipts = receipts;
+      _charges = charges;
+      _loadedFor = user.id;
+    } catch (error) {
+      _feeError = 'Could not load fees from the school server: $error';
+    }
     try {
       _attendance =
           await ApiClient.getStudentAttendance(studentId: studentLookupId);
