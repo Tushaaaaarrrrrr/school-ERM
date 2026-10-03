@@ -95,7 +95,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                     boxShadow: [
                       BoxShadow(
                         color: (isLocked ? Colors.red : const Color(0xFF4F46E5))
-                            .withOpacity(0.4),
+                            .withValues(alpha: 0.4),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -171,7 +171,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade900.withOpacity(0.3),
+                      color: Colors.red.shade900.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.red.shade700),
                     ),
@@ -213,7 +213,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                           color: isFilled
                               ? const Color(0xFF6366F1)
                               : isCurrent
-                                  ? const Color(0xFF4338CA).withOpacity(0.5)
+                                  ? const Color(0xFF4338CA).withValues(alpha: 0.5)
                                   : const Color(0xFF334155),
                           border: Border.all(
                             color: isFilled
@@ -226,7 +226,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                           boxShadow: isFilled
                               ? [
                                   BoxShadow(
-                                    color: const Color(0xFF6366F1).withOpacity(0.5),
+                                    color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                                     blurRadius: 8,
                                     spreadRadius: 1,
                                   )
@@ -298,6 +298,10 @@ class _PinLockScreenState extends State<PinLockScreen> {
                 // Sign out / Persona Switch
                 TextButton.icon(
                   onPressed: () => auth.logout(),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(64, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
                   icon: const Icon(Icons.logout_rounded, size: 16, color: Color(0xFF94A3B8)),
                   label: const Text(
                     'Sign Out / Switch User',
@@ -319,7 +323,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
       child: InkWell(
         onTap: () => _onDigitPressed(label),
         borderRadius: BorderRadius.circular(16),
-        splashColor: const Color(0xFF4F46E5).withOpacity(0.3),
+        splashColor: const Color(0xFF4F46E5).withValues(alpha: 0.3),
         child: Center(
           child: Text(
             label,

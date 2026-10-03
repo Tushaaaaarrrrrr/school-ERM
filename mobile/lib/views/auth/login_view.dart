@@ -101,9 +101,10 @@ class _LoginViewState extends State<LoginView> {
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text('OR SIGN IN WITH CREDENTIALS',
                         style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.textMuted,
-                            fontWeight: FontWeight.w800)),
+                            fontSize: 10.5,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5)),
                   ),
                   Expanded(child: Divider(color: AppColors.border)),
                 ],
@@ -121,7 +122,7 @@ class _LoginViewState extends State<LoginView> {
                   prefixIcon: Padding(
                     padding: EdgeInsets.all(12),
                     child: AppSvgIcon('teacher',
-                        size: 18, color: AppColors.textMuted),
+                        size: 18, color: AppColors.textSecondary),
                   ),
                 ),
               ),
@@ -130,6 +131,9 @@ class _LoginViewState extends State<LoginView> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(64, 48),
+                    ),
                     onPressed: authService.isLoading
                         ? null
                         : () => setState(() {
@@ -151,7 +155,7 @@ class _LoginViewState extends State<LoginView> {
                     prefixIcon: const Padding(
                       padding: EdgeInsets.all(12),
                       child: AppSvgIcon('shield_check',
-                          size: 18, color: AppColors.textMuted),
+                          size: 18, color: AppColors.textSecondary),
                     ),
                     suffixIcon: IconButton(
                       tooltip:
@@ -160,7 +164,7 @@ class _LoginViewState extends State<LoginView> {
                         _passwordVisible
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                       ),
                       onPressed: () =>
                           setState(() => _passwordVisible = !_passwordVisible),
@@ -171,21 +175,24 @@ class _LoginViewState extends State<LoginView> {
               if (authService.error != null) ...[
                 const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.dangerLight,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFECACA), width: 1),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: AppColors.danger, size: 18),
+                      const Icon(Icons.error_outline_rounded,
+                          color: Color(0xFFDC2626), size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           authService.error!,
                           style: const TextStyle(
-                              color: AppColors.danger, fontSize: 12),
+                              color: Color(0xFF991B1B),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -232,8 +239,8 @@ class _LoginViewState extends State<LoginView> {
                 'By continuing, you agree to GI Campus Terms and Conditions & Privacy Policy',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
+                  fontSize: 11.5,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],

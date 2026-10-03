@@ -5,6 +5,7 @@ import { serverDb } from './db';
 import { validateGmailDomain } from './email-registry';
 import { isSuperAdminEmail } from './super-admin';
 import { cookies } from 'next/headers';
+import { verifySessionCookie } from './session-cookie';
 
 export type AccessState = 'SUPER_ADMIN' | 'ACTIVE_SCHOOL_USER' | 'PENDING_ACCESS_REQUEST' | 'NO_SCHOOL_ACCESS' | 'DISABLED' | 'REVOKED';
 
@@ -16,13 +17,14 @@ export async function getAccessContext() {
       const school = cookieUser.school_id ? await serverDb.getSchoolById(cookieUser.school_id) : null;
       return {
         authenticated: true as const,
+        ok: true as const,
         state: cookieUser.role === 'super_admin' ? 'SUPER_ADMIN' as AccessState : 'ACTIVE_SCHOOL_USER' as AccessState,
         user: cookieUser,
         school,
         profile: cookieUser,
       };
     }
-    return { authenticated: false as const };
+    return { authenticated: false as const, ok: false as const, status: 401 as const };
   }
   return resolveAccessContext(supabase, user);
 }
@@ -70,10 +72,7 @@ async function getCookieSessionUser(): Promise<UserPersona | null> {
   try {
     const rawCookie = (await cookies()).get('school_erp_session')?.value;
     if (!rawCookie) return null;
-    let raw = rawCookie.trim();
-    if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.slice(1, -1);
-    try { raw = decodeURIComponent(raw); } catch {}
-    const parsed = JSON.parse(raw);
+    const parsed = await verifySessionCookie<any>(rawCookie);
     if (!parsed?.id || !parsed?.role) return null;
     return {
       id: String(parsed.id),
@@ -868,10 +867,11 @@ export async function requireSchoolAccess(
 
   const context = await getAccessContext();
   if (!context.authenticated) {
+    const rawCookie = (await cookies()).get('school_erp_session')?.value;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const isConfigured = Boolean(url && !url.includes('demo.supabase.co') && !url.includes('your-project-id'));
-    // Never fail open in production: a missing env var must not turn every request into a school admin.
-    if (!isConfigured && process.env.NODE_ENV !== 'production') {
+    // Never fail open in production, and never bypass if an invalid/tampered cookie was presented
+    if (!rawCookie && !isConfigured && process.env.NODE_ENV !== 'production') {
       const allSchools = await serverDb.getSchools();
       const schoolId = requestedSchoolId || allSchools[0]?.id || 'sch-4404';
       const adminUser: UserPersona = { id: 'usr-admin-01', name: 'School Administrator', email: 'admin@school.com', role: 'school_admin', school_id: schoolId };

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { escapeLikePattern } from '@/lib/utils/security';
+import { verifySessionCookie } from '@/lib/server/session-cookie';
 
 const PORTAL_ROLES: Record<string, string[]> = {
   '/admin': ['school_admin'],
@@ -28,19 +29,11 @@ function guardedPortal(pathname: string) {
   return Object.keys(PORTAL_ROLES).find((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-function sessionRoleFromCookie(request: NextRequest) {
+async function sessionRoleFromCookie(request: NextRequest) {
   const sessionCookie = request.cookies.get('school_erp_session')?.value;
   if (!sessionCookie) return undefined;
-  try {
-    let raw = sessionCookie.trim();
-    if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.slice(1, -1);
-    try {
-      raw = decodeURIComponent(raw);
-    } catch {}
-    return JSON.parse(raw)?.role as string | undefined;
-  } catch {
-    return undefined;
-  }
+  const session = await verifySessionCookie<{ role?: string }>(sessionCookie);
+  return session?.role;
 }
 
 export async function middleware(request: NextRequest) {
@@ -56,8 +49,16 @@ export async function middleware(request: NextRequest) {
     !url?.includes('your-project-id') &&
     key !== 'demo-anon-key';
 
-  const cookieRole = sessionRoleFromCookie(request);
-  if (cookieRole) {
+  const sessionCookie = request.cookies.get('school_erp_session')?.value;
+  if (sessionCookie) {
+    const cookieRole = await sessionRoleFromCookie(request);
+    if (!cookieRole) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('next', request.nextUrl.pathname);
+      const res = NextResponse.redirect(loginUrl);
+      res.cookies.delete('school_erp_session');
+      return res;
+    }
     if (portal && !PORTAL_ROLES[portal].includes(cookieRole)) {
       return NextResponse.redirect(new URL(portalForRole(cookieRole), request.url));
     }

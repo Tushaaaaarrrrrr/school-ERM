@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonBody } from '@/lib/server/validation';
+import { signSessionCookie } from '@/lib/server/session-cookie';
 
 const optionalId = z.string().max(254).nullish();
 const passwordInput = z.object({
@@ -12,6 +13,8 @@ const passwordInput = z.object({
   role: z.string().max(40).nullish(),
   password: z.string().max(200).nullish(),
   isSuperAdmin: z.boolean().nullish(),
+  schoolId: optionalId,
+  school_id: optionalId,
 });
 import { serverDb } from '@/lib/server/db';
 import { getSuperAdminEmails, isSuperAdminEmail } from '@/lib/server/super-admin';
@@ -149,6 +152,23 @@ export async function POST(request: Request) {
       const valid = await checkPassword(ids, cleanPass, role ?? undefined);
       if (valid) {
         accountKeys.forEach(clearFailures);
+        const sessionPayload = {
+          id: userId || identifier || 'user',
+          role: role || 'student',
+          email: email || (identifier?.includes('@') ? identifier : undefined),
+          login_id: loginId || identifier,
+          school_id: body.schoolId || body.school_id,
+        };
+        const session = await signSessionCookie(sessionPayload);
+        const response = NextResponse.json({ success: true, valid: true, session });
+        response.cookies.set('school_erp_session', session, {
+          path: '/',
+          maxAge: 604800,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          httpOnly: false,
+        });
+        return response;
       } else {
         recordFailure(ipKey, FAILURE_WINDOW_MS);
         accountKeys.forEach((key) => recordFailure(key, FAILURE_WINDOW_MS));

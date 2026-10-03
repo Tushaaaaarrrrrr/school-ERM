@@ -32,6 +32,14 @@ import {
   ParentStudentLink,
   PaymentReceipt,
   StudentCharge,
+  FeeStructure,
+  FeeStructureVersion,
+  BulkChargeBatch,
+  AcademicYearTransitionBatch,
+  StudentTransitionItem,
+  TransitionSummaryBreakdown,
+  AccountDeletionRequest,
+  SchoolDeletionRequest,
 } from '@/lib/types';
 import {
   INITIAL_SCHOOLS,
@@ -51,6 +59,12 @@ import {
   INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS,
   INITIAL_PAYMENT_RECEIPTS,
   INITIAL_STUDENT_CHARGES,
+  INITIAL_FEE_STRUCTURES,
+  INITIAL_FEE_STRUCTURE_VERSIONS,
+  INITIAL_BULK_CHARGE_BATCHES,
+  INITIAL_TRANSITION_BATCHES,
+  INITIAL_DELETION_REQUESTS,
+  INITIAL_SCHOOL_DELETION_REQUESTS,
 } from '@/lib/services/mock-data';
 import { validateSchoolCodeFormat } from '@/lib/utils/school-code';
 import { isSuperAdminEmail } from '@/lib/server/super-admin';
@@ -84,6 +98,12 @@ declare global {
     salaryAdjustments: EmployeeSalaryAdjustment[];
     parents: ParentProfile[];
     parentLinks: ParentStudentLink[];
+    feeStructures: FeeStructure[];
+    feeStructureVersions: FeeStructureVersion[];
+    bulkChargeBatches: BulkChargeBatch[];
+    transitionBatches: AcademicYearTransitionBatch[];
+    accountDeletionRequests: AccountDeletionRequest[];
+    schoolDeletionRequests: SchoolDeletionRequest[];
   } | undefined;
 }
 
@@ -314,6 +334,8 @@ function emptyServerDb(): NonNullable<typeof globalThis.__SERVER_DB__> {
     subjects: [], timetable: [], attendance: [], feeInvoices: [], paymentReceipts: [], studentCharges: [], teacherPayments: [],
     employeePayments: [], accessRequests: [], holidays: [], recycleBin: [], authEvents: [],
     temporaryAssignments: [], salaryAdjustments: [], parents: [], parentLinks: [],
+    feeStructures: [], feeStructureVersions: [], bulkChargeBatches: [], transitionBatches: [],
+    accountDeletionRequests: [], schoolDeletionRequests: [],
   };
 }
 
@@ -385,6 +407,12 @@ function initServerDb() {
       salaryAdjustments: [...INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS],
       parents: [],
       parentLinks: [],
+      feeStructures: [...INITIAL_FEE_STRUCTURES],
+      feeStructureVersions: [...INITIAL_FEE_STRUCTURE_VERSIONS],
+      bulkChargeBatches: [...INITIAL_BULK_CHARGE_BATCHES],
+      transitionBatches: [...INITIAL_TRANSITION_BATCHES],
+      accountDeletionRequests: [...INITIAL_DELETION_REQUESTS],
+      schoolDeletionRequests: [...INITIAL_SCHOOL_DELETION_REQUESTS],
     };
   }
   return globalThis.__SERVER_DB__!;
@@ -405,7 +433,8 @@ export function sanitizeSupabasePayload(data: any): any {
     'exam_id', 'batch_id', 'bulk_charge_batch_id', 'enrollment_id',
     'auth_user_id', 'marked_by', 'reviewed_by', 'created_by', 'assigned_to',
     'target_class_id', 'target_section_id', 'contacted_parent_id', 'next_class_id',
-    'helper_id', 'payment_id', 'received_by_id', 'cancelled_by'
+    'helper_id', 'payment_id', 'received_by_id', 'cancelled_by',
+    'source_academic_year_id', 'target_academic_year_id'
   ];
   for (const field of uuidFields) {
     if (field in payload) {
@@ -2939,14 +2968,23 @@ export const serverDb = {
     return data;
   },
 
-  async getFeeVersions(schoolId: string): Promise<any[]> {
+  async getFeeVersions(schoolId: string, feeStructureId?: string): Promise<any[]> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase.from('fee_structure_versions').select('*').eq('school_id', schoolId);
+      let query = supabase.from('fee_structure_versions').select('*').eq('school_id', schoolId);
+      if (feeStructureId) {
+        query = query.eq('fee_structure_id', feeStructureId);
+      }
+      const { data, error } = await query.order('effective_from', { ascending: false });
       if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
     }
-    return [];
+    const db = initServerDb();
+    let list = (db.feeStructureVersions || []).filter((v: any) => v.school_id === schoolId);
+    if (feeStructureId) {
+      list = list.filter((v: any) => v.fee_structure_id === feeStructureId);
+    }
+    return list.sort((a: any, b: any) => (b.effective_from || '').localeCompare(a.effective_from || ''));
   },
 
   async createFeeVersion(data: any): Promise<any> {
@@ -2954,31 +2992,231 @@ export const serverDb = {
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('fee_structure_versions').insert(payload).select().single();
-      if (!error && created) return created;
+      if (!error && created) {
+        initServerDb().feeStructureVersions.unshift(created);
+        return created;
+      }
       if (error) throw new Error(`Database createFeeVersion failed: ${error.message}`);
     }
+    initServerDb().feeStructureVersions.unshift(data);
     return data;
+  },
+
+  async updateClassFeeStructure(data: {
+    school_id: string;
+    fee_structure_id: string;
+    class_id: string;
+    class_name?: string;
+    new_amount: number;
+    effective_from: string;
+    reason: string;
+    actorId?: string;
+    actorName?: string;
+  }): Promise<{ version: FeeStructureVersion; affectedStudentsCount: number }> {
+    const supabase = getSupabaseAdmin();
+    const db = initServerDb();
+    let struct: any = null;
+
+    if (supabase) {
+      const { data: found } = await supabase
+        .from('fee_structures')
+        .select('*')
+        .eq('id', data.fee_structure_id)
+        .eq('school_id', data.school_id)
+        .maybeSingle();
+      struct = found;
+    }
+    if (!struct) {
+      struct = db.feeStructures.find((s: any) => s.id === data.fee_structure_id && s.school_id === data.school_id);
+    }
+    if (!struct) throw new Error('Fee structure not found');
+
+    const oldAmount = struct.amount;
+
+    // 1. Close previous version if exists
+    if (supabase) {
+      await supabase
+        .from('fee_structure_versions')
+        .update({ effective_to: data.effective_from })
+        .eq('fee_structure_id', data.fee_structure_id)
+        .is('effective_to', null);
+    }
+    const lastVersionIndex = db.feeStructureVersions.findIndex(
+      (v: any) => v.fee_structure_id === data.fee_structure_id && !v.effective_to
+    );
+    if (lastVersionIndex !== -1) {
+      db.feeStructureVersions[lastVersionIndex].effective_to = data.effective_from;
+    }
+
+    // 2. Add new version entry
+    const newVersion: FeeStructureVersion = {
+      id: `fsv-${Date.now().toString().slice(-4)}`,
+      school_id: data.school_id,
+      fee_structure_id: data.fee_structure_id,
+      amount: data.new_amount,
+      effective_from: data.effective_from,
+      created_by: data.actorId,
+      created_by_name: data.actorName || 'School Administrator',
+      reason: data.reason,
+      created_at: new Date().toISOString(),
+    };
+
+    if (supabase) {
+      const payload = sanitizeSupabasePayload(newVersion);
+      await supabase.from('fee_structure_versions').insert(payload);
+    }
+    db.feeStructureVersions.unshift(newVersion);
+
+    // 3. Update structure amount
+    if (supabase) {
+      await supabase
+        .from('fee_structures')
+        .update({ amount: data.new_amount })
+        .eq('id', data.fee_structure_id);
+    }
+    const sIdx = db.feeStructures.findIndex((s: any) => s.id === data.fee_structure_id);
+    if (sIdx !== -1) {
+      db.feeStructures[sIdx].amount = data.new_amount;
+    }
+
+    // 4. Count affected students
+    const students = await this.getStudents(data.school_id);
+    const affected = students.filter(
+      (st: any) => data.class_id === 'all' || st.current_enrollment?.class_id === data.class_id
+    );
+
+    // 5. Audit log
+    await this.logAuthEvent({
+      school_id: data.school_id,
+      user_id: data.actorId || 'usr-admin-01',
+      event_type: 'fee_structure_changed',
+      success: true,
+      role: 'school_admin',
+      user_name: data.actorName || 'School Administrator',
+      details: {
+        structureName: struct.name,
+        className: data.class_name || 'Class',
+        oldAmount,
+        newAmount: data.new_amount,
+        effectiveFrom: data.effective_from,
+        reason: data.reason,
+        affectedStudents: affected.length,
+      },
+    });
+
+    return { version: newVersion, affectedStudentsCount: affected.length };
   },
 
   async getBulkChargeBatchs(schoolId: string): Promise<any[]> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase.from('bulk_charge_batches').select('*').eq('school_id', schoolId);
+      const { data, error } = await supabase.from('bulk_charge_batches').select('*').eq('school_id', schoolId).order('created_at', { ascending: false });
       if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
     }
-    return [];
+    const db = initServerDb();
+    return (db.bulkChargeBatches || []).filter((b: any) => b.school_id === schoolId).sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
   },
 
   async createBulkChargeBatch(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    const batchId = isUuidString(data.id) ? data.id : (supabase ? undefined : `bcb-${Date.now().toString().slice(-4)}`);
+    const nowIso = new Date().toISOString();
+    const chargeDate = data.charge_date || nowIso.split('T')[0];
+
+    // 1. Get eligible students
+    const allStudents = await this.getStudents(data.school_id);
+    const targetIds = Array.isArray(data.target_student_ids) ? data.target_student_ids : [];
+    const eligibleStudents = allStudents.filter(
+      (s: any) => s.school_id === data.school_id && targetIds.includes(s.id)
+    );
+
+    const totalAmount = (Number(data.amount) || 0) * eligibleStudents.length;
+
+    const batchRecord: any = {
+      ...(batchId ? { id: batchId } : {}),
+      school_id: data.school_id,
+      academic_year_id: data.academic_year_id,
+      name: (data.name || '').trim(),
+      amount: Number(data.amount) || 0,
+      target_type: data.target_type,
+      target_label: data.target_label,
+      target_class_id: data.target_class_id,
+      target_section_id: data.target_section_id,
+      charge_date: chargeDate,
+      due_date: data.due_date,
+      description: data.description,
+      total_students: eligibleStudents.length,
+      total_amount: totalAmount,
+      status: 'active',
+      created_by: data.actorId,
+      created_by_name: data.actorName || 'School Administrator',
+      created_at: nowIso,
+    };
+
+    let createdBatch = batchRecord;
     if (supabase) {
-      const payload = sanitizeSupabasePayload(data);
+      const payload = sanitizeSupabasePayload(batchRecord);
       const { data: created, error } = await supabase.from('bulk_charge_batches').insert(payload).select().single();
-      if (!error && created) return created;
-      if (error) throw new Error(`Database createBulkChargeBatch failed: ${error.message}`);
+      if (error || !created) throw new Error(`Database createBulkChargeBatch failed: ${error?.message}`);
+      createdBatch = created;
     }
-    return data;
+    const db = initServerDb();
+    if (!createdBatch.id) createdBatch.id = `bcb-${Date.now().toString().slice(-4)}`;
+    db.bulkChargeBatches.unshift(createdBatch);
+
+    // 2. Create student charges for each eligible student
+    const newStudentCharges: any[] = eligibleStudents.map((std: any, idx: number) => ({
+      id: `chg-${Date.now().toString().slice(-4)}-${idx + 1}`,
+      school_id: data.school_id,
+      student_id: std.id,
+      academic_year_id: data.academic_year_id,
+      charge_name: (data.name || '').trim(),
+      description: data.description?.trim() || undefined,
+      amount: Number(data.amount) || 0,
+      paid_amount: 0,
+      remaining_amount: Number(data.amount) || 0,
+      charge_date: chargeDate,
+      due_date: data.due_date || undefined,
+      status: 'unpaid',
+      created_by: data.actorId,
+      created_by_name: data.actorName || 'School Administrator',
+      student_name: `${std.first_name || ''} ${std.last_name || ''}`.trim(),
+      registration_number: std.registration_number,
+      bulk_charge_batch_id: createdBatch.id,
+      created_at: nowIso,
+      updated_at: nowIso,
+    }));
+
+    if (supabase && newStudentCharges.length > 0) {
+      const payloads = newStudentCharges.map((chg) => {
+        const p = sanitizeSupabasePayload(chg);
+        delete p.id;
+        return p;
+      });
+      const { error: chgErr } = await supabase.from('student_charges').insert(payloads);
+      if (chgErr) console.warn('Supabase student charges batch insert notice:', chgErr.message);
+    }
+    db.studentCharges.unshift(...newStudentCharges);
+
+    await this.logAuthEvent({
+      school_id: data.school_id,
+      user_id: data.actorId || 'usr-admin-01',
+      event_type: 'bulk_charge_created',
+      success: true,
+      role: 'school_admin',
+      user_name: data.actorName || 'School Administrator',
+      details: {
+        batchId: createdBatch.id,
+        chargeName: data.name,
+        amount: data.amount,
+        target: data.target_label,
+        studentsCount: eligibleStudents.length,
+        totalAmount,
+      },
+    });
+
+    return { batch: createdBatch, chargesCreated: newStudentCharges.length };
   },
 
   async updateBulkChargeBatch(id: string, updates: any): Promise<any> {
@@ -2990,7 +3228,88 @@ export const serverDb = {
       if (!error && updated) return updated;
       if (error) throw new Error(`Database updateBulkChargeBatch failed: ${error.message}`);
     }
+    const db = initServerDb();
+    const idx = db.bulkChargeBatches.findIndex((b: any) => b.id === id);
+    if (idx !== -1) {
+      db.bulkChargeBatches[idx] = { ...db.bulkChargeBatches[idx], ...updates };
+      return db.bulkChargeBatches[idx];
+    }
     return { id, ...updates };
+  },
+
+  async cancelBulkChargeBatch(schoolId: string, batchId: string, actorId?: string, actorName?: string): Promise<any> {
+    const supabase = getSupabaseAdmin();
+    const db = initServerDb();
+
+    let batch: any = null;
+    if (supabase) {
+      const { data: found } = await supabase.from('bulk_charge_batches').select('*').eq('id', batchId).eq('school_id', schoolId).maybeSingle();
+      batch = found;
+    }
+    if (!batch) {
+      batch = db.bulkChargeBatches.find((b: any) => b.id === batchId && b.school_id === schoolId);
+    }
+    if (!batch) throw new Error('Bulk charge batch not found');
+
+    let batchCharges: any[] = [];
+    if (supabase) {
+      const { data: chgs } = await supabase.from('student_charges').select('*').eq('bulk_charge_batch_id', batchId);
+      if (chgs) batchCharges = chgs;
+    }
+    if (batchCharges.length === 0) {
+      batchCharges = db.studentCharges.filter((c: any) => c.bulk_charge_batch_id === batchId);
+    }
+
+    const paidCount = batchCharges.filter((c: any) => (Number(c.paid_amount) || 0) > 0).length;
+    if (paidCount > 0) {
+      throw new Error(
+        `Cannot cancel batch: ${paidCount} students have already made payments against this charge. Please refund or adjust individual receipts first.`
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+    if (supabase) {
+      await supabase
+        .from('student_charges')
+        .update({ status: 'cancelled', waive_reason: 'Bulk charge batch cancelled by administrator', updated_at: nowIso })
+        .eq('bulk_charge_batch_id', batchId);
+    }
+    db.studentCharges.forEach((c: any) => {
+      if (c.bulk_charge_batch_id === batchId) {
+        c.status = 'cancelled';
+        c.waive_reason = 'Bulk charge batch cancelled by administrator';
+        c.updated_at = nowIso;
+      }
+    });
+
+    if (supabase) {
+      await supabase
+        .from('bulk_charge_batches')
+        .update({
+          status: 'cancelled',
+          cancelled_at: nowIso,
+          cancelled_by: actorName || 'School Administrator',
+        })
+        .eq('id', batchId);
+    }
+    const bIdx = db.bulkChargeBatches.findIndex((b: any) => b.id === batchId);
+    if (bIdx !== -1) {
+      db.bulkChargeBatches[bIdx].status = 'cancelled';
+      db.bulkChargeBatches[bIdx].cancelled_at = nowIso;
+      db.bulkChargeBatches[bIdx].cancelled_by = actorName || 'School Administrator';
+    }
+
+    await this.logAuthEvent({
+      school_id: schoolId,
+      user_id: actorId || 'usr-admin-01',
+      event_type: 'bulk_charge_cancelled',
+      success: true,
+      role: 'school_admin',
+      user_name: actorName || 'School Administrator',
+      details: { batchId, cancelledChargesCount: batchCharges.length },
+    });
+
+    return { success: true, cancelledChargesCount: batchCharges.length };
   },
 
   async getExams(schoolId: string): Promise<any[]> {
@@ -3285,11 +3604,12 @@ export const serverDb = {
   async getTransitionBatchs(schoolId: string): Promise<any[]> {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase.from('academic_year_transition_batches').select('*').eq('school_id', schoolId);
+      const { data, error } = await supabase.from('academic_year_transition_batches').select('*').eq('school_id', schoolId).order('created_at', { ascending: false });
       if (!error && data) return data;
       if (error) throw new Error(`Database read failed: ${error.message}`);
     }
-    return [];
+    const db = initServerDb();
+    return (db.transitionBatches || []).filter((b: any) => b.school_id === schoolId).sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
   },
 
   async createTransitionBatch(data: any): Promise<any> {
@@ -3297,9 +3617,13 @@ export const serverDb = {
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('academic_year_transition_batches').insert(payload).select().single();
-      if (!error && created) return created;
+      if (!error && created) {
+        initServerDb().transitionBatches.unshift(created);
+        return created;
+      }
       if (error) throw new Error(`Database createTransitionBatch failed: ${error.message}`);
     }
+    initServerDb().transitionBatches.unshift(data);
     return data;
   },
 
@@ -3312,23 +3636,430 @@ export const serverDb = {
       if (!error && updated) return updated;
       if (error) throw new Error(`Database updateTransitionBatch failed: ${error.message}`);
     }
+    const db = initServerDb();
+    const idx = db.transitionBatches.findIndex((b: any) => b.id === id);
+    if (idx !== -1) {
+      db.transitionBatches[idx] = { ...db.transitionBatches[idx], ...updates };
+      return db.transitionBatches[idx];
+    }
     return { id, ...updates };
   },
 
-  async addToRecycleBin(data: any): Promise<any> {
+  async getTransitionSuggestions(
+    schoolId: string,
+    sourceYearId: string,
+    targetYearId: string
+  ): Promise<{
+    items: StudentTransitionItem[];
+    summary: TransitionSummaryBreakdown;
+    sourceYear: any;
+    targetYear: any;
+  }> {
+    const students = await this.getStudents(schoolId);
+    const classes = await this.getClasses(schoolId);
+    const sections = await this.getSections(schoolId);
+    const academicYears = await this.getAcademicYears(schoolId);
+
+    const sourceYear = academicYears.find((y: any) => y.id === sourceYearId) || academicYears[0] || null;
+    const targetYear = academicYears.find((y: any) => y.id === targetYearId) || academicYears.find((y: any) => y.id !== sourceYearId) || null;
+
+    const items: StudentTransitionItem[] = students.map((st: any) => {
+      const enr = st.current_enrollment;
+      const currentClass = classes.find((c: any) => c.id === enr?.class_id);
+      const currentSection = sections.find((s: any) => s.id === enr?.section_id);
+
+      let suggestedDecision: any = 'promote';
+      let targetClassId: string | undefined = currentClass?.next_class_id;
+      let targetClassName: string | undefined = currentClass?.next_class_name;
+      let targetSectionId: string | undefined = enr?.section_id;
+      let targetSectionName: string | undefined = enr?.section_name;
+      let notes: string | undefined = st.academic_status_note;
+      let isException = false;
+      let requiresResolution = false;
+
+      if (st.progression_status === 'repeat') {
+        suggestedDecision = 'repeat';
+        targetClassId = enr?.class_id;
+        targetClassName = enr?.class_name;
+        isException = true;
+      } else if (st.progression_status === 'left_school' || st.status === 'inactive') {
+        suggestedDecision = 'left_school';
+        targetClassId = undefined;
+        targetClassName = undefined;
+        targetSectionId = undefined;
+        targetSectionName = undefined;
+        isException = true;
+      } else if (st.progression_status === 'transferred') {
+        suggestedDecision = 'transfer_out';
+        targetClassId = undefined;
+        targetClassName = undefined;
+        targetSectionId = undefined;
+        targetSectionName = undefined;
+        isException = true;
+      } else if (
+        st.progression_status === 'graduated' ||
+        (!currentClass?.next_class_id && (currentClass?.sort_order === 10 || currentClass?.name?.includes('10')))
+      ) {
+        suggestedDecision = 'graduate';
+        targetClassId = undefined;
+        targetClassName = undefined;
+        targetSectionId = undefined;
+        targetSectionName = undefined;
+        isException = true;
+      } else if (st.progression_status === 'pending') {
+        suggestedDecision = 'pending';
+        isException = true;
+        requiresResolution = true;
+      } else {
+        if (currentClass?.next_class_id) {
+          suggestedDecision = 'promote';
+          targetClassId = currentClass.next_class_id;
+          const nextCls = classes.find((c: any) => c.id === currentClass.next_class_id);
+          targetClassName = nextCls?.name || currentClass.next_class_name || 'Next Class';
+        } else {
+          suggestedDecision = 'graduate';
+          targetClassId = undefined;
+          targetClassName = undefined;
+          isException = true;
+        }
+      }
+
+      return {
+        student_id: st.id,
+        student_name: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+        registration_number: st.registration_number,
+        roll_number: enr?.roll_number,
+        photo_url: st.photo_url,
+        current_class_id: enr?.class_id || '',
+        current_class_name: enr?.class_name || '—',
+        current_section_id: enr?.section_id || '',
+        current_section_name: enr?.section_name || '—',
+        current_status: st.status,
+        progression_status: st.progression_status || 'ready',
+        suggested_decision: suggestedDecision,
+        selected_decision: suggestedDecision,
+        target_class_id: targetClassId,
+        target_class_name: targetClassName,
+        target_section_id: targetSectionId,
+        target_section_name: targetSectionName,
+        notes,
+        is_exception: isException,
+        requires_resolution: requiresResolution,
+      };
+    });
+
+    const summary: TransitionSummaryBreakdown = {
+      total: items.length,
+      promote: items.filter((i) => i.selected_decision === 'promote').length,
+      repeat: items.filter((i) => i.selected_decision === 'repeat').length,
+      no_new_enrollment: items.filter(
+        (i) => i.selected_decision === 'transfer_out' || i.selected_decision === 'left_school'
+      ).length,
+      graduate: items.filter((i) => i.selected_decision === 'graduate').length,
+      pending: items.filter((i) => i.selected_decision === 'pending').length,
+    };
+
+    return { items, summary, sourceYear, targetYear };
+  },
+
+  async executeAcademicYearTransition(
+    schoolId: string,
+    params: {
+      sourceYearId: string;
+      targetYearId: string;
+      items: StudentTransitionItem[];
+      actorName: string;
+      actorId?: string;
+    }
+  ): Promise<AcademicYearTransitionBatch> {
+    const pendingItems = (params.items || []).filter((i) => i.selected_decision === 'pending');
+    if (pendingItems.length > 0) {
+      throw new Error(
+        `Cannot execute transition with ${pendingItems.length} student(s) still in Pending Decision status. Please resolve all pending decisions first.`
+      );
+    }
+
+    const students = await this.getStudents(schoolId);
+    const classes = await this.getClasses(schoolId);
+    const academicYears = await this.getAcademicYears(schoolId);
+    const sourceYear = academicYears.find((y: any) => y.id === params.sourceYearId);
+    const targetYear = academicYears.find((y: any) => y.id === params.targetYearId);
+
+    const batchId = `trb-${Date.now().toString().slice(-4)}`;
+    const decisionsRecord: any[] = [];
+
+    let promotedCount = 0;
+    let repeatedCount = 0;
+    let leftCount = 0;
+    let graduatedCount = 0;
+
+    for (const item of params.items) {
+      const student = students.find((s: any) => s.id === item.student_id);
+      if (!student) continue;
+
+      const previousEnrollment = student.current_enrollment;
+      const prevEnrollmentId = previousEnrollment?.id || `enr-prev-${item.student_id}`;
+      let newEnrollmentId: string | undefined = undefined;
+      let newStatus = student.status || 'active';
+      let newEnrollment: any = undefined;
+
+      if (item.selected_decision === 'promote') {
+        promotedCount += 1;
+        newEnrollmentId = `enr-${Date.now().toString().slice(-4)}-${student.id.slice(-3)}`;
+        const targetCls = classes.find((c: any) => c.id === item.target_class_id);
+        newEnrollment = {
+          id: newEnrollmentId,
+          school_id: schoolId,
+          student_id: student.id,
+          academic_year_id: params.targetYearId,
+          class_id: item.target_class_id || item.current_class_id,
+          section_id: item.target_section_id || item.current_section_id,
+          roll_number: item.roll_number,
+          joined_at: targetYear?.start_date || '2027-04-01',
+          status: 'active',
+          class_name: targetCls?.name || item.target_class_name || 'Next Class',
+          section_name: item.target_section_name || 'A',
+          academic_year_name: targetYear?.name || '2027-28',
+          created_at: new Date().toISOString(),
+        };
+        newStatus = 'active';
+      } else if (item.selected_decision === 'repeat') {
+        repeatedCount += 1;
+        newEnrollmentId = `enr-${Date.now().toString().slice(-4)}-${student.id.slice(-3)}`;
+        newEnrollment = {
+          id: newEnrollmentId,
+          school_id: schoolId,
+          student_id: student.id,
+          academic_year_id: params.targetYearId,
+          class_id: item.current_class_id,
+          section_id: item.current_section_id,
+          roll_number: item.roll_number,
+          joined_at: targetYear?.start_date || '2027-04-01',
+          status: 'active',
+          class_name: item.current_class_name,
+          section_name: item.current_section_name,
+          academic_year_name: targetYear?.name || '2027-28',
+          created_at: new Date().toISOString(),
+        };
+        newStatus = 'active';
+      } else if (item.selected_decision === 'left_school' || item.selected_decision === 'transfer_out') {
+        leftCount += 1;
+        newStatus = 'inactive';
+      } else if (item.selected_decision === 'graduate') {
+        graduatedCount += 1;
+        newStatus = 'inactive';
+      }
+
+      const updatedEnrollments = student.enrollments ? [...student.enrollments] : [];
+      if (previousEnrollment && !updatedEnrollments.some((e: any) => e.id === previousEnrollment.id)) {
+        updatedEnrollments.push(previousEnrollment);
+      }
+      if (newEnrollment) {
+        updatedEnrollments.push(newEnrollment);
+      }
+
+      await this.updateStudent(student.id, {
+        status: newStatus,
+        ...(newEnrollment ? { current_enrollment: newEnrollment, enrollments: updatedEnrollments } : {}),
+      });
+
+      decisionsRecord.push({
+        student_id: student.id,
+        student_name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+        decision: item.selected_decision,
+        previous_enrollment_id: prevEnrollmentId,
+        new_enrollment_id: newEnrollmentId,
+        target_class_name: item.target_class_name,
+        target_section_name: item.target_section_name,
+      });
+    }
+
+    const batch: AcademicYearTransitionBatch = {
+      id: batchId,
+      school_id: schoolId,
+      source_academic_year_id: params.sourceYearId,
+      source_academic_year_name: sourceYear?.name || '2026-27',
+      target_academic_year_id: params.targetYearId,
+      target_academic_year_name: targetYear?.name || '2027-28',
+      total_students: params.items.length,
+      promoted_count: promotedCount,
+      repeated_count: repeatedCount,
+      left_count: leftCount,
+      graduated_count: graduatedCount,
+      decisions: decisionsRecord,
+      status: 'completed',
+      created_at: new Date().toISOString(),
+      created_by_name: params.actorName,
+      created_by_id: params.actorId,
+    };
+
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const payload = sanitizeSupabasePayload(data);
+      const payload = sanitizeSupabasePayload(batch);
+      await supabase.from('academic_year_transition_batches').insert(payload);
+    }
+    const db = initServerDb();
+    db.transitionBatches.unshift(batch);
+
+    await this.logAuthEvent({
+      school_id: schoolId,
+      user_name: params.actorName,
+      event_type: 'academic_session_transition_completed',
+      success: true,
+      role: 'school_admin',
+      details: {
+        batch_id: batchId,
+        source_year: sourceYear?.name,
+        target_year: targetYear?.name,
+        total_students: params.items.length,
+        promoted_count: promotedCount,
+        repeated_count: repeatedCount,
+      },
+    });
+
+    return batch;
+  },
+
+  async canReverseTransition(schoolId: string, targetYearId: string): Promise<any> {
+    const attendance = await this.getStudentAttendances(schoolId);
+    const invoices = await this.getFeeInvoices(schoolId);
+    const exams = await this.getExams(schoolId);
+
+    const targetAttendance = attendance.filter((a: any) => a.academic_year_id === targetYearId);
+    const targetPaidInvoices = invoices.filter(
+      (i: any) => i.academic_year_id === targetYearId && (Number(i.paid_amount) || 0) > 0
+    );
+    const targetExams = exams.filter(
+      (e: any) => e.academic_year_id === targetYearId && e.status === 'published'
+    );
+
+    const details = {
+      attendanceRecords: targetAttendance.length,
+      paidInvoices: targetPaidInvoices.length,
+      publishedExams: targetExams.length,
+    };
+
+    if (details.attendanceRecords > 0 || details.paidInvoices > 0 || details.publishedExams > 0) {
+      const blockers: string[] = [];
+      if (details.attendanceRecords > 0) blockers.push(`${details.attendanceRecords} attendance records marked`);
+      if (details.paidInvoices > 0) blockers.push(`${details.paidInvoices} fee invoices paid/collected`);
+      if (details.publishedExams > 0) blockers.push(`${details.publishedExams} published exam results`);
+
+      return {
+        canReverse: false,
+        reason: `Transition cannot be reversed because operational records already exist in the target session (${blockers.join(
+          ', '
+        )}). Individual adjustments should be made directly on student profiles.`,
+        details,
+      };
+    }
+
+    return { canReverse: true, details };
+  },
+
+  async reverseAcademicYearTransition(
+    schoolId: string,
+    batchId: string,
+    actorName: string = 'School Admin',
+    actorId?: string
+  ): Promise<AcademicYearTransitionBatch> {
+    const batches = await this.getTransitionBatchs(schoolId);
+    const batch = batches.find((b: any) => b.id === batchId && b.school_id === schoolId);
+    if (!batch) throw new Error('Transition batch not found');
+    if (batch.status === 'reversed') throw new Error('This transition has already been reversed.');
+
+    const check = await this.canReverseTransition(schoolId, batch.target_academic_year_id);
+    if (!check.canReverse) {
+      throw new Error(check.reason || 'Operational records exist. Cannot reverse transition.');
+    }
+
+    const students = await this.getStudents(schoolId);
+    for (const d of batch.decisions || []) {
+      const student = students.find((s: any) => s.id === d.student_id);
+      if (!student) continue;
+
+      let enrollments = (student.enrollments || []).filter((e: any) => e.id !== d.new_enrollment_id);
+      const prev =
+        enrollments.find((e: any) => e.id === d.previous_enrollment_id) ||
+        enrollments[enrollments.length - 1] ||
+        student.current_enrollment;
+
+      await this.updateStudent(student.id, {
+        status: 'active',
+        current_enrollment: prev,
+        enrollments,
+      });
+    }
+
+    batch.status = 'reversed';
+    batch.reversed_at = new Date().toISOString();
+    batch.reversed_by_name = actorName;
+
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      await supabase
+        .from('academic_year_transition_batches')
+        .update({ status: 'reversed', reversed_at: batch.reversed_at, reversed_by_name: actorName })
+        .eq('id', batchId);
+    }
+    const db = initServerDb();
+    const idx = db.transitionBatches.findIndex((b: any) => b.id === batchId);
+    if (idx !== -1) {
+      db.transitionBatches[idx] = batch;
+    }
+
+    await this.logAuthEvent({
+      school_id: schoolId,
+      user_name: actorName,
+      event_type: 'academic_session_transition_reversed',
+      success: true,
+      role: 'school_admin',
+      details: {
+        batch_id: batch.id,
+        target_year: batch.target_academic_year_name,
+        reversed_by: actorName,
+      },
+    });
+
+    return batch;
+  },
+
+  async addToRecycleBin(data: any): Promise<any> {
+    const deletedAt = new Date();
+    const purgeAt = new Date(deletedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const binItem: RecycleBinItem = {
+      id: `bin-${Date.now().toString().slice(-4)}`,
+      school_id: data.school_id || data.schoolId,
+      school_name: data.school_name || data.schoolName,
+      entity_type: data.entity_type || data.entityType,
+      entity_id: data.entity_id || data.entityId,
+      entity_name: data.entity_name || data.entityName,
+      entity_details: data.entity_details || data.entityDetails,
+      original_data: data.original_data || data.originalData,
+      deleted_by_name: data.deleted_by_name || data.deletedByName,
+      deleted_by_role: data.deleted_by_role || data.deletedByRole,
+      deleted_at: deletedAt.toISOString(),
+      permanent_purge_at: purgeAt.toISOString(),
+      status: 'in_bin',
+    };
+
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const payload = sanitizeSupabasePayload(binItem);
       const { data: created, error } = await supabase.from('recycle_bin_items').insert(payload).select().single();
-      if (!error && created) return created;
+      if (!error && created) {
+        initServerDb().recycleBin.unshift(created);
+        return created;
+      }
       if (error) throw new Error(`Database recycle-bin insert failed: ${error.message}`);
     }
     const db = initServerDb();
-    db.recycleBin.unshift(data);
-    return data;
+    db.recycleBin.unshift(binItem);
+    return binItem;
   },
 
   async getRecycleBinItems(schoolId: string): Promise<any[]> {
+    const now = new Date();
     const supabase = getSupabaseAdmin();
     if (supabase) {
       const { data, error } = await supabase
@@ -3336,17 +4067,366 @@ export const serverDb = {
         .select('*')
         .eq('school_id', schoolId)
         .eq('status', 'in_bin');
-      if (!error && data) return data;
+      if (!error && data) {
+        const active = data.filter((item: any) => new Date(item.permanent_purge_at) > now);
+        return active;
+      }
       if (error) throw new Error(`Database recycle-bin fetch failed: ${error.message}`);
     }
     const db = initServerDb();
-    return db.recycleBin.filter((item: any) => item.school_id === schoolId && item.status === 'in_bin');
+    return db.recycleBin.filter((item: any) => {
+      const belongs = item.school_id === schoolId || !item.school_id;
+      if (!belongs) return false;
+      if (item.status === 'in_bin' && new Date(item.permanent_purge_at) <= now) {
+        item.status = 'purged';
+        return false;
+      }
+      return item.status === 'in_bin';
+    });
+  },
+
+  async restoreFromRecycleBin(id: string, restoredByName: string, schoolId?: string): Promise<any> {
+    const supabase = getSupabaseAdmin();
+    const db = initServerDb();
+    let item: any = null;
+
+    if (supabase) {
+      const { data } = await supabase.from('recycle_bin_items').select('*').eq('id', id).maybeSingle();
+      item = data;
+    }
+    if (!item) {
+      item = db.recycleBin.find((i: any) => i.id === id);
+    }
+    if (!item) throw new Error('Recycle Bin item not found');
+    if (schoolId && item.school_id && item.school_id !== schoolId) {
+      throw new Error('Unauthorized access to recycle bin item');
+    }
+    if (item.status !== 'in_bin') throw new Error(`This item is already ${item.status}.`);
+
+    const nowIso = new Date().toISOString();
+    item.status = 'restored';
+    item.restored_at = nowIso;
+    item.restored_by = restoredByName;
+
+    if (supabase) {
+      await supabase.from('recycle_bin_items').update({ status: 'restored', restored_at: nowIso, restored_by: restoredByName }).eq('id', id);
+    }
+    const idx = db.recycleBin.findIndex((i: any) => i.id === id);
+    if (idx !== -1) db.recycleBin[idx] = item;
+
+    const data = item.original_data;
+    if (data && data.id) {
+      if (item.entity_type === 'teacher') {
+        const teachers = await this.getTeachers(item.school_id);
+        if (teachers.some((t: any) => t.id === data.id)) {
+          await this.updateTeacher(data.id, { status: 'active' });
+        } else {
+          await this.createTeacher({ ...data, status: 'active' });
+        }
+      } else if (item.entity_type === 'student') {
+        const students = await this.getStudents(item.school_id);
+        if (students.some((s: any) => s.id === data.id)) {
+          await this.updateStudent(data.id, { status: 'active' });
+        } else {
+          await this.createStudent({ ...data, status: 'active' });
+        }
+      } else if (item.entity_type === 'staff') {
+        const staffList = await this.getStaff(item.school_id);
+        if (staffList.some((s: any) => s.id === data.id)) {
+          await this.updateStaff(data.id, { status: 'active' });
+        } else {
+          await this.createStaff({ ...data, status: 'active' });
+        }
+      } else if (item.entity_type === 'school') {
+        await this.updateSchool(data.id, { status: 'active', pending_deletion_until: undefined });
+      } else if (item.entity_type === 'room') {
+        await this.createRoom(data);
+      } else if (item.entity_type === 'vehicle') {
+        await this.createVehicle(data);
+      } else if (item.entity_type === 'route') {
+        await this.createTransportRoute(data);
+      } else if (item.entity_type === 'notice') {
+        await this.createNotice(data);
+      } else if (item.entity_type === 'holiday') {
+        await this.createHoliday(data);
+      }
+    }
+
+    await this.logAuthEvent({
+      school_id: item.school_id,
+      school_name: item.school_name,
+      event_type: 'entity_restored_from_recycle_bin',
+      success: true,
+      user_name: restoredByName,
+      details: {
+        entity_type: item.entity_type,
+        entity_name: item.entity_name,
+      },
+    });
+
+    return item;
   },
 
   async removeFromRecycleBin(id: string): Promise<void> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(id)) {
       await supabase.from('recycle_bin_items').delete().eq('id', id);
+    }
+  },
+
+  async getAccountDeletionRequests(schoolId?: string, requestedBy?: string): Promise<AccountDeletionRequest[]> {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      let query = supabase.from('account_deletion_requests').select('*');
+      if (schoolId) query = query.eq('school_id', schoolId);
+      if (requestedBy) query = query.eq('requested_by', requestedBy);
+      const { data, error } = await query.order('requested_at', { ascending: false });
+      if (!error && data) return data;
+      if (error) throw new Error(`Database read failed: ${error.message}`);
+    }
+    const db = initServerDb();
+    let list = db.accountDeletionRequests || [];
+    if (schoolId) list = list.filter((r) => r.school_id === schoolId);
+    if (requestedBy) list = list.filter((r) => r.requested_by === requestedBy);
+    return list.sort((a, b) => (b.requested_at || '').localeCompare(a.requested_at || ''));
+  },
+
+  async createAccountDeletionRequest(data: any): Promise<AccountDeletionRequest> {
+    const newReq: AccountDeletionRequest = {
+      id: `del-req-${Date.now().toString().slice(-4)}`,
+      school_id: data.school_id,
+      school_name: data.school_name,
+      user_id: data.user_id,
+      user_role: data.user_role,
+      user_name: data.user_name,
+      user_email: data.user_email,
+      requested_by: data.requested_by || data.user_id,
+      request_reason: data.request_reason,
+      status: 'pending',
+      requested_at: new Date().toISOString(),
+    };
+
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const payload = sanitizeSupabasePayload(newReq);
+      const { data: created, error } = await supabase.from('account_deletion_requests').insert(payload).select().single();
+      if (!error && created) {
+        initServerDb().accountDeletionRequests.unshift(created);
+        return created;
+      }
+    }
+    initServerDb().accountDeletionRequests.unshift(newReq);
+
+    await this.logAuthEvent({
+      school_id: data.school_id,
+      user_id: data.user_id,
+      event_type: 'user_deletion_attempt',
+      success: true,
+      role: data.user_role,
+      user_name: data.user_name,
+      details: { reason: data.request_reason },
+    });
+
+    return newReq;
+  },
+
+  async reviewAccountDeletionRequest(
+    requestId: string,
+    decision: 'approved' | 'rejected',
+    reviewReason?: string,
+    reviewerId?: string,
+    reviewerName?: string,
+    schoolId?: string
+  ): Promise<AccountDeletionRequest> {
+    const supabase = getSupabaseAdmin();
+    const db = initServerDb();
+    let req: any = null;
+
+    if (supabase) {
+      const { data } = await supabase.from('account_deletion_requests').select('*').eq('id', requestId).maybeSingle();
+      req = data;
+    }
+    if (!req) {
+      req = db.accountDeletionRequests.find((r) => r.id === requestId);
+    }
+    if (!req) throw new Error('Deletion request not found');
+
+    if (decision === 'rejected' && !reviewReason?.trim()) {
+      throw new Error('A mandatory reason is required when rejecting an account deletion request.');
+    }
+
+    const nowIso = new Date().toISOString();
+    const updates: Partial<AccountDeletionRequest> = {
+      status: decision === 'approved' ? 'completed' : 'rejected',
+      reviewed_by: reviewerId || 'admin',
+      reviewed_by_name: reviewerName || 'School Administrator',
+      review_reason: reviewReason || '',
+      reviewed_at: nowIso,
+      ...(decision === 'approved' ? { completed_at: nowIso } : {}),
+    };
+
+    if (supabase) {
+      const payload = sanitizeSupabasePayload(updates);
+      await supabase.from('account_deletion_requests').update(payload).eq('id', requestId);
+    }
+
+    const updated = { ...req, ...updates };
+    const idx = db.accountDeletionRequests.findIndex((r) => r.id === requestId);
+    if (idx !== -1) db.accountDeletionRequests[idx] = updated;
+
+    return updated;
+  },
+
+  async suspendSchool(
+    schoolId: string,
+    typedSchoolCode: string,
+    reason?: string,
+    superAdminName?: string
+  ): Promise<School> {
+    const school = await this.getSchoolById(schoolId);
+    if (!school) throw new Error('School not found');
+
+    if (typedSchoolCode.trim().toUpperCase() !== school.code.toUpperCase()) {
+      throw new Error(`School code confirmation mismatch. Expected ${school.code}`);
+    }
+
+    const updated = await this.updateSchool(schoolId, { status: 'suspended' });
+
+    await this.logAuthEvent({
+      school_id: schoolId,
+      school_name: school.name,
+      event_type: 'school_suspension_attempt',
+      success: true,
+      role: 'super_admin',
+      user_name: superAdminName,
+      details: { reason },
+    });
+
+    return updated;
+  },
+
+  async restoreSchool(schoolId: string, superAdminName?: string): Promise<School> {
+    const school = await this.getSchoolById(schoolId);
+    if (!school) throw new Error('School not found');
+
+    const updated = await this.updateSchool(schoolId, {
+      status: 'active',
+      pending_deletion_until: undefined,
+    });
+    return updated;
+  },
+
+  async scheduleSchoolDeletion(
+    schoolId: string,
+    typedDeleteText: string,
+    gracePeriodDays: number,
+    reason: string,
+    superAdminId: string,
+    superAdminName: string
+  ): Promise<SchoolDeletionRequest> {
+    const school = await this.getSchoolById(schoolId);
+    if (!school) throw new Error('School not found');
+
+    if (typedDeleteText.trim() !== 'DELETE SCHOOL') {
+      throw new Error('You must type "DELETE SCHOOL" to confirm.');
+    }
+
+    const scheduledDate = new Date();
+    scheduledDate.setDate(scheduledDate.getDate() + (Number(gracePeriodDays) || 14));
+    const scheduledIso = scheduledDate.toISOString();
+
+    await this.updateSchool(schoolId, {
+      status: 'pending_deletion',
+      pending_deletion_until: scheduledIso,
+    });
+
+    const newReq: SchoolDeletionRequest = {
+      id: `sch-del-${Date.now().toString().slice(-4)}`,
+      school_id: schoolId,
+      school_name: school.name,
+      requested_by: superAdminId || 'usr-super-01',
+      requested_by_name: superAdminName || 'Super Admin',
+      reason,
+      grace_period_days: gracePeriodDays,
+      scheduled_deletion_date: scheduledIso,
+      status: 'pending_deletion',
+      created_at: new Date().toISOString(),
+    };
+
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const payload = sanitizeSupabasePayload(newReq);
+      await supabase.from('school_deletion_requests').insert(payload);
+    }
+    initServerDb().schoolDeletionRequests.unshift(newReq);
+
+    await this.logAuthEvent({
+      school_id: schoolId,
+      school_name: school.name,
+      event_type: 'school_deletion_attempt',
+      success: true,
+      role: 'super_admin',
+      user_name: superAdminName,
+      details: { reason, gracePeriodDays },
+    });
+
+    return newReq;
+  },
+
+  async cancelSchoolDeletion(
+    schoolId: string,
+    superAdminName: string,
+    cancellationReason: string
+  ): Promise<void> {
+    await this.updateSchool(schoolId, {
+      status: 'active',
+      pending_deletion_until: undefined,
+    });
+
+    const nowIso = new Date().toISOString();
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      await supabase
+        .from('school_deletion_requests')
+        .update({
+          status: 'cancelled',
+          cancelled_by: superAdminName,
+          cancellation_reason: cancellationReason,
+          cancelled_at: nowIso,
+        })
+        .eq('school_id', schoolId)
+        .eq('status', 'pending_deletion');
+    }
+    const db = initServerDb();
+    const req = db.schoolDeletionRequests.find(
+      (r: any) => r.school_id === schoolId && r.status === 'pending_deletion'
+    );
+    if (req) {
+      req.status = 'cancelled';
+      req.cancelled_by = superAdminName;
+      req.cancellation_reason = cancellationReason;
+      req.cancelled_at = nowIso;
+    }
+  },
+
+  async logAuthEvent(event: any): Promise<void> {
+    try {
+      const supabase = getSupabaseAdmin();
+      if (supabase) {
+        const payload = sanitizeSupabasePayload({
+          ...event,
+          created_at: new Date().toISOString(),
+        });
+        await supabase.from('auth_events').insert(payload);
+      }
+      const db = initServerDb();
+      db.authEvents.unshift({
+        id: `evt-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        ...event,
+      });
+    } catch {
+      // Non-blocking log
     }
   },
 };

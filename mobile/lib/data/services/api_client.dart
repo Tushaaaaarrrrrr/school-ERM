@@ -405,6 +405,22 @@ class ApiClient {
     return _decode(response);
   }
 
+  static Future<List<Map<String, dynamic>>> getList(String path,
+      [Map<String, String> query = const {}]) async {
+    final json = await _get(path, query);
+    return _listFromJson(json);
+  }
+
+  /// PUT/POST/DELETE against the shared API with the stored session.
+  static Future<Map<String, dynamic>> send(String method, String path,
+      [Map<String, dynamic>? body]) async {
+    final base = await baseUrl;
+    final req = http.Request(method, Uri.parse('$base$path'))
+      ..headers.addAll(await _headers(true));
+    if (body != null) req.body = jsonEncode(body);
+    return _decode(await http.Response.fromStream(await req.send()));
+  }
+
   static Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> body,
       {bool includeSession = true, String? bearerToken}) async {

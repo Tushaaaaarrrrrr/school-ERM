@@ -5472,7 +5472,11 @@ export const STANDARD_INDIAN_HOLIDAYS = [
 ];
 
 async function schoolApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+  const res = await fetch(path, {
+    cache: 'no-store',
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+  });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) throw new Error(json.error || 'School request failed');
   return json.data as T;
@@ -6728,48 +6732,24 @@ export const deletionService = {
     user: UserPersona,
     reason?: string
   ): Promise<AccountDeletionRequest> {
-    const requests = storageService.getItem<AccountDeletionRequest[]>(
-      STORAGE_KEYS.DELETION_REQUESTS,
-      INITIAL_DELETION_REQUESTS
-    );
-
-    const newReq: AccountDeletionRequest = {
-      id: `del-req-${Date.now().toString().slice(-4)}`,
-      school_id: user.school_id,
-      school_name: user.school_name,
-      user_id: user.id,
-      user_role: user.role,
-      user_name: user.name,
-      user_email: user.email,
-      requested_by: user.id,
-      request_reason: reason,
-      status: 'pending',
-      requested_at: new Date().toISOString(),
-    };
-
-    requests.unshift(newReq);
-    storageService.setItem(STORAGE_KEYS.DELETION_REQUESTS, requests);
-
-    authLogService.logEvent({
-      school_id: user.school_id,
-      user_id: user.id,
-      event_type: 'user_deletion_attempt',
-      success: true,
-      role: user.role,
-      user_name: user.name,
-      details: { reason },
+    return schoolApi<AccountDeletionRequest>('/api/account-requests', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({
+        school_id: user.school_id,
+        school_name: user.school_name,
+        user_id: user.id,
+        user_role: user.role,
+        user_name: user.name,
+        user_email: user.email,
+        request_reason: reason,
+      }),
     });
-
-    return newReq;
   },
 
   async getDeletionRequests(schoolId?: string): Promise<AccountDeletionRequest[]> {
-    const list = storageService.getItem<AccountDeletionRequest[]>(
-      STORAGE_KEYS.DELETION_REQUESTS,
-      INITIAL_DELETION_REQUESTS
-    );
-    if (schoolId) return list.filter((r) => r.school_id === schoolId);
-    return list;
+    const url = schoolId ? `/api/account-requests?school_id=${encodeURIComponent(schoolId)}` : '/api/account-requests';
+    return schoolApi<AccountDeletionRequest[]>(url, { cache: 'no-store' });
   },
 
   async reviewDeletionRequest(
@@ -6780,13 +6760,6 @@ export const deletionService = {
     reviewerIdOrName?: string,
     reviewerNameParam?: string
   ): Promise<AccountDeletionRequest> {
-    const list = storageService.getItem<AccountDeletionRequest[]>(
-      STORAGE_KEYS.DELETION_REQUESTS,
-      INITIAL_DELETION_REQUESTS
-    );
-    const index = list.findIndex((r) => r.id === requestId);
-    if (index === -1) throw new Error('Deletion request not found');
-
     let revReason = '';
     let revId = 'admin';
     let revName = 'School Administrator';
@@ -6805,19 +6778,16 @@ export const deletionService = {
       throw new Error('A mandatory reason is required when rejecting an account deletion request.');
     }
 
-    list[index].status = decision;
-    list[index].reviewed_by = revId;
-    list[index].reviewed_by_name = revName;
-    list[index].review_reason = revReason;
-    list[index].reviewed_at = new Date().toISOString();
-
-    if (decision === 'approved') {
-      list[index].status = 'completed';
-      list[index].completed_at = new Date().toISOString();
-    }
-
-    storageService.setItem(STORAGE_KEYS.DELETION_REQUESTS, list);
-    return list[index];
+    return schoolApi<AccountDeletionRequest>(`/api/account-requests/${encodeURIComponent(requestId)}`, {
+      method: 'PUT',
+      cache: 'no-store',
+      body: JSON.stringify({
+        decision,
+        review_reason: revReason,
+        reviewed_by: revId,
+        reviewed_by_name: revName,
+      }),
+    });
   },
 };
 
@@ -6829,41 +6799,30 @@ export const safetyService = {
     superAdminId?: string,
     superAdminName?: string
   ): Promise<School> {
-    const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
-    const index = schools.findIndex((s) => s.id === schoolId);
-    if (index === -1) throw new Error('School not found');
-
-    if (typedSchoolCode.trim().toUpperCase() !== schools[index].code.toUpperCase()) {
-      throw new Error(`School code confirmation mismatch. Expected ${schools[index].code}`);
-    }
-
-    schools[index].status = 'suspended';
-    schools[index].updated_at = new Date().toISOString();
-    storageService.setItem(STORAGE_KEYS.SCHOOLS, schools);
-
-    authLogService.logEvent({
-      school_id: schoolId,
-      school_name: schools[index].name,
-      event_type: 'school_suspension_attempt',
-      success: true,
-      role: 'super_admin',
-      user_name: superAdminName,
+    return schoolApi<School>('/api/account-requests', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({
+        action: 'suspend_school',
+        schoolId,
+        typedSchoolCode,
+        reason: superAdminPasswordOrReason,
+        superAdminId,
+        superAdminName,
+      }),
     });
-
-    return schools[index];
   },
 
   async restoreSchool(schoolId: string, superAdminName: string): Promise<School> {
-    const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
-    const index = schools.findIndex((s) => s.id === schoolId);
-    if (index === -1) throw new Error('School not found');
-
-    schools[index].status = 'active';
-    schools[index].pending_deletion_until = undefined;
-    schools[index].updated_at = new Date().toISOString();
-    storageService.setItem(STORAGE_KEYS.SCHOOLS, schools);
-
-    return schools[index];
+    return schoolApi<School>('/api/account-requests', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({
+        action: 'restore_school',
+        schoolId,
+        superAdminName,
+      }),
+    });
   },
 
   async scheduleSchoolDeletion(
@@ -6875,53 +6834,20 @@ export const safetyService = {
     superAdminId: string,
     superAdminName: string
   ): Promise<SchoolDeletionRequest> {
-    const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
-    const index = schools.findIndex((s) => s.id === schoolId);
-    if (index === -1) throw new Error('School not found');
-
-    if (typedDeleteText.trim() !== 'DELETE SCHOOL') {
-      throw new Error('You must type "DELETE SCHOOL" to confirm.');
-    }
-
-    const scheduledDate = new Date();
-    scheduledDate.setDate(scheduledDate.getDate() + gracePeriodDays);
-
-    schools[index].status = 'pending_deletion';
-    schools[index].pending_deletion_until = scheduledDate.toISOString();
-    storageService.setItem(STORAGE_KEYS.SCHOOLS, schools);
-
-    const requests = storageService.getItem<SchoolDeletionRequest[]>(
-      STORAGE_KEYS.SCHOOL_DELETION_REQUESTS,
-      INITIAL_SCHOOL_DELETION_REQUESTS
-    );
-
-    const newReq: SchoolDeletionRequest = {
-      id: `sch-del-${Date.now().toString().slice(-4)}`,
-      school_id: schoolId,
-      school_name: schools[index].name,
-      requested_by: superAdminId,
-      requested_by_name: superAdminName,
-      reason,
-      grace_period_days: gracePeriodDays,
-      scheduled_deletion_date: scheduledDate.toISOString(),
-      status: 'pending_deletion',
-      created_at: new Date().toISOString(),
-    };
-
-    requests.unshift(newReq);
-    storageService.setItem(STORAGE_KEYS.SCHOOL_DELETION_REQUESTS, requests);
-
-    authLogService.logEvent({
-      school_id: schoolId,
-      school_name: schools[index].name,
-      event_type: 'school_deletion_attempt',
-      success: true,
-      role: 'super_admin',
-      user_name: superAdminName,
-      details: { reason, gracePeriodDays },
+    return schoolApi<SchoolDeletionRequest>('/api/account-requests', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({
+        action: 'schedule_school_deletion',
+        schoolId,
+        typedDeleteText,
+        superAdminPassword,
+        gracePeriodDays,
+        reason,
+        superAdminId,
+        superAdminName,
+      }),
     });
-
-    return newReq;
   },
 
   async cancelSchoolDeletion(
@@ -6929,26 +6855,16 @@ export const safetyService = {
     superAdminName: string,
     cancellationReason: string
   ): Promise<void> {
-    const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
-    const index = schools.findIndex((s) => s.id === schoolId);
-    if (index !== -1) {
-      schools[index].status = 'active';
-      schools[index].pending_deletion_until = undefined;
-      storageService.setItem(STORAGE_KEYS.SCHOOLS, schools);
-    }
-
-    const requests = storageService.getItem<SchoolDeletionRequest[]>(
-      STORAGE_KEYS.SCHOOL_DELETION_REQUESTS,
-      INITIAL_SCHOOL_DELETION_REQUESTS
-    );
-    const req = requests.find((r) => r.school_id === schoolId && r.status === 'pending_deletion');
-    if (req) {
-      req.status = 'cancelled';
-      req.cancelled_by = superAdminName;
-      req.cancellation_reason = cancellationReason;
-      req.cancelled_at = new Date().toISOString();
-      storageService.setItem(STORAGE_KEYS.SCHOOL_DELETION_REQUESTS, requests);
-    }
+    await schoolApi<void>('/api/account-requests', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({
+        action: 'cancel_school_deletion',
+        schoolId,
+        superAdminName,
+        cancellationReason,
+      }),
+    });
   },
 };
 
@@ -7599,15 +7515,9 @@ export const notificationService = {
 
 export const feeVersionService = {
   async getFeeStructureVersions(schoolId: string, feeStructureId?: string): Promise<FeeStructureVersion[]> {
-    let list = storageService.getItem<FeeStructureVersion[]>(
-      STORAGE_KEYS.FEE_STRUCTURE_VERSIONS,
-      INITIAL_FEE_STRUCTURE_VERSIONS
-    ).filter((v) => v.school_id === schoolId);
-
-    if (feeStructureId) {
-      list = list.filter((v) => v.fee_structure_id === feeStructureId);
-    }
-    return list.sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+    const q = feeStructureId ? `?fee_structure_id=${encodeURIComponent(feeStructureId)}` : '';
+    const list = await schoolApi<FeeStructureVersion[]>(`/api/fee-versions${q}`, { cache: 'no-store' });
+    return (list || []).sort((a, b) => (b.effective_from || '').localeCompare(a.effective_from || ''));
   },
 
   async updateClassFeeStructure(data: {
@@ -7621,71 +7531,11 @@ export const feeVersionService = {
     actorId?: string;
     actorName?: string;
   }): Promise<{ version: FeeStructureVersion; affectedStudentsCount: number }> {
-    const structures = storageService.getItem<FeeStructure[]>(
-      STORAGE_KEYS.FEE_STRUCTURES,
-      INITIAL_FEE_STRUCTURES
-    );
-    const structIndex = structures.findIndex((s) => s.id === data.fee_structure_id);
-    if (structIndex === -1) throw new Error('Fee structure not found');
-
-    const oldAmount = structures[structIndex].amount;
-
-    // 1. Close previous version if exists
-    const versions = storageService.getItem<FeeStructureVersion[]>(
-      STORAGE_KEYS.FEE_STRUCTURE_VERSIONS,
-      INITIAL_FEE_STRUCTURE_VERSIONS
-    );
-    const lastVersionIndex = versions.findIndex(
-      (v) => v.fee_structure_id === data.fee_structure_id && !v.effective_to
-    );
-    if (lastVersionIndex !== -1) {
-      versions[lastVersionIndex].effective_to = data.effective_from;
-    }
-
-    // 2. Add new version entry
-    const newVersion: FeeStructureVersion = {
-      id: `fsv-${Date.now().toString().slice(-4)}`,
-      school_id: data.school_id,
-      fee_structure_id: data.fee_structure_id,
-      amount: data.new_amount,
-      effective_from: data.effective_from,
-      created_by: data.actorId,
-      created_by_name: data.actorName || 'School Administrator',
-      reason: data.reason,
-      created_at: new Date().toISOString(),
-    };
-    versions.unshift(newVersion);
-    storageService.setItem(STORAGE_KEYS.FEE_STRUCTURE_VERSIONS, versions);
-
-    // 3. Update structure amount
-    structures[structIndex].amount = data.new_amount;
-    storageService.setItem(STORAGE_KEYS.FEE_STRUCTURES, structures);
-
-    // 4. Count affected students
-    const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS).filter(
-      (st) => st.school_id === data.school_id && (data.class_id === 'all' || st.current_enrollment?.class_id === data.class_id)
-    );
-
-    // 5. Audit log
-    authLogService.logEvent({
-      school_id: data.school_id,
-      user_id: data.actorId || 'usr-admin-01',
-      event_type: 'fee_structure_changed',
-      success: true,
-      role: 'school_admin',
-      user_name: data.actorName || 'School Administrator',
-      details: {
-        structureName: structures[structIndex].name,
-        className: data.class_name || 'Class',
-        oldAmount,
-        newAmount: data.new_amount,
-        effectiveFrom: data.effective_from,
-        reason: data.reason,
-        affectedStudents: students.length,
-      },
+    return schoolApi<{ version: FeeStructureVersion; affectedStudentsCount: number }>('/api/fee-versions', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify(data),
     });
-
-    return { version: newVersion, affectedStudentsCount: students.length };
   },
 };
 
@@ -7695,11 +7545,8 @@ export const feeVersionService = {
 
 export const bulkChargeService = {
   async getBulkChargeBatches(schoolId: string): Promise<BulkChargeBatch[]> {
-    const list = storageService.getItem<BulkChargeBatch[]>(
-      STORAGE_KEYS.BULK_CHARGE_BATCHES,
-      INITIAL_BULK_CHARGE_BATCHES
-    );
-    return list.filter((b) => b.school_id === schoolId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const list = await schoolApi<BulkChargeBatch[]>('/api/bulk-charges', { cache: 'no-store' });
+    return (list || []).filter((b) => b.school_id === schoolId).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   },
 
   async createBulkChargeBatch(data: {
@@ -7718,98 +7565,11 @@ export const bulkChargeService = {
     actorId?: string;
     actorName?: string;
   }): Promise<{ batch: BulkChargeBatch; chargesCreated: number }> {
-    const batches = storageService.getItem<BulkChargeBatch[]>(
-      STORAGE_KEYS.BULK_CHARGE_BATCHES,
-      INITIAL_BULK_CHARGE_BATCHES
-    );
-    const charges = storageService.getItem<StudentCharge[]>(
-      STORAGE_KEYS.STUDENT_CHARGES,
-      INITIAL_STUDENT_CHARGES
-    );
-    const allStudents = storageService.getItem<Student[]>(
-      STORAGE_KEYS.STUDENTS,
-      INITIAL_STUDENTS
-    );
-
-    const batchId = `bcb-${Date.now().toString().slice(-4)}`;
-    const nowIso = new Date().toISOString();
-    const chargeDate = data.charge_date || nowIso.split('T')[0];
-
-    const eligibleStudents = allStudents.filter(
-      (s) => s.school_id === data.school_id && data.target_student_ids.includes(s.id)
-    );
-
-    // Create individual student charges
-    const newStudentCharges: StudentCharge[] = eligibleStudents.map((std, idx) => ({
-      id: `chg-${Date.now().toString().slice(-4)}-${idx + 1}`,
-      school_id: data.school_id,
-      student_id: std.id,
-      academic_year_id: data.academic_year_id,
-      charge_name: data.name.trim(),
-      description: data.description?.trim() || undefined,
-      amount: data.amount,
-      paid_amount: 0,
-      remaining_amount: data.amount,
-      charge_date: chargeDate,
-      due_date: data.due_date || undefined,
-      status: 'pending',
-      created_by: data.actorId,
-      created_by_name: data.actorName || 'School Administrator',
-      student_name: `${std.first_name} ${std.last_name}`,
-      registration_number: std.registration_number,
-      bulk_charge_batch_id: batchId,
-      created_at: nowIso,
-      updated_at: nowIso,
-    }));
-
-    charges.unshift(...newStudentCharges);
-    storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, charges);
-
-    const totalAmount = data.amount * eligibleStudents.length;
-
-    const newBatch: BulkChargeBatch = {
-      id: batchId,
-      school_id: data.school_id,
-      academic_year_id: data.academic_year_id,
-      name: data.name.trim(),
-      amount: data.amount,
-      target_type: data.target_type,
-      target_label: data.target_label,
-      target_class_id: data.target_class_id,
-      target_section_id: data.target_section_id,
-      charge_date: chargeDate,
-      due_date: data.due_date,
-      description: data.description,
-      total_students: eligibleStudents.length,
-      total_amount: totalAmount,
-      status: 'active',
-      created_by: data.actorId,
-      created_by_name: data.actorName || 'School Administrator',
-      created_at: nowIso,
-    };
-
-    batches.unshift(newBatch);
-    storageService.setItem(STORAGE_KEYS.BULK_CHARGE_BATCHES, batches);
-
-    // Audit log
-    authLogService.logEvent({
-      school_id: data.school_id,
-      user_id: data.actorId || 'usr-admin-01',
-      event_type: 'bulk_charge_created',
-      success: true,
-      role: 'school_admin',
-      user_name: data.actorName || 'School Administrator',
-      details: {
-        batchId,
-        chargeName: data.name,
-        amount: data.amount,
-        target: data.target_label,
-        studentsCount: eligibleStudents.length,
-        totalAmount,
-      },
+    return schoolApi<{ batch: BulkChargeBatch; chargesCreated: number }>('/api/bulk-charges', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify(data),
     });
-
-    return { batch: newBatch, chargesCreated: newStudentCharges.length };
   },
 
   async cancelBulkChargeBatch(
@@ -7817,59 +7577,11 @@ export const bulkChargeService = {
     actorId?: string,
     actorName?: string
   ): Promise<{ success: boolean; cancelledChargesCount: number }> {
-    const batches = storageService.getItem<BulkChargeBatch[]>(
-      STORAGE_KEYS.BULK_CHARGE_BATCHES,
-      INITIAL_BULK_CHARGE_BATCHES
-    );
-    const batchIndex = batches.findIndex((b) => b.id === batchId);
-    if (batchIndex === -1) throw new Error('Bulk charge batch not found');
-
-    const charges = storageService.getItem<StudentCharge[]>(
-      STORAGE_KEYS.STUDENT_CHARGES,
-      INITIAL_STUDENT_CHARGES
-    );
-    const batchCharges = charges.filter((c) => c.bulk_charge_batch_id === batchId);
-
-    // Safety guard: If any payment has been received against these charges, block cancellation
-    const paidCount = batchCharges.filter((c) => c.paid_amount > 0).length;
-    if (paidCount > 0) {
-      throw new Error(
-        `Cannot cancel batch: ${paidCount} students have already made payments against this charge. Please refund or adjust individual receipts first.`
-      );
-    }
-
-    // Cancel all linked charges
-    charges.forEach((c) => {
-      if (c.bulk_charge_batch_id === batchId) {
-        c.status = 'cancelled';
-        c.waive_reason = 'Bulk charge batch cancelled by administrator';
-        c.updated_at = new Date().toISOString();
-      }
+    return schoolApi<{ success: boolean; cancelledChargesCount: number }>(`/api/bulk-charges/${encodeURIComponent(batchId)}`, {
+      method: 'PUT',
+      cache: 'no-store',
+      body: JSON.stringify({ action: 'cancel', actorId, actorName }),
     });
-    storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, charges);
-
-    // Cancel batch
-    batches[batchIndex].status = 'cancelled';
-    batches[batchIndex].cancelled_at = new Date().toISOString();
-    batches[batchIndex].cancelled_by = actorName || 'School Administrator';
-    storageService.setItem(STORAGE_KEYS.BULK_CHARGE_BATCHES, batches);
-
-    // Audit log
-    authLogService.logEvent({
-      school_id: batches[batchIndex].school_id,
-      user_id: actorId || 'usr-admin-01',
-      event_type: 'bulk_charge_cancelled',
-      success: true,
-      role: 'school_admin',
-      user_name: actorName || 'School Administrator',
-      details: {
-        batchId,
-        chargeName: batches[batchIndex].name,
-        cancelledCharges: batchCharges.length,
-      },
-    });
-
-    return { success: true, cancelledChargesCount: batchCharges.length };
   },
 };
 
@@ -8162,113 +7874,13 @@ export const sessionTransitionService = {
     sourceYear: AcademicYear | null;
     targetYear: AcademicYear | null;
   }> {
-    const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS).filter((s) => s.school_id === schoolId);
-    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
-    const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS).filter((s) => s.school_id === schoolId);
-    const academicYears = storageService.getItem<AcademicYear[]>(STORAGE_KEYS.ACADEMIC_YEARS, INITIAL_ACADEMIC_YEARS).filter((y) => y.school_id === schoolId);
-
-    const sourceYear = academicYears.find((y) => y.id === sourceYearId) || academicYears[0] || null;
-    const targetYear = academicYears.find((y) => y.id === targetYearId) || academicYears.find((y) => y.id !== sourceYearId) || null;
-
-    const items: StudentTransitionItem[] = students.map((st) => {
-      const enr = st.current_enrollment;
-      const currentClass = classes.find((c) => c.id === enr?.class_id);
-      const currentSection = sections.find((s) => s.id === enr?.section_id);
-
-      let suggestedDecision: TransitionDecisionType = 'promote';
-      let targetClassId: string | undefined = currentClass?.next_class_id;
-      let targetClassName: string | undefined = currentClass?.next_class_name;
-      let targetSectionId: string | undefined = enr?.section_id;
-      let targetSectionName: string | undefined = enr?.section_name;
-      let notes: string | undefined = st.academic_status_note;
-      let isException = false;
-      let requiresResolution = false;
-
-      // 1. Check explicit progression status and student operational status
-      if (st.progression_status === 'repeat') {
-        suggestedDecision = 'repeat';
-        targetClassId = enr?.class_id;
-        targetClassName = enr?.class_name;
-        isException = true;
-      } else if (st.progression_status === 'left_school' || st.status === 'inactive') {
-        suggestedDecision = 'left_school';
-        targetClassId = undefined;
-        targetClassName = undefined;
-        targetSectionId = undefined;
-        targetSectionName = undefined;
-        isException = true;
-      } else if (st.progression_status === 'transferred') {
-        suggestedDecision = 'transfer_out';
-        targetClassId = undefined;
-        targetClassName = undefined;
-        targetSectionId = undefined;
-        targetSectionName = undefined;
-        isException = true;
-      } else if (
-        st.progression_status === 'graduated' ||
-        (!currentClass?.next_class_id && (currentClass?.sort_order === 10 || currentClass?.name?.includes('10')))
-      ) {
-        suggestedDecision = 'graduate';
-        targetClassId = undefined;
-        targetClassName = undefined;
-        targetSectionId = undefined;
-        targetSectionName = undefined;
-        isException = true;
-      } else if (st.progression_status === 'pending') {
-        suggestedDecision = 'pending';
-        isException = true;
-        requiresResolution = true;
-      } else {
-        // Normal active student promotion
-        if (currentClass?.next_class_id) {
-          suggestedDecision = 'promote';
-          targetClassId = currentClass.next_class_id;
-          const nextCls = classes.find((c) => c.id === currentClass.next_class_id);
-          targetClassName = nextCls?.name || currentClass.next_class_name || 'Next Class';
-        } else {
-          suggestedDecision = 'graduate';
-          targetClassId = undefined;
-          targetClassName = undefined;
-          isException = true;
-        }
-      }
-
-      return {
-        student_id: st.id,
-        student_name: `${st.first_name} ${st.last_name}`,
-        registration_number: st.registration_number,
-        roll_number: enr?.roll_number,
-        photo_url: st.photo_url,
-        current_class_id: enr?.class_id || '',
-        current_class_name: enr?.class_name || '—',
-        current_section_id: enr?.section_id || '',
-        current_section_name: enr?.section_name || '—',
-        current_status: st.status,
-        progression_status: st.progression_status || 'ready',
-        suggested_decision: suggestedDecision,
-        selected_decision: suggestedDecision,
-        target_class_id: targetClassId,
-        target_class_name: targetClassName,
-        target_section_id: targetSectionId,
-        target_section_name: targetSectionName,
-        notes,
-        is_exception: isException,
-        requires_resolution: requiresResolution,
-      };
+    const q = new URLSearchParams({
+      action: 'suggestions',
+      sourceYearId,
+      targetYearId,
+      school_id: schoolId,
     });
-
-    const summary: TransitionSummaryBreakdown = {
-      total: items.length,
-      promote: items.filter((i) => i.selected_decision === 'promote').length,
-      repeat: items.filter((i) => i.selected_decision === 'repeat').length,
-      no_new_enrollment: items.filter(
-        (i) => i.selected_decision === 'transfer_out' || i.selected_decision === 'left_school'
-      ).length,
-      graduate: items.filter((i) => i.selected_decision === 'graduate').length,
-      pending: items.filter((i) => i.selected_decision === 'pending').length,
-    };
-
-    return { items, summary, sourceYear, targetYear };
+    return schoolApi(`/api/transition-batches?${q}`, { cache: 'no-store' });
   },
 
   async executeAcademicYearTransition(
@@ -8281,159 +7893,11 @@ export const sessionTransitionService = {
       actorId?: string;
     }
   ): Promise<AcademicYearTransitionBatch> {
-    const pendingItems = params.items.filter((i) => i.selected_decision === 'pending');
-    if (pendingItems.length > 0) {
-      throw new Error(
-        `Cannot execute transition with ${pendingItems.length} student(s) still in Pending Decision status. Please resolve all pending decisions first.`
-      );
-    }
-
-    const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    const academicYears = storageService.getItem<AcademicYear[]>(STORAGE_KEYS.ACADEMIC_YEARS, INITIAL_ACADEMIC_YEARS);
-    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-    const batches = storageService.getItem<AcademicYearTransitionBatch[]>(
-      STORAGE_KEYS.TRANSITION_BATCHES,
-      INITIAL_TRANSITION_BATCHES
-    );
-
-    const sourceYear = academicYears.find((y) => y.id === params.sourceYearId);
-    const targetYear = academicYears.find((y) => y.id === params.targetYearId);
-
-    const batchId = `trb-${Date.now().toString().slice(-4)}`;
-    const decisionsRecord: AcademicYearTransitionBatch['decisions'] = [];
-
-    let promotedCount = 0;
-    let repeatedCount = 0;
-    let leftCount = 0;
-    let graduatedCount = 0;
-
-    for (const item of params.items) {
-      const studentIndex = students.findIndex((s) => s.id === item.student_id);
-      if (studentIndex === -1) continue;
-
-      const student = { ...students[studentIndex] };
-      const previousEnrollment = student.current_enrollment;
-      const prevEnrollmentId = previousEnrollment?.id || `enr-prev-${item.student_id}`;
-
-      let newEnrollmentId: string | undefined = undefined;
-
-      if (item.selected_decision === 'promote') {
-        promotedCount += 1;
-        newEnrollmentId = `enr-${Date.now().toString().slice(-4)}-${student.id.slice(-3)}`;
-        const targetCls = classes.find((c) => c.id === item.target_class_id);
-        const newEnrollment: StudentEnrollment = {
-          id: newEnrollmentId,
-          school_id: schoolId,
-          student_id: student.id,
-          academic_year_id: params.targetYearId,
-          class_id: item.target_class_id || item.current_class_id,
-          section_id: item.target_section_id || item.current_section_id,
-          roll_number: item.roll_number,
-          joined_at: targetYear?.start_date || '2027-04-01',
-          status: 'active',
-          class_name: targetCls?.name || item.target_class_name || 'Next Class',
-          section_name: item.target_section_name || 'A',
-          academic_year_name: targetYear?.name || '2027-28',
-          created_at: new Date().toISOString(),
-        };
-
-        student.enrollments = student.enrollments ? [...student.enrollments] : [];
-        if (previousEnrollment && !student.enrollments.some((e) => e.id === previousEnrollment.id)) {
-          student.enrollments.push(previousEnrollment);
-        }
-        student.enrollments.push(newEnrollment);
-        student.current_enrollment = newEnrollment;
-        student.status = 'active';
-      } else if (item.selected_decision === 'repeat') {
-        repeatedCount += 1;
-        newEnrollmentId = `enr-${Date.now().toString().slice(-4)}-${student.id.slice(-3)}`;
-        const newEnrollment: StudentEnrollment = {
-          id: newEnrollmentId,
-          school_id: schoolId,
-          student_id: student.id,
-          academic_year_id: params.targetYearId,
-          class_id: item.current_class_id,
-          section_id: item.current_section_id,
-          roll_number: item.roll_number,
-          joined_at: targetYear?.start_date || '2027-04-01',
-          status: 'active',
-          class_name: item.current_class_name,
-          section_name: item.current_section_name,
-          academic_year_name: targetYear?.name || '2027-28',
-          created_at: new Date().toISOString(),
-        };
-
-        student.enrollments = student.enrollments ? [...student.enrollments] : [];
-        if (previousEnrollment && !student.enrollments.some((e) => e.id === previousEnrollment.id)) {
-          student.enrollments.push(previousEnrollment);
-        }
-        student.enrollments.push(newEnrollment);
-        student.current_enrollment = newEnrollment;
-        student.status = 'active';
-      } else if (item.selected_decision === 'left_school' || item.selected_decision === 'transfer_out') {
-        leftCount += 1;
-        student.status = 'inactive';
-      } else if (item.selected_decision === 'graduate') {
-        graduatedCount += 1;
-        student.status = 'inactive';
-      }
-
-      decisionsRecord.push({
-        student_id: student.id,
-        student_name: `${student.first_name} ${student.last_name}`,
-        decision: item.selected_decision,
-        previous_enrollment_id: prevEnrollmentId,
-        new_enrollment_id: newEnrollmentId,
-        target_class_name: item.target_class_name,
-        target_section_name: item.target_section_name,
-      });
-
-      students[studentIndex] = student;
-    }
-
-    storageService.setItem(STORAGE_KEYS.STUDENTS, students);
-
-    const batch: AcademicYearTransitionBatch = {
-      id: batchId,
-      school_id: schoolId,
-      source_academic_year_id: params.sourceYearId,
-      source_academic_year_name: sourceYear?.name || '2026-27',
-      target_academic_year_id: params.targetYearId,
-      target_academic_year_name: targetYear?.name || '2027-28',
-      total_students: params.items.length,
-      promoted_count: promotedCount,
-      repeated_count: repeatedCount,
-      left_count: leftCount,
-      graduated_count: graduatedCount,
-      decisions: decisionsRecord,
-      status: 'completed',
-      created_at: new Date().toISOString(),
-      created_by_name: params.actorName,
-      created_by_id: params.actorId,
-    };
-
-    batches.unshift(batch);
-    storageService.setItem(STORAGE_KEYS.TRANSITION_BATCHES, batches);
-
-    try {
-      authLogService.logEvent({
-        school_id: schoolId,
-        user_name: params.actorName,
-        event_type: 'academic_session_transition_completed',
-        success: true,
-        role: 'school_admin',
-        details: {
-          batch_id: batchId,
-          source_year: sourceYear?.name,
-          target_year: targetYear?.name,
-          total_students: params.items.length,
-          promoted_count: promotedCount,
-          repeated_count: repeatedCount,
-        },
-      });
-    } catch {}
-
-    return batch;
+    return schoolApi<AcademicYearTransitionBatch>('/api/transition-batches', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({ ...params, school_id: schoolId }),
+    });
   },
 
   async canReverseTransition(
@@ -8448,43 +7912,12 @@ export const sessionTransitionService = {
       publishedExams: number;
     };
   }> {
-    const attendance = storageService.getItem<StudentAttendance[]>(STORAGE_KEYS.ATTENDANCE, []);
-    const invoices = storageService.getItem<StudentFeeInvoice[]>(STORAGE_KEYS.FEE_INVOICES, INITIAL_FEE_INVOICES);
-    const exams = storageService.getItem<Exam[]>(STORAGE_KEYS.EXAMS, INITIAL_EXAMS);
-
-    const targetAttendance = attendance.filter((a) => a.school_id === schoolId && a.academic_year_id === targetYearId);
-    const targetPaidInvoices = invoices.filter(
-      (i) => i.school_id === schoolId && i.academic_year_id === targetYearId && i.paid_amount > 0
-    );
-    const targetExams = exams.filter(
-      (e) => e.school_id === schoolId && e.academic_year_id === targetYearId && e.status === 'published'
-    );
-
-    const details = {
-      attendanceRecords: targetAttendance.length,
-      paidInvoices: targetPaidInvoices.length,
-      publishedExams: targetExams.length,
-    };
-
-    if (details.attendanceRecords > 0 || details.paidInvoices > 0 || details.publishedExams > 0) {
-      const blockers: string[] = [];
-      if (details.attendanceRecords > 0) blockers.push(`${details.attendanceRecords} attendance records marked`);
-      if (details.paidInvoices > 0) blockers.push(`${details.paidInvoices} fee invoices paid/collected`);
-      if (details.publishedExams > 0) blockers.push(`${details.publishedExams} published exam results`);
-
-      return {
-        canReverse: false,
-        reason: `Transition cannot be reversed because operational records already exist in the target session (${blockers.join(
-          ', '
-        )}). Individual adjustments should be made directly on student profiles.`,
-        details,
-      };
-    }
-
-    return {
-      canReverse: true,
-      details,
-    };
+    const q = new URLSearchParams({
+      action: 'can-reverse',
+      targetYearId,
+      school_id: schoolId,
+    });
+    return schoolApi(`/api/transition-batches?${q}`, { cache: 'no-store' });
   },
 
   async reverseAcademicYearTransition(
@@ -8493,73 +7926,19 @@ export const sessionTransitionService = {
     actorName: string = 'School Admin',
     actorId?: string
   ): Promise<AcademicYearTransitionBatch> {
-    const batches = storageService.getItem<AcademicYearTransitionBatch[]>(
-      STORAGE_KEYS.TRANSITION_BATCHES,
-      INITIAL_TRANSITION_BATCHES
-    );
-    const batchIndex = batches.findIndex((b) => b.id === batchId && b.school_id === schoolId);
-    if (batchIndex === -1) throw new Error('Transition batch not found');
-
-    const batch = batches[batchIndex];
-    if (batch.status === 'reversed') throw new Error('This transition has already been reversed.');
-
-    const check = await this.canReverseTransition(schoolId, batch.target_academic_year_id);
-    if (!check.canReverse) {
-      throw new Error(check.reason || 'Operational records exist. Cannot reverse transition.');
-    }
-
-    const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-
-    for (const d of batch.decisions) {
-      const studentIndex = students.findIndex((s) => s.id === d.student_id);
-      if (studentIndex === -1) continue;
-
-      const student = { ...students[studentIndex] };
-      // Remove newly created enrollment
-      if (d.new_enrollment_id) {
-        student.enrollments = (student.enrollments || []).filter((e) => e.id !== d.new_enrollment_id);
-      }
-      // Revert current_enrollment to previous
-      if (student.enrollments && student.enrollments.length > 0) {
-        const prev =
-          student.enrollments.find((e) => e.id === d.previous_enrollment_id) ||
-          student.enrollments[student.enrollments.length - 1];
-        student.current_enrollment = prev;
-      }
-      student.status = 'active';
-      students[studentIndex] = student;
-    }
-
-    storageService.setItem(STORAGE_KEYS.STUDENTS, students);
-
-    batch.status = 'reversed';
-    batch.reversed_at = new Date().toISOString();
-    batch.reversed_by_name = actorName;
-    batches[batchIndex] = batch;
-    storageService.setItem(STORAGE_KEYS.TRANSITION_BATCHES, batches);
-
-    try {
-      authLogService.logEvent({
-        school_id: schoolId,
-        user_name: actorName,
-        event_type: 'academic_session_transition_reversed',
-        success: true,
-        role: 'school_admin',
-        details: {
-          batch_id: batch.id,
-          target_year: batch.target_academic_year_name,
-          reversed_by: actorName,
-        },
-      });
-    } catch {}
-
-    return batch;
+    return schoolApi<AcademicYearTransitionBatch>(`/api/transition-batches/${encodeURIComponent(batchId)}`, {
+      method: 'PUT',
+      cache: 'no-store',
+      body: JSON.stringify({ action: 'reverse', actorName, actorId, school_id: schoolId }),
+    });
   },
 
   async getTransitionBatches(schoolId: string): Promise<AcademicYearTransitionBatch[]> {
-    return storageService
-      .getItem<AcademicYearTransitionBatch[]>(STORAGE_KEYS.TRANSITION_BATCHES, INITIAL_TRANSITION_BATCHES)
-      .filter((b) => b.school_id === schoolId);
+    const list = await schoolApi<AcademicYearTransitionBatch[]>(
+      `/api/transition-batches?school_id=${encodeURIComponent(schoolId)}`,
+      { cache: 'no-store' }
+    );
+    return (list || []).filter((b) => b.school_id === schoolId);
   },
 };
 
@@ -8771,26 +8150,10 @@ function mapBackendAccessRequest(r: any): SchoolAccessRequest {
 // ============================================================================
 export const recycleBinService = {
   async getBinItems(schoolId?: string): Promise<RecycleBinItem[]> {
-    let list = storageService.getItem<RecycleBinItem[]>(STORAGE_KEYS.RECYCLE_BIN, []);
-    const now = new Date();
-
-    // Auto-purge any items strictly after 30 days
-    let hasPurges = false;
-    list = list.map((item) => {
-      if (item.status === 'in_bin' && new Date(item.permanent_purge_at) <= now) {
-        hasPurges = true;
-        return { ...item, status: 'purged' as const };
-      }
-      return item;
-    });
-
-    if (hasPurges) {
-      storageService.setItem(STORAGE_KEYS.RECYCLE_BIN, list);
-    }
-
-    const activeInBin = list.filter((item) => item.status === 'in_bin');
-    if (!schoolId) return activeInBin;
-    return activeInBin.filter((item) => item.school_id === schoolId || !item.school_id);
+    const q = schoolId ? `?school_id=${encodeURIComponent(schoolId)}` : '';
+    const list = await schoolApi<RecycleBinItem[]>(`/api/recycle-bin${q}`, { cache: 'no-store' });
+    if (!schoolId) return list || [];
+    return (list || []).filter((item) => item.school_id === schoolId || !item.school_id);
   },
 
   async moveToBin(params: {
@@ -8804,139 +8167,26 @@ export const recycleBinService = {
     deletedByName: string;
     deletedByRole: UserRole;
   }): Promise<RecycleBinItem> {
-    const list = storageService.getItem<RecycleBinItem[]>(STORAGE_KEYS.RECYCLE_BIN, []);
-    const deletedAt = new Date();
-    const purgeAt = new Date(deletedAt.getTime() + 30 * 24 * 60 * 60 * 1000); // Mandatory 30 days
-
-    const binItem: RecycleBinItem = {
-      id: `bin-${Date.now().toString().slice(-4)}`,
-      school_id: params.schoolId,
-      school_name: params.schoolName,
-      entity_type: params.entityType,
-      entity_id: params.entityId,
-      entity_name: params.entityName,
-      entity_details: params.entityDetails,
-      original_data: params.originalData,
-      deleted_by_name: params.deletedByName,
-      deleted_by_role: params.deletedByRole,
-      deleted_at: deletedAt.toISOString(),
-      permanent_purge_at: purgeAt.toISOString(),
-      status: 'in_bin',
-    };
-
-    list.unshift(binItem);
-    storageService.setItem(STORAGE_KEYS.RECYCLE_BIN, list);
-
-    try {
-      authLogService.logEvent({
+    return schoolApi<RecycleBinItem>('/api/recycle-bin', {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({
+        ...params,
         school_id: params.schoolId,
-        school_name: params.schoolName,
-        event_type: 'entity_moved_to_recycle_bin',
-        success: true,
-        role: params.deletedByRole,
-        user_name: params.deletedByName,
-        details: {
-          entity_type: params.entityType,
-          entity_name: params.entityName,
-          permanent_purge_at: purgeAt.toISOString(),
-        },
-      });
-    } catch {}
-
-    return binItem;
+      }),
+    });
   },
 
   async restoreItem(binItemId: string, restoredByName: string): Promise<RecycleBinItem> {
-    const list = storageService.getItem<RecycleBinItem[]>(STORAGE_KEYS.RECYCLE_BIN, []);
-    const index = list.findIndex((i) => i.id === binItemId);
-    if (index === -1) throw new Error('Recycle Bin item not found');
-
-    const item = list[index];
-    if (item.status !== 'in_bin') {
-      throw new Error(`This item is already ${item.status}.`);
-    }
-
-    item.status = 'restored';
-    item.restored_at = new Date().toISOString();
-    item.restored_by = restoredByName;
-    list[index] = item;
-    storageService.setItem(STORAGE_KEYS.RECYCLE_BIN, list);
-
-    // Restore to original storage table
-    const data = item.original_data;
-    if (item.entity_type === 'teacher') {
-      const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
-      if (!teachers.some((t) => t.id === data.id)) {
-        teachers.push({ ...data, status: 'active' });
-        storageService.setItem(STORAGE_KEYS.TEACHERS, teachers);
-      }
-    } else if (item.entity_type === 'student') {
-      const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-      if (!students.some((s) => s.id === data.id)) {
-        students.push({ ...data, status: 'active' });
-        storageService.setItem(STORAGE_KEYS.STUDENTS, students);
-      }
-    } else if (item.entity_type === 'staff') {
-      const staffList = storageService.getItem<Staff[]>(STORAGE_KEYS.STAFF, INITIAL_STAFF);
-      if (!staffList.some((s) => s.id === data.id)) {
-        staffList.push({ ...data, status: 'active' });
-        storageService.setItem(STORAGE_KEYS.STAFF, staffList);
-      }
-    } else if (item.entity_type === 'school') {
-      const schools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, []);
-      const schIdx = schools.findIndex((s) => s.id === data.id);
-      if (schIdx !== -1) {
-        schools[schIdx].status = 'active';
-        schools[schIdx].pending_deletion_until = undefined;
-        storageService.setItem(STORAGE_KEYS.SCHOOLS, schools);
-      }
-    } else if (item.entity_type === 'room') {
-      const rooms = storageService.getItem<SchoolRoom[]>(STORAGE_KEYS.ROOMS, []);
-      if (!rooms.some((r) => r.id === data.id)) {
-        rooms.push(data);
-        storageService.setItem(STORAGE_KEYS.ROOMS, rooms);
-      }
-    } else if (item.entity_type === 'vehicle') {
-      const vehicles = storageService.getItem<Vehicle[]>(STORAGE_KEYS.VEHICLES, []);
-      if (!vehicles.some((v) => v.id === data.id)) {
-        vehicles.push(data);
-        storageService.setItem(STORAGE_KEYS.VEHICLES, vehicles);
-      }
-    } else if (item.entity_type === 'route') {
-      const routes = storageService.getItem<TransportRoute[]>(STORAGE_KEYS.TRANSPORT_ROUTES, []);
-      if (!routes.some((r) => r.id === data.id)) {
-        routes.push(data);
-        storageService.setItem(STORAGE_KEYS.TRANSPORT_ROUTES, routes);
-      }
-    } else if (item.entity_type === 'notice') {
-      const notices = storageService.getItem<Notice[]>(STORAGE_KEYS.NOTICES, []);
-      if (!notices.some((n) => n.id === data.id)) {
-        notices.push(data);
-        storageService.setItem(STORAGE_KEYS.NOTICES, notices);
-      }
-    } else if (item.entity_type === 'holiday') {
-      const holidays = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, []);
-      if (!holidays.some((h) => h.id === data.id)) {
-        holidays.push(data);
-        storageService.setItem(STORAGE_KEYS.HOLIDAYS, holidays);
-      }
-    }
-
-    try {
-      authLogService.logEvent({
-        school_id: item.school_id,
-        school_name: item.school_name,
-        event_type: 'entity_restored_from_recycle_bin',
-        success: true,
-        user_name: restoredByName,
-        details: {
-          entity_type: item.entity_type,
-          entity_name: item.entity_name,
-        },
-      });
-    } catch {}
-
-    return item;
+    return schoolApi<RecycleBinItem>('/api/recycle-bin', {
+      method: 'PUT',
+      cache: 'no-store',
+      body: JSON.stringify({
+        id: binItemId,
+        action: 'restore',
+        restoredByName,
+      }),
+    });
   },
 };
 

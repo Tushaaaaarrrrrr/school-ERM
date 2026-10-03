@@ -43,6 +43,6 @@ const route=load('app/api/attendance/students/route.ts',{
  assert(web.includes('status: null'));
  assert(!web.includes("status: attendanceMap[st.id]?.status || 'present'"));
  const shell=fs.readFileSync('mobile/lib/views/shell/main_shell_view.dart','utf8');
- for(const path of ['/teacher','/teacher/attendance','/teacher/classes','/teacher/exams','/teacher/leave','/teacher/timetable','/teacher/payments']) assert(shell.includes(`TeacherPortalView(path: '${path}')`));
- console.log('Teacher class isolation, coverage, unmarked defaults, validated saves and seven portal routes passed');
+ for(const view of ['TeacherHomeView','TeacherAttendanceView','TeacherClassesView','TeacherExamsView','TeacherLeaveView','TeacherTimetableView','TeacherPaymentsView']) assert(shell.includes(view));
+ console.log('Teacher class isolation, coverage, unmarked defaults, validated saves and seven native routes passed');
 })().catch(error=>{console.error(error);process.exitCode=1});

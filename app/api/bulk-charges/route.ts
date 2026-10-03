@@ -11,7 +11,7 @@ export async function GET() {
     const access = await requireSchoolAccess(null, ['school_admin', 'accountant']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const data = await serverDb.getBulkChargeBatchs(access.schoolId);
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     return errorResponse(error);
   }

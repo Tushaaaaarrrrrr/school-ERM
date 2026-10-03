@@ -15,6 +15,10 @@ export async function PUT(
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const { id } = await params;
     const body = await request.json();
+    if (body.action === 'cancel' || body.status === 'cancelled') {
+      const data = await serverDb.cancelBulkChargeBatch(access.schoolId, id, body.actorId, body.actorName);
+      return NextResponse.json({ success: true, data });
+    }
     delete body.school_id;
     const data = await serverDb.updateBulkChargeBatch(id, body);
     return NextResponse.json({ success: true, data });

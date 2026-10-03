@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_svg_icon.dart';
 
 /// Exact matching UI & text for web offline page (`app/offline/page.tsx`)
 class OfflineErrorView extends StatelessWidget {
@@ -96,7 +97,7 @@ class SuspendedSchoolView extends StatelessWidget {
               border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -243,7 +244,7 @@ class AccessUnavailableView extends StatelessWidget {
               border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -295,6 +296,7 @@ class AccessUnavailableView extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF334155),
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          minimumSize: const Size(64, 48),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -311,6 +313,7 @@ class AccessUnavailableView extends StatelessWidget {
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           elevation: 0,
+                          minimumSize: const Size(64, 48),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -326,6 +329,329 @@ class AccessUnavailableView extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Clean, reusable empty state widget for empty lists, search queries, and tabs
+class EmptyStateView extends StatelessWidget {
+  final String title;
+  final String? message;
+  final IconData? icon;
+  final String? iconName;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final Widget? customIllustration;
+  final EdgeInsetsGeometry padding;
+
+  const EmptyStateView({
+    super.key,
+    required this.title,
+    this.message,
+    this.icon = Icons.inbox_outlined,
+    this.iconName,
+    this.actionLabel,
+    this.onAction,
+    this.customIllustration,
+    this.padding = const EdgeInsets.all(32),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: padding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (customIllustration != null)
+              customIllustration!
+            else
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.18),
+                    width: 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: iconName != null
+                    ? AppSvgIcon(iconName!, size: 32, color: AppColors.primary)
+                    : Icon(icon ?? Icons.inbox_outlined,
+                        size: 32, color: AppColors.primary),
+              ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (message != null) ...[
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: Text(
+                  message!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.45,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: onAction,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(120, 48),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Clean, reusable error state widget with retry option
+class ErrorStateView extends StatelessWidget {
+  final String title;
+  final String? message;
+  final VoidCallback? onRetry;
+  final String retryLabel;
+  final IconData icon;
+  final EdgeInsetsGeometry padding;
+
+  const ErrorStateView({
+    super.key,
+    this.title = 'Something went wrong',
+    this.message,
+    this.onRetry,
+    this.retryLabel = 'Try Again',
+    this.icon = Icons.error_outline_rounded,
+    this.padding = const EdgeInsets.all(32),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: padding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFFECACA),
+                  width: 1,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 32, color: const Color(0xFFDC2626)),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (message != null) ...[
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: Text(
+                  message!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.45,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+            if (onRetry != null) ...[
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(retryLabel),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(120, 48),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer/pulse loading skeleton container for production-ready loading placeholders
+class SkeletonContainer extends StatefulWidget {
+  final double? width;
+  final double? height;
+  final BorderRadius? borderRadius;
+  final ShapeBorder? shape;
+
+  const SkeletonContainer({
+    super.key,
+    this.width,
+    this.height,
+    this.borderRadius,
+    this.shape,
+  });
+
+  const SkeletonContainer.circular({
+    super.key,
+    required double size,
+  })  : width = size,
+        height = size,
+        borderRadius = null,
+        shape = const CircleBorder();
+
+  const SkeletonContainer.rounded({
+    super.key,
+    this.width,
+    this.height,
+    BorderRadius? borderRadius,
+  })  : borderRadius =
+            borderRadius ?? const BorderRadius.all(Radius.circular(8)),
+        shape = null;
+
+  @override
+  State<SkeletonContainer> createState() => _SkeletonContainerState();
+}
+
+class _SkeletonContainerState extends State<SkeletonContainer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Color?> _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _colorAnimation = ColorTween(
+      begin: const Color(0xFFE2E8F0),
+      end: const Color(0xFFF1F5F9),
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _colorAnimation,
+      builder: (context, child) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: ShapeDecoration(
+            color: _colorAnimation.value ?? const Color(0xFFE2E8F0),
+            shape: widget.shape ??
+                RoundedRectangleBorder(
+                  borderRadius:
+                      widget.borderRadius ?? BorderRadius.circular(8),
+                ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A clean, multi-row loading skeleton container for content lists and dashboards
+class LoadingSkeletonView extends StatelessWidget {
+  final int itemCount;
+  final EdgeInsetsGeometry padding;
+
+  const LoadingSkeletonView({
+    super.key,
+    this.itemCount = 5,
+    this.padding = const EdgeInsets.all(16),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: padding,
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      itemCount: itemCount,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, __) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border, width: 1),
+          ),
+          child: const Row(
+            children: [
+              SkeletonContainer.circular(size: 40),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonContainer.rounded(width: 140, height: 14),
+                    SizedBox(height: 8),
+                    SkeletonContainer.rounded(width: 90, height: 10),
+                  ],
+                ),
+              ),
+              SkeletonContainer.rounded(width: 50, height: 22),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -105,21 +105,22 @@ class AppBottomNav extends StatelessWidget {
     final items = _getNavItems();
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+        border:
+            const Border(top: BorderSide(color: AppColors.border, width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, -2),
+            color: AppColors.secondary.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 66,
+          height: 68,
           child: Row(
             children: List.generate(items.length, (index) {
               final item = items[index];
@@ -131,35 +132,43 @@ class AppBottomNav extends StatelessWidget {
                   child: InkWell(
                     onTap: onCreateStudent,
                     child: Transform.translate(
-                      offset: const Offset(0, -14),
+                      offset: const Offset(0, -12),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 54,
-                            height: 54,
+                            width: 50,
+                            height: 50,
                             decoration: BoxDecoration(
-                              color: AppColors.primary,
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.primary,
+                                  AppColors.primaryDark
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              boxShadow: const [
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 12,
-                                  offset: Offset(0, 4),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.add,
+                            child: const Icon(Icons.add_rounded,
                                 color: Colors.white, size: 28),
                           ),
                           const SizedBox(height: 2),
                           const Text(
                             'Create',
                             style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ],
@@ -169,36 +178,46 @@ class AppBottomNav extends StatelessWidget {
                 );
               }
               if (item.isMoreAction) {
+                final isMoreSelected = currentIndex == -1;
                 return Expanded(
                   child: InkWell(
                     onTap: onMore,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
+                              horizontal: 16, vertical: 4),
                           decoration: BoxDecoration(
-                              color: currentIndex == -1
-                                  ? AppColors.primaryLight
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20)),
-                          child: Icon(Icons.grid_view_rounded,
-                              size: 21,
-                              color: currentIndex == -1
-                                  ? AppColors.primary
-                                  : AppColors.textMuted),
+                            color: isMoreSelected
+                                ? AppColors.primaryLight
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            Icons.grid_view_rounded,
+                            size: 20,
+                            color: isMoreSelected
+                                ? AppColors.primaryDark
+                                : AppColors.textSecondary,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Text('More',
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: currentIndex == -1
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: currentIndex == -1
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary)),
+                        const SizedBox(height: 3),
+                        Text(
+                          'More',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: isMoreSelected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: isMoreSelected
+                                ? AppColors.primaryDark
+                                : AppColors.textSecondary,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -211,34 +230,35 @@ class AppBottomNav extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
+                            horizontal: 16, vertical: 4),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppColors.primaryLight
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: AppSvgIcon(
                           item.icon,
                           size: 20,
                           color: isSelected
-                              ? AppColors.primary
-                              : AppColors.textMuted,
+                              ? AppColors.primaryDark
+                              : AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         item.label,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 10.5,
                           fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
+                              isSelected ? FontWeight.w700 : FontWeight.w600,
                           color: isSelected
-                              ? AppColors.primary
+                              ? AppColors.primaryDark
                               : AppColors.textSecondary,
+                          letterSpacing: 0.1,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

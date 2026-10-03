@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/stat_card.dart';
+import '../../core/widgets/status_badge.dart';
 import '../../data/services/api_client.dart';
 
 class SuperAdminOverviewView extends StatelessWidget {
@@ -92,21 +93,274 @@ class SuperAdminOverviewView extends StatelessWidget {
   }
 }
 
-class SuperAdminSchoolsView extends StatelessWidget {
+class SuperAdminSchoolsView extends StatefulWidget {
   const SuperAdminSchoolsView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return _FutureList(
-      title: 'Schools',
-      future: ApiClient.getSchools(),
-      emptyText: 'No schools found.',
-      itemBuilder: (school) => _InfoTile(
-        icon: 'graduation_cap',
-        title: '${school['name'] ?? 'Unnamed School'}',
-        subtitle:
-            '${school['code'] ?? 'No code'} • ${school['status'] ?? 'unknown'}',
+  State<SuperAdminSchoolsView> createState() => _SuperAdminSchoolsViewState();
+}
+
+class _SuperAdminSchoolsViewState extends State<SuperAdminSchoolsView> {
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    setState(() {
+      _future = ApiClient.getSchools();
+    });
+  }
+
+  Future<void> _createSchool() async {
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    String? errorText;
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Create New School', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'School Name *', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: codeCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(labelText: 'School Code * (e.g. DPA-002)', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(labelText: 'Admin Google Email *', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(labelText: 'Contact Phone', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: addressCtrl,
+                      decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(errorText!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final name = nameCtrl.text.trim();
+                          final code = codeCtrl.text.trim().toUpperCase();
+                          final email = emailCtrl.text.trim();
+                          if (name.isEmpty || code.isEmpty || email.isEmpty) {
+                            setDialogState(() => errorText = 'Name, Code, and Admin Email are required.');
+                            return;
+                          }
+                          setDialogState(() {
+                            isSaving = true;
+                            errorText = null;
+                          });
+                          try {
+                            await ApiClient.send('POST', '/api/schools', {
+                              'name': name,
+                              'code': code,
+                              'admin_email': email,
+                              if (phoneCtrl.text.trim().isNotEmpty) 'phone': phoneCtrl.text.trim(),
+                              if (addressCtrl.text.trim().isNotEmpty) 'address': addressCtrl.text.trim(),
+                              'status': 'active',
+                            });
+                            if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(content: Text('School created successfully!'), backgroundColor: AppColors.success),
+                              );
+                              _load();
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isSaving = false;
+                              errorText = e.toString().replaceFirst('Exception: ', '');
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Create School'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleSchoolStatus(Map<String, dynamic> school) async {
+    final id = school['id'];
+    final name = school['name'] ?? 'School';
+    final currentStatus = (school['status'] ?? 'active').toString().toLowerCase();
+    final targetStatus = currentStatus == 'active' ? 'suspended' : 'active';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('${targetStatus == 'suspended' ? 'Suspend' : 'Activate'} $name?'),
+        content: Text(
+          targetStatus == 'suspended'
+              ? 'Suspending this school will restrict access for users associated with this institution.'
+              : 'Activating this school will restore normal operations for this institution.',
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: targetStatus == 'suspended' ? AppColors.danger : AppColors.success,
+            ),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: Text(targetStatus == 'suspended' ? 'Suspend' : 'Activate'),
+          ),
+        ],
       ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      try {
+        await ApiClient.send('PATCH', '/api/schools/$id', {'status': targetStatus});
+      } catch (_) {
+        await ApiClient.send('PUT', '/api/schools/$id', {'status': targetStatus});
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name is now $targetStatus.'),
+            backgroundColor: targetStatus == 'active' ? AppColors.success : AppColors.warning,
+          ),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update school: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const [];
+        return _PlatformScaffold(
+          title: 'Schools',
+          action: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('New School', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: _createSchool,
+          ),
+          loading: snapshot.connectionState == ConnectionState.waiting,
+          error: snapshot.error,
+          child: _ListCard(
+            emptyText: 'No schools found.',
+            children: items.map((school) {
+              final status = (school['status'] ?? 'unknown').toString().toLowerCase();
+              final isActive = status == 'active';
+              return ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: isActive ? AppColors.primaryLight : AppColors.dangerLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: AppSvgIcon(
+                    'graduation_cap',
+                    size: 20,
+                    color: isActive ? AppColors.primary : AppColors.danger,
+                  ),
+                ),
+                title: Text(
+                  '${school['name'] ?? 'Unnamed School'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                subtitle: Text(
+                  'Code: ${school['code'] ?? '—'} • Admin: ${school['admin_email'] ?? school['email'] ?? '—'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StatusBadge(
+                      label: status.toUpperCase(),
+                      type: isActive ? BadgeType.success : BadgeType.warning,
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                        color: isActive ? AppColors.warning : AppColors.success,
+                        size: 20,
+                      ),
+                      tooltip: isActive ? 'Suspend School' : 'Activate School',
+                      onPressed: () => _toggleSchoolStatus(school),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 }
@@ -139,26 +393,260 @@ class SuperAdminUsersView extends StatelessWidget {
   }
 }
 
-class SuperAdminAccessRequestsView extends StatelessWidget {
+class SuperAdminAccessRequestsView extends StatefulWidget {
   const SuperAdminAccessRequestsView({super.key});
 
   @override
+  State<SuperAdminAccessRequestsView> createState() => _SuperAdminAccessRequestsViewState();
+}
+
+class _SuperAdminAccessRequestsViewState extends State<SuperAdminAccessRequestsView> {
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    setState(() {
+      _future = ApiClient.getAccessRequests();
+    });
+  }
+
+  Future<void> _handleApprove(Map<String, dynamic> request) async {
+    final profile = request['profiles'] is Map ? request['profiles'] as Map : const {};
+    final school = request['schools'] is Map ? request['schools'] as Map : const {};
+    final applicantName = profile['display_name'] ?? request['applicant_name'] ?? profile['email'] ?? 'Applicant';
+    final schoolName = school['name'] ?? 'School';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Approve Access Request'),
+        content: Text(
+          'Grant school administrator access to $applicantName for $schoolName?',
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ApiClient.send('PATCH', '/api/access-requests', {
+        'action': 'approve',
+        'requestId': request['id'],
+        'role': 'school_admin',
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Access request for $applicantName approved.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to approve request: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleReject(Map<String, dynamic> request) async {
+    final profile = request['profiles'] is Map ? request['profiles'] as Map : const {};
+    final applicantName = profile['display_name'] ?? request['applicant_name'] ?? profile['email'] ?? 'Applicant';
+    final reasonCtrl = TextEditingController(text: 'Rejected by administrator');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reject Access Request'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to reject the access request from $applicantName?',
+              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Reject Request'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ApiClient.send('PATCH', '/api/access-requests', {
+        'action': 'reject',
+        'requestId': request['id'],
+        'reason': reasonCtrl.text.trim().isNotEmpty ? reasonCtrl.text.trim() : 'Rejected by administrator',
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Access request for $applicantName rejected.'),
+            backgroundColor: AppColors.textPrimary,
+          ),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reject request: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return _FutureList(
-      title: 'Access Requests',
-      future: ApiClient.getAccessRequests(),
-      emptyText: 'No access requests found.',
-      itemBuilder: (request) {
-        final profile =
-            request['profiles'] is Map ? request['profiles'] as Map : const {};
-        final school =
-            request['schools'] is Map ? request['schools'] as Map : const {};
-        return _InfoTile(
-          icon: 'bell',
-          title:
-              '${profile['display_name'] ?? request['applicant_name'] ?? profile['email'] ?? 'Applicant'}',
-          subtitle:
-              '${school['name'] ?? 'Unknown school'} • ${request['status'] ?? 'pending'}',
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const [];
+        return _PlatformScaffold(
+          title: 'Access Requests',
+          loading: snapshot.connectionState == ConnectionState.waiting,
+          error: snapshot.error,
+          child: _ListCard(
+            emptyText: 'No access requests found.',
+            children: items.map((request) {
+              final profile =
+                  request['profiles'] is Map ? request['profiles'] as Map : const {};
+              final school =
+                  request['schools'] is Map ? request['schools'] as Map : const {};
+              final status = (request['status'] ?? 'pending').toString().toLowerCase();
+              final isPending = status == 'pending';
+              final applicantName =
+                  '${profile['display_name'] ?? request['applicant_name'] ?? profile['email'] ?? 'Applicant'}';
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: isPending ? AppColors.warningLight : AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.person_outline,
+                            size: 20,
+                            color: isPending ? AppColors.warning : AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                applicantName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${school['name'] ?? 'Unknown school'} • ${profile['email'] ?? '—'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        StatusBadge(
+                          label: status.toUpperCase(),
+                          type: status == 'approved'
+                              ? BadgeType.success
+                              : status == 'rejected'
+                                  ? BadgeType.danger
+                                  : BadgeType.warning,
+                        ),
+                      ],
+                    ),
+                    if (isPending) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              side: const BorderSide(color: AppColors.danger),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.close, size: 14, color: AppColors.danger),
+                            label: const Text('Reject', style: TextStyle(color: AppColors.danger, fontSize: 12)),
+                            onPressed: () => _handleReject(request),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.check, size: 14),
+                            label: const Text('Approve', style: TextStyle(fontSize: 12)),
+                            onPressed: () => _handleApprove(request),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         );
       },
     );
@@ -290,12 +778,14 @@ class _PlatformScaffold extends StatelessWidget {
   final Widget child;
   final bool loading;
   final Object? error;
+  final Widget? action;
 
   const _PlatformScaffold(
       {required this.title,
       required this.child,
       this.loading = false,
-      this.error});
+      this.error,
+      this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -312,11 +802,14 @@ class _PlatformScaffold extends StatelessWidget {
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary))),
-              if (loading)
+              if (action != null) action!,
+              if (loading) ...[
+                if (action != null) const SizedBox(width: 8),
                 const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2)),
+              ],
             ],
           ),
           if (error != null) ...[

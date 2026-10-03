@@ -15,8 +15,18 @@ import '../../data/services/auth_service.dart';
 import '../../viewmodels/student_viewmodel.dart';
 import '../auth/pin_lock_screen.dart';
 
-// Teacher workflows reuse the authenticated web portal.
-import '../teacher/teacher_portal_view.dart';
+import '../common/account_view.dart';
+import '../common/native_list_view.dart';
+import '../common/native_screens.dart';
+
+// Native Teacher Views
+import '../teacher/teacher_home_view.dart';
+import '../teacher/teacher_attendance_view.dart';
+import '../teacher/teacher_leave_view.dart';
+import '../teacher/teacher_classes_view.dart';
+import '../teacher/teacher_exams_view.dart';
+import '../teacher/teacher_timetable_view.dart';
+import '../teacher/teacher_payments_view.dart';
 
 // Student & Parent Views
 import '../parent_student/student_home_view.dart';
@@ -488,16 +498,16 @@ class _MainShellViewState extends State<MainShellView>
   List<Widget> _getScreensForRole(UserRole role) {
     switch (role) {
       case UserRole.teacher:
-        return const [
-          TeacherPortalView(path: '/teacher'),
-          TeacherPortalView(path: '/teacher/attendance'),
-          TeacherPortalView(path: '/teacher/leave'),
-          TeacherPortalView(path: '/teacher/classes'),
-          TeacherPortalView(path: '/teacher/exams'),
-          TeacherPortalView(path: '/teacher/timetable'),
-          TeacherPortalView(path: '/teacher/payments'),
-          TeacherPortalView(path: '/account/security'),
-          TeacherPortalView(path: '/account/security'),
+        return [
+          TeacherHomeView(onTabSelected: _navigate),
+          const TeacherAttendanceView(),
+          const TeacherLeaveView(),
+          const TeacherClassesView(),
+          const TeacherExamsView(),
+          const TeacherTimetableView(),
+          const TeacherPaymentsView(),
+          const AccountView(),
+          const AccountView(),
         ];
       case UserRole.student:
         return [
@@ -507,7 +517,7 @@ class _MainShellViewState extends State<MainShellView>
           const StudentResultsView(),
           const StudentFeesView(),
           const StudentProfileView(),
-          const TeacherPortalView(path: '/account/security'),
+          const AccountView(),
           const StudentAttendanceView(),
           const StudentNoticesView(),
         ];
@@ -519,7 +529,7 @@ class _MainShellViewState extends State<MainShellView>
           const StudentResultsView(),
           const StudentFeesView(),
           const StudentProfileView(),
-          const TeacherPortalView(path: '/account/security'),
+          const AccountView(),
           const StudentAttendanceView(),
           const StudentNoticesView(),
         ];
@@ -531,56 +541,56 @@ class _MainShellViewState extends State<MainShellView>
           const SuperAdminAccessRequestsView(),
           const SuperAdminSecurityView(),
           const SuperAdminSettingsView(),
-          const TeacherPortalView(path: '/account/security'),
+          const AccountView(),
         ];
       case UserRole.schoolAdmin:
         return [
           AdminHomeView(onTabSelected: _navigate),
           AdminStudentsView(key: ValueKey(_studentsVersion)),
-          const TeacherPortalView(path: '/admin/teachers'),
-          const TeacherPortalView(path: '/admin/staff'),
-          const TeacherPortalView(path: '/admin/reception'),
+          NativeListView(spec: nativeScreens['/admin/teachers']!),
+          NativeListView(spec: nativeScreens['/admin/staff']!),
+          NativeListView(spec: nativeScreens['/admin/reception']!),
           const AdminAttendanceView(),
-          const TeacherPortalView(path: '/admin/attendance/leaves'),
-          const TeacherPortalView(path: '/admin/teachers/attendance'),
-          const TeacherPortalView(path: '/admin/academics/holidays'),
-          const TeacherPortalView(path: '/admin/academics/classes'),
-          const TeacherPortalView(path: '/admin/academics/rooms'),
-          const TeacherPortalView(path: '/admin/academics/subjects'),
-          const TeacherPortalView(path: '/admin/academics/timetable'),
-          const TeacherPortalView(path: '/admin/transport'),
+          NativeListView(spec: nativeScreens['/admin/attendance/leaves']!),
+          NativeListView(spec: nativeScreens['/admin/teachers/attendance']!),
+          NativeListView(spec: nativeScreens['/admin/academics/holidays']!),
+          NativeListView(spec: nativeScreens['/admin/academics/classes']!),
+          NativeListView(spec: nativeScreens['/admin/academics/rooms']!),
+          NativeListView(spec: nativeScreens['/admin/academics/subjects']!),
+          NativeListView(spec: nativeScreens['/admin/academics/timetable']!),
+          NativeListView(spec: nativeScreens['/admin/transport']!),
           const AdminFeesView(),
-          const TeacherPortalView(path: '/admin/payroll'),
-          const TeacherPortalView(path: '/admin/exams'),
-          const TeacherPortalView(path: '/admin/results'),
+          NativeListView(spec: nativeScreens['/admin/payroll']!),
+          NativeListView(spec: nativeScreens['/admin/exams']!),
+          NativeListView(spec: nativeScreens['/admin/results']!),
           const AdminNoticesView(),
-          const TeacherPortalView(path: '/admin/access-requests'),
-          const TeacherPortalView(path: '/admin/recycle-bin'),
-          const TeacherPortalView(path: '/admin/security/logs'),
-          const TeacherPortalView(path: '/admin/account-requests'),
-          const TeacherPortalView(path: '/admin/settings'),
-          const TeacherPortalView(path: '/account/security'),
+          NativeListView(spec: nativeScreens['/admin/access-requests']!),
+          NativeListView(spec: nativeScreens['/admin/recycle-bin']!),
+          NativeListView(spec: nativeScreens['/admin/security/logs']!),
+          NativeListView(spec: nativeScreens['/admin/account-requests']!),
+          const AccountView(),
+          const AccountView(),
         ];
       case UserRole.staff:
         return [
           AdminHomeView(onTabSelected: _navigate),
-          const TeacherPortalView(path: '/staff'),
+          NativeListView(spec: nativeScreens['/admin/staff']!),
           const AdminFeesView(),
           const AdminStudentsView(),
           const AdminAttendanceView(),
           const AdminNoticesView(),
-          const TeacherPortalView(path: '/account/security'),
-          const TeacherPortalView(path: '/account/security'),
+          const AccountView(),
+          const AccountView(),
         ];
       case UserRole.accountant:
         return [
           AdminHomeView(onTabSelected: _navigate),
           const AdminFeesView(),
-          const TeacherPortalView(path: '/staff'),
+          NativeListView(spec: nativeScreens['/admin/staff']!),
           const AdminStudentsView(),
-          const TeacherPortalView(path: '/account/security'),
-          const TeacherPortalView(path: '/account/security'),
-          const TeacherPortalView(path: '/account/security'),
+          const AccountView(),
+          const AccountView(),
+          const AccountView(),
           const AdminNoticesView(),
         ];
       case UserRole.driver:
@@ -588,8 +598,8 @@ class _MainShellViewState extends State<MainShellView>
           const DriverHomeView(),
           const DriverStopsView(),
           const DriverBoardingView(),
-          const TeacherPortalView(path: '/account/security'),
-          const TeacherPortalView(path: '/account/security'),
+          const AccountView(),
+          const AccountView(),
         ];
     }
   }
