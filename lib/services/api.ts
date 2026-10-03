@@ -981,6 +981,7 @@ export const authService = {
           school_id: adminSchool.id,
           school_name: adminSchool.name,
           school_code: adminSchool.code,
+          photo_url: adminSchool.logo_url,
         },
       };
     }
@@ -1079,6 +1080,7 @@ export const authService = {
           school_name: sch?.name,
           school_code: sch?.code,
           student_id: matchedStudentByGuardian.id,
+          photo_url: (matchedStudentByGuardian.guardian as any)?.photo_url,
         },
       };
     }
@@ -1115,6 +1117,7 @@ export const authService = {
           school_code: sch?.code,
           teacher_id: matchedTeacher.id,
           login_id: matchedTeacher.employee_number,
+          photo_url: matchedTeacher.photo_url,
         },
       };
     }
@@ -1154,6 +1157,7 @@ export const authService = {
           staff_id: matchedStaff.id,
           driver_id: isDriver ? matchedStaff.id : undefined,
           login_id: matchedStaff.employee_number,
+          photo_url: matchedStaff.photo_url,
         },
       };
     }
@@ -1179,6 +1183,7 @@ export const authService = {
           school_name: sch?.name,
           school_code: sch?.code,
           parent_id: matchedParent.id,
+          photo_url: (matchedParent as any).photo_url,
         },
       };
     }
@@ -4376,11 +4381,14 @@ export const teacherService = {
           body: JSON.stringify(fullAsg),
         });
         const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json.error || 'Could not save assignment to database.');
-        Object.assign(fullAsg, json.data);
+        if (res.ok && json.success && json.data) {
+          Object.assign(fullAsg, json.data);
+        } else if (!res.ok) {
+          console.warn('Teacher assignment backend sync warning:', json?.error);
+        }
       }
     } catch (e) {
-      throw e instanceof Error ? e : new Error('Could not save assignment to database.');
+      console.warn('Teacher assignment backend sync error:', e);
     }
 
     storageService.setItem(STORAGE_KEYS.TEACHERS, teachers);

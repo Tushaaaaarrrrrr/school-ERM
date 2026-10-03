@@ -326,9 +326,6 @@ export default function TeacherAttendancePage() {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="w-6 h-6 text-indigo-600" /> Class Attendance & Roster
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Mark daily class roll call, review parent leave applications, or grant sick leaves
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

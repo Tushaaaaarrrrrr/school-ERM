@@ -43,6 +43,7 @@ import {
 
 import { isFeatureEnabled } from '@/lib/utils/features';
 import { SchoolFeatureKey } from '@/lib/types';
+import { resolveUserPhoto } from '@/lib/utils/avatar';
 
 interface NavItem {
   label: string;
@@ -78,9 +79,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   };
 
   const role = getEffectiveRole();
+  const effectivePhoto = currentUser?.photo_url || resolveUserPhoto(currentUser, currentSchool);
 
   const [studentSubtitle, setStudentSubtitle] = React.useState<string | null>(null);
-  const [studentPhoto, setStudentPhoto] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (role === 'student' && typeof window !== 'undefined') {
@@ -102,9 +103,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               ? `${s.current_enrollment.class_name}${s.current_enrollment.section_name ? ` (${s.current_enrollment.section_name})` : ''}`
               : '';
             setStudentSubtitle(reg || cls || 'Registration ID');
-            if (s.photo_url) {
-              setStudentPhoto(s.photo_url);
-            }
           } else {
             setStudentSubtitle(currentUser?.login_id ? `Reg ID: ${currentUser.login_id}` : null);
           }
@@ -112,7 +110,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       } catch {}
     } else {
       setStudentSubtitle(null);
-      setStudentPhoto(null);
     }
   }, [currentUser, role]);
 
@@ -415,9 +412,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Bottom Profile Footer & Privacy Settings Link */}
         <div className="p-3 border-t border-slate-800 bg-slate-950 space-y-2 shrink-0">
           <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg">
-            {(currentUser?.photo_url || studentPhoto) ? (
+            {effectivePhoto ? (
               <img
-                src={currentUser?.photo_url || studentPhoto || ''}
+                src={effectivePhoto}
                 alt={currentUser?.name || 'User'}
                 className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0"
               />

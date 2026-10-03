@@ -196,11 +196,6 @@ export function SalaryAdjustmentModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Record Salary Adjustment"
-      description={
-        activeEmployee
-          ? `Record manual reimbursement or deduction for ${activeEmployee.name} (${activeEmployee.employeeNumber || activeEmployee.role})`
-          : 'Record manual reimbursement or deduction for a school employee'
-      }
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs text-left">
         {/* Employee Selector (if not preselected) or Banner (if preselected) */}

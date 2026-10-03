@@ -202,10 +202,62 @@ export async function resolveAccessContext(supabase: any, user: any) {
           : (school?.school_hours && Object.keys(school.school_hours).length > 0 ? school.school_hours : undefined),
       };
     }
+
+    const userPersona = persona(profile, membership, school);
+    const userRole = userPersona.role;
+    const userEmail = (profile.email || user.email || '').trim().toLowerCase();
+
+    // Enrich photo_url and entity details for each role
+    if (membership.school_id) {
+      try {
+        if (userRole === 'teacher') {
+          const teachers = await serverDb.getTeachers(membership.school_id);
+          const t = teachers.find((tch: any) => tch.email?.trim().toLowerCase() === userEmail);
+          if (t) {
+            userPersona.photo_url = userPersona.photo_url || t.photo_url;
+            userPersona.teacher_id = t.id;
+            if (!userPersona.login_id) userPersona.login_id = t.employee_number;
+          }
+        } else if (userRole === 'student') {
+          const students = await serverDb.getStudents(membership.school_id);
+          const s = students.find((std: any) =>
+            std.auth_user_id === profile.id ||
+            std.id === profile.id ||
+            std.guardian?.email?.trim().toLowerCase() === userEmail
+          );
+          if (s) {
+            userPersona.photo_url = userPersona.photo_url || s.photo_url;
+            userPersona.student_id = s.id;
+            if (!userPersona.login_id) userPersona.login_id = s.registration_number;
+          }
+        } else if (userRole === 'staff' || userRole === 'driver' || userRole === 'accountant') {
+          const staff = await serverDb.getStaff(membership.school_id);
+          const st = staff.find((m: any) => m.email?.trim().toLowerCase() === userEmail);
+          if (st) {
+            userPersona.photo_url = userPersona.photo_url || st.photo_url;
+            userPersona.staff_id = st.id;
+            if (userRole === 'driver') userPersona.driver_id = st.id;
+            if (!userPersona.login_id) userPersona.login_id = st.employee_number;
+          }
+        } else if (userRole === 'school_admin') {
+          userPersona.photo_url = userPersona.photo_url || school?.logo_url;
+        } else if (userRole === 'parent') {
+          const parents = await serverDb.getParents(membership.school_id);
+          const p = parents.find((par: any) => par.email?.trim().toLowerCase() === userEmail || par.auth_user_id === profile.id);
+          if (p) {
+            userPersona.photo_url = userPersona.photo_url || p.photo_url;
+            userPersona.parent_id = p.id;
+          }
+        }
+      } catch (enrichErr) {
+        console.warn('Role persona photo enrichment notice:', enrichErr);
+      }
+    }
+
     return {
       authenticated: true as const,
       state: 'ACTIVE_SCHOOL_USER' as AccessState,
-      user: persona(profile, membership, school),
+      user: userPersona,
       membership,
       school,
       profile,
@@ -561,6 +613,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
         school_id: s.id,
         school_name: s.name,
         school_code: s.code,
+        photo_url: s.logo_url || profile.photo_url || profile.avatar_url,
         permissions: [],
       };
       return {
@@ -597,6 +650,9 @@ export async function resolveAccessContext(supabase: any, user: any) {
         school_id: s.id,
         school_name: s.name,
         school_code: s.code,
+        teacher_id: matchedTeacher.id,
+        login_id: matchedTeacher.employee_number,
+        photo_url: matchedTeacher.photo_url || profile.photo_url || profile.avatar_url,
         permissions: [],
       };
       return {
@@ -634,6 +690,10 @@ export async function resolveAccessContext(supabase: any, user: any) {
         school_id: s.id,
         school_name: s.name,
         school_code: s.code,
+        staff_id: matchedStaff.id,
+        driver_id: assignedRole === 'driver' ? matchedStaff.id : undefined,
+        login_id: matchedStaff.employee_number,
+        photo_url: matchedStaff.photo_url || profile.photo_url || profile.avatar_url,
         permissions: matchedStaff.permissions || [],
       };
       return {
@@ -681,6 +741,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
         school_id: s.id,
         school_name: s.name,
         school_code: s.code,
+        photo_url: matchedStudent.photo_url || profile.photo_url || profile.avatar_url,
         permissions: [],
       };
       return {
@@ -720,6 +781,7 @@ export async function resolveAccessContext(supabase: any, user: any) {
         school_name: s.name,
         school_code: s.code,
         parent_id: matchedParent.id,
+        photo_url: matchedParent.photo_url || profile.photo_url || profile.avatar_url,
         permissions: [],
       };
       return {

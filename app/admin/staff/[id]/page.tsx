@@ -914,9 +914,6 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Temporary Work Coverage History</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Coverage assignments where {staff.first_name} {staff.last_name} covered duties for a colleague or had their duties covered while on leave.
-              </p>
             </div>
             <Button
               size="sm"
@@ -1049,9 +1046,6 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Historical Salary Revisions</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Past salary compensation levels are preserved permanently without altering previous payment receipts.
-              </p>
             </div>
             <Button size="sm" variant="primary" onClick={() => setIsSalaryModalOpen(true)}>
               + Increment / Revise Salary
@@ -1285,7 +1279,6 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
         isOpen={isSalaryModalOpen}
         onClose={() => setIsSalaryModalOpen(false)}
         title="Update Employee Monthly Salary"
-        description="Records a new salary revision in historical compensation records"
       >
         <form onSubmit={handleUpdateSalarySubmit} className="space-y-4 text-xs text-left">
           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs flex items-start gap-2">

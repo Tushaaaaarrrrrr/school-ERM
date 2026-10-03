@@ -319,9 +319,10 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
 
       success('Subject assignment created successfully');
       setIsAssignModalOpen(false);
+      setAssignForm({ classId: '', sectionId: '', subjectId: '' });
       loadProfile();
-    } catch {
-      toastError('Failed to assign subject');
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : 'Failed to assign subject');
     }
   };
 
@@ -561,7 +562,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Teaching Assignments</h4>
-              <p className="text-xs text-slate-500">Classes and subjects assigned to this faculty member</p>
             </div>
             <Button size="sm" variant="primary" onClick={() => setIsAssignModalOpen(true)} leftIcon={<BookOpen className="w-3.5 h-3.5" />}>
               + Add Assignment
@@ -789,9 +789,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Salary Adjustments (Reimbursements & Deductions)</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Financial outcomes manually recorded for temporary duties, overtime, or unpaid absences. Base salary remains untouched.
-              </p>
             </div>
             <Button
               size="sm"
@@ -892,9 +889,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Temporary Work Coverage History</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Coverage assignments where {teacher.first_name} {teacher.last_name} covered duties for a colleague or had their duties covered while on leave.
-              </p>
             </div>
             <Button
               size="sm"
@@ -1027,9 +1021,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Historical Salary Revisions</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Past salary compensation levels are preserved permanently without altering previous payment receipts.
-              </p>
             </div>
             <Button size="sm" variant="primary" onClick={() => setIsSalaryModalOpen(true)}>
               + Increment / Revise Salary
@@ -1098,7 +1089,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title={`Edit Teacher Profile: ${teacher.first_name} ${teacher.last_name}`}
-        description="Update faculty contact details, employee number, and photo"
       >
         <form onSubmit={handleSaveTeacherEdits} className="space-y-4 text-xs text-left max-h-[75vh] overflow-y-auto pr-1">
             <PhotoUpload
@@ -1203,7 +1193,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
         isOpen={isSalaryModalOpen}
         onClose={() => setIsSalaryModalOpen(false)}
         title="Update Faculty Monthly Salary"
-        description="Records a new salary revision in historical compensation records"
       >
         <form onSubmit={handleUpdateSalarySubmit} className="space-y-4 text-xs text-left">
           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
@@ -1262,7 +1251,6 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         title="Assign Class & Subject to Teacher"
-        description="Assign a class and subject; section is optional"
       >
         <form onSubmit={handleAssignSubjectSubmit} className="space-y-4 text-xs text-left">
           <div>

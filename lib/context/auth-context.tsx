@@ -9,6 +9,7 @@ import { UserPersona, School, AcademicYear } from '@/lib/types';
 import { INITIAL_SCHOOLS, INITIAL_ACADEMIC_YEARS } from '@/lib/services/mock-data';
 import { schoolService, academicYearService, authService, storageService, pinSecurityService, passkeyService, STORAGE_KEYS } from '@/lib/services/api';
 import { createClient } from '@/lib/supabase/client';
+import { resolveUserPhoto } from '@/lib/utils/avatar';
 
 interface AuthContextType {
   currentUser: UserPersona | null;
@@ -126,20 +127,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setAccessState(context.state);
       setPendingAccessRequest(context.request || null);
-      const personaUser = context.user || (context.profile ? {
-        id: context.profile.id,
-        name: context.profile.display_name || context.profile.name || 'User',
-        email: context.profile.email,
-        role: context.profile.role || 'unassigned',
-        school_id: context.profile.school_id,
-        photo_url: context.profile.photo_url || context.profile.avatar_url,
-      } : null);
-      setCurrentUser(personaUser);
-      if (personaUser && typeof window !== 'undefined') {
-        storageService.setItem(AUTH_STORAGE_KEY, personaUser);
-        syncAuthSessionCookie(personaUser);
-      }
-
       let activeSchool = context.school || null;
       if (activeSchool && typeof window !== 'undefined') {
         const storedSchools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
@@ -155,6 +142,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       setCurrentSchool(activeSchool);
+
+      let personaUser = context.user || (context.profile ? {
+        id: context.profile.id,
+        name: context.profile.display_name || context.profile.name || 'User',
+        email: context.profile.email,
+        role: context.profile.role || 'unassigned',
+        school_id: context.profile.school_id,
+        photo_url: context.profile.photo_url || context.profile.avatar_url,
+      } : null);
+
+      if (personaUser && !personaUser.photo_url) {
+        const resolved = resolveUserPhoto(personaUser, activeSchool);
+        if (resolved) {
+          personaUser = { ...personaUser, photo_url: resolved };
+        }
+      }
+
+      setCurrentUser(personaUser);
+      if (personaUser && typeof window !== 'undefined') {
+        storageService.setItem(AUTH_STORAGE_KEY, personaUser);
+        syncAuthSessionCookie(personaUser);
+      }
 
       if (activeSchool?.id) {
         try {
@@ -230,26 +239,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (activeUser) {
-          if (!activeUser.photo_url && activeUser.role === 'student' && typeof window !== 'undefined') {
+          const schools = await schoolService.getSchools();
+          const activeSchool =
+            schools.find((s) => s.id === activeUser?.school_id) || schools[0] || INITIAL_SCHOOLS[0];
+          setCurrentSchool(activeSchool);
+
+          if (!activeUser.photo_url && typeof window !== 'undefined') {
             try {
-              const studentId = activeUser.student_id || activeUser.id?.replace(/^usr-/, '') || '';
-              const loginId = activeUser.login_id?.toLowerCase() || '';
-              const rawStudents = localStorage.getItem('school_erp_students');
-              if (rawStudents) {
-                const sList = JSON.parse(rawStudents);
-                const matched = sList.find(
-                  (s: any) =>
-                    s.id === studentId ||
-                    s.auth_user_id === activeUser?.id ||
-                    s.registration_number?.toLowerCase() === loginId
-                );
-                if (matched?.photo_url) {
-                  activeUser = { ...activeUser, photo_url: matched.photo_url };
-                  storageService.setItem(AUTH_STORAGE_KEY, activeUser);
-                }
+              const resolved = resolveUserPhoto(activeUser, activeSchool);
+              if (resolved) {
+                activeUser = { ...activeUser, photo_url: resolved };
+                storageService.setItem(AUTH_STORAGE_KEY, activeUser);
               }
             } catch {}
           }
+
           setCurrentUser(activeUser);
           setAccessState(activeUser.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
           syncAuthSessionCookie(activeUser);
@@ -266,10 +270,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsPinUnlocked(isUnlocked);
             }
           }
-          const schools = await schoolService.getSchools();
-          const activeSchool =
-            schools.find((s) => s.id === activeUser?.school_id) || schools[0] || INITIAL_SCHOOLS[0];
-          setCurrentSchool(activeSchool);
 
           const years = await academicYearService.getYears(activeSchool.id);
           const activeYears = years.length > 0 ? years : INITIAL_ACADEMIC_YEARS;

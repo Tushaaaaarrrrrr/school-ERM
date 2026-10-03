@@ -254,7 +254,6 @@ export function TemporaryAssignmentModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Create Temporary Work Coverage"
-      description="Assign short-term replacement work without giving users secondary permanent roles."
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs text-left max-h-[78vh] overflow-y-auto pr-1">
         {/* Core Business Rule Banner */}

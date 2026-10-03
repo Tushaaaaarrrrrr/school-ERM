@@ -315,8 +315,8 @@ export default function TeachersPage() {
       success('Subject assignment added successfully!');
       setIsAssignModalOpen(false);
       loadData();
-    } catch {
-      toastError('Failed to assign subject');
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : 'Failed to assign subject');
     }
   };
 
