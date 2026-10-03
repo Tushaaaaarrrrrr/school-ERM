@@ -1,6 +1,7 @@
 import { serverDb } from '@/lib/server/db';
 import { NextResponse } from 'next/server';
 import { requireSchoolAccess } from '@/lib/server/access';
+import { teacherForAccess } from '@/lib/server/student-attendance';
 import { getServiceSupabase } from '@/lib/server/auth';
 
 export async function GET(request: Request) {
@@ -9,7 +10,9 @@ export async function GET(request: Request) {
     const access = await requireSchoolAccess(searchParams.get('schoolId') || undefined, ['school_admin', 'teacher']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
 
-    const data = await serverDb.getTeacherAssignments(access.schoolId, searchParams.get('teacherId') || undefined);
+    const teacher = access.role === 'teacher' ? await teacherForAccess(access) : null;
+    if (access.role === 'teacher' && !teacher) return NextResponse.json({ success: true, data: [] });
+    const data = await serverDb.getTeacherAssignments(access.schoolId, teacher?.id || searchParams.get('teacherId') || undefined);
     return NextResponse.json({ success: true, data: data || [] });
   } catch (err: unknown) {
     return NextResponse.json(

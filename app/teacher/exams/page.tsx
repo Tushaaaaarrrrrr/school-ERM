@@ -25,7 +25,7 @@ function TeacherExamsContent() {
   const examIdParam = searchParams.get('examId');
 
   const { currentUser, currentSchool, currentYear } = useAuth();
-  const schoolId = currentSchool?.id || 'sch-001';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
   const yearId = currentYear?.id || 'ay-2026';
   const { success, error: toastError } = useToast();
 
@@ -97,7 +97,7 @@ function TeacherExamsContent() {
             s.current_enrollment?.class_id === exam?.class_id &&
             s.current_enrollment?.section_id === exam?.section_id
         );
-        setStudents(targetStudents.length > 0 ? targetStudents : allStudents.slice(0, 4));
+        setStudents(targetStudents);
 
         const stateMap: Record<string, { marks: string; absent: boolean; remarks: string }> = {};
         targetStudents.forEach((st: Student) => {

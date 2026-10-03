@@ -15,12 +15,8 @@ import '../../data/services/auth_service.dart';
 import '../../viewmodels/student_viewmodel.dart';
 import '../auth/pin_lock_screen.dart';
 
-// Teacher Views
-import '../teacher/teacher_home_view.dart';
-import '../teacher/teacher_attendance_view.dart';
-import '../teacher/teacher_classes_view.dart';
-import '../teacher/teacher_exams_view.dart';
-import '../teacher/teacher_timetable_view.dart';
+// Teacher workflows reuse the authenticated web portal.
+import '../teacher/teacher_portal_view.dart';
 
 // Student & Parent Views
 import '../parent_student/student_home_view.dart';
@@ -236,7 +232,7 @@ class _MainShellViewState extends State<MainShellView>
       },
       child: Scaffold(
         key: _scaffoldKey,
-        appBar: AppTopHeader(scaffoldKey: _scaffoldKey),
+        appBar: currentRole == UserRole.teacher ? null : AppTopHeader(scaffoldKey: _scaffoldKey),
         drawer: AppDrawer(onNavigate: _navigate),
         body: _showMore && _morePage == null
             ? _MoreMenu(
@@ -266,10 +262,12 @@ class _MainShellViewState extends State<MainShellView>
                                   fontWeight: FontWeight.w600))),
                     ]),
                   ),
-                if (!_showMore && _currentIndex == 0)
+                if (currentRole != UserRole.teacher && !_showMore && _currentIndex == 0)
                   SchoolStatusCard(key: ValueKey(auth.currentUser.schoolId)),
                 Expanded(
-                    child: IndexedStack(
+                    child: currentRole == UserRole.teacher
+                    ? _getScreensForRole(currentRole)[_morePage ?? _currentIndex]
+                    : IndexedStack(
                   index: _morePage ?? _currentIndex,
                   children: _getScreensForRole(currentRole),
                 )),
@@ -297,8 +295,7 @@ class _MainShellViewState extends State<MainShellView>
           _MoreNavItem('My Leave', 2, 'attendance'),
           _MoreNavItem('Schedule', 5, 'calendar'),
           _MoreNavItem('Salary', 6, 'receipt'),
-          _MoreNavItem('Profile', 7, 'id_card'),
-          _MoreNavItem('Settings', 8, 'sparkles'),
+          _MoreNavItem('Account & Security', 8, 'shield_check'),
         ];
       case UserRole.student:
       case UserRole.parent:
@@ -482,46 +479,16 @@ class _MainShellViewState extends State<MainShellView>
   List<Widget> _getScreensForRole(UserRole role) {
     switch (role) {
       case UserRole.teacher:
-        return [
-          TeacherHomeView(onTabSelected: _navigate),
-          const TeacherAttendanceView(),
-          const MobileModuleView(
-            title: 'My Attendance & Leave',
-            icon: 'attendance',
-            items: [
-              'Daily attendance status',
-              'Leave request history',
-              'Salary-linked attendance records'
-            ],
-          ),
-          const TeacherClassesView(),
-          const TeacherExamsView(),
-          const TeacherTimetableView(),
-          const MobileModuleView(
-            title: 'Salary Statements',
-            icon: 'receipt',
-            items: [
-              'Monthly salary statements',
-              'Payment history',
-              'Deductions and adjustments'
-            ],
-          ),
-          const MobileModuleView(
-            title: 'Profile',
-            icon: 'id_card',
-            items: [
-              'Teacher profile',
-              'Contact information',
-              'Assigned classes'
-            ],
-          ),
-          const MobileModuleView(
-            title: 'Settings',
-            icon: 'sparkles',
-            items: ['PIN security', 'Notification preferences', 'App settings'],
-          ),
-          const StudentAttendanceView(),
-          const StudentNoticesView(),
+        return const [
+          TeacherPortalView(path: '/teacher'),
+          TeacherPortalView(path: '/teacher/attendance'),
+          TeacherPortalView(path: '/teacher/leave'),
+          TeacherPortalView(path: '/teacher/classes'),
+          TeacherPortalView(path: '/teacher/exams'),
+          TeacherPortalView(path: '/teacher/timetable'),
+          TeacherPortalView(path: '/teacher/payments'),
+          TeacherPortalView(path: '/account/security'),
+          TeacherPortalView(path: '/account/security'),
         ];
       case UserRole.student:
         return [

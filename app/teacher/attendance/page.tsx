@@ -47,7 +47,7 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 
 export default function TeacherAttendancePage() {
   const { currentUser, currentSchool, currentYear } = useAuth();
-  const schoolId = currentSchool?.id || 'sch-001';
+  const schoolId = currentSchool?.id || currentUser?.school_id || '';
   const yearId = currentYear?.id || 'ay-2026';
   const { success, error: toastError } = useToast();
 
@@ -59,7 +59,7 @@ export default function TeacherAttendancePage() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<
-    Record<string, { status: AttendanceStatus; remarks: string; isOnLeave: boolean; leaveReason?: string }>
+    Record<string, { status: AttendanceStatus | null; remarks: string; isOnLeave: boolean; leaveReason?: string }>
   >({});
   const [dayStatus, setDayStatus] = useState<{
     isOpen: boolean;
@@ -98,11 +98,18 @@ export default function TeacherAttendancePage() {
       setIsLoading(true);
       try {
         const teacher = await teacherService.getTeacherForUser(currentUser, schoolId);
-        const list = teacher ? await teacherService.getAssignments(schoolId, teacher.id) : [];
-        setAssignments(list);
-        if (list.length > 0) {
-          setSelectedAsgId(list[0].id);
+        const rosterResponse = await fetch(`/api/attendance/students?roster=true&date=${attendanceDate}`, { cache: 'no-store' });
+        const rosterResult = await rosterResponse.json();
+        if (!rosterResponse.ok || !rosterResult.success) throw new Error('Could not load attendance access');
+        const permitted: TeacherAssignment[] = [];
+        for (const student of rosterResult.data as Student[]) {
+          const e = student.current_enrollment;
+          if (!e || permitted.some((a) => a.class_id === e.class_id && a.section_id === e.section_id)) continue;
+          permitted.push({ id: `${e.class_id}:${e.section_id}`, school_id: schoolId, academic_year_id: e.academic_year_id, teacher_id: teacher?.id || '', class_id: e.class_id, section_id: e.section_id, class_name: e.class_name, section_name: e.section_name, subject_id: '', created_at: '' });
         }
+        setAssignments(permitted);
+        setSelectedAsgId((previous) => permitted.some((a) => a.id === previous) ? previous : permitted[0]?.id || '');
+
       } catch {
         toastError('Failed to load assignments');
       } finally {
@@ -110,7 +117,7 @@ export default function TeacherAttendancePage() {
       }
     }
     loadAssignments();
-  }, [schoolId, currentUser]);
+  }, [schoolId, currentUser, attendanceDate]);
 
   // Load Students, Existing Attendance, Holidays & Approved Leaves for the Selected Date
   const loadAttendanceSheet = async () => {
@@ -149,7 +156,7 @@ export default function TeacherAttendancePage() {
       setPendingLeaves(allClassLeaves.filter((l) => classStudentIds.includes(l.student_id)));
 
       // Build status map with automatic approved leave detection
-      const map: Record<string, { status: AttendanceStatus; remarks: string; isOnLeave: boolean; leaveReason?: string }> = {};
+      const map: Record<string, { status: AttendanceStatus | null; remarks: string; isOnLeave: boolean; leaveReason?: string }> = {};
 
       classList.forEach((st) => {
         const recorded = existingAtt.find((a) => a.student_id === st.id);
@@ -169,9 +176,9 @@ export default function TeacherAttendancePage() {
             isOnLeave: false,
           };
         } else {
-          // Default to present
+          // No mark until the teacher explicitly selects a status.
           map[st.id] = {
-            status: 'present',
+            status: null,
             remarks: '',
             isOnLeave: false,
           };
@@ -219,11 +226,15 @@ export default function TeacherAttendancePage() {
     const asg = assignments.find((a) => a.id === selectedAsgId);
     if (!asg) return;
 
+    if (students.some((st) => !attendanceMap[st.id]?.status)) {
+      toastError('Mark every student before submitting attendance.');
+      return;
+    }
     setIsSaving(true);
     try {
       const records = students.map((st) => ({
         student_id: st.id,
-        status: attendanceMap[st.id]?.status || 'present',
+        status: attendanceMap[st.id].status as AttendanceStatus,
         remarks: attendanceMap[st.id]?.remarks || '',
       }));
 

@@ -1677,9 +1677,8 @@ export const serverDb = {
       if (filter?.status) query = query.eq('status', filter.status);
 
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        return data as TemporaryAssignment[];
-      }
+      if (error) throw new Error(`Database coverage read failed: ${error.message}`);
+      return (data || []) as TemporaryAssignment[];
     }
 
     const db = initServerDb();
@@ -2501,6 +2500,7 @@ export const serverDb = {
 
   async createStudentAttendance(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('Attendance database is not configured.');
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_attendance').upsert(payload, { onConflict: 'school_id,student_id,attendance_date' }).select().single();
@@ -2522,6 +2522,7 @@ export const serverDb = {
 
   async createTeacherAttendance(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('teacher_attendance').upsert(payload, { onConflict: 'school_id,teacher_id,attendance_date' }).select().single();
@@ -2564,6 +2565,7 @@ export const serverDb = {
 
   async createStudentLeave(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('student_leaves').insert(payload).select().single();
@@ -2575,6 +2577,7 @@ export const serverDb = {
 
   async updateStudentLeave(id: string, updates: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase && isUuidString(id)) {
       const payload = sanitizeSupabasePayload(updates);
       delete payload.id;
@@ -2597,6 +2600,7 @@ export const serverDb = {
 
   async createTeacherLeave(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('teacher_leaves').insert(payload).select().single();
@@ -2995,6 +2999,7 @@ export const serverDb = {
 
   async createExam(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
       const { data: created, error } = await supabase.from('exams').insert(payload).select().single();
@@ -3006,6 +3011,7 @@ export const serverDb = {
 
   async updateExam(id: string, updates: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase && isUuidString(id)) {
       const payload = sanitizeSupabasePayload(updates);
       delete payload.id;
@@ -3035,9 +3041,10 @@ export const serverDb = {
 
   async createExamResult(data: any): Promise<any> {
     const supabase = getSupabaseAdmin();
+    if (!supabase) throw new Error('School database is not configured.');
     if (supabase) {
       const payload = sanitizeSupabasePayload(data);
-      const { data: created, error } = await supabase.from('exam_results').insert(payload).select().single();
+      const { data: created, error } = await supabase.from('exam_results').upsert(payload, { onConflict: 'exam_id,student_id' }).select().single();
       if (!error && created) return created;
       if (error) throw new Error(`Database createExamResult failed: ${error.message}`);
     }

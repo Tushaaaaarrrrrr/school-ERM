@@ -5279,52 +5279,15 @@ export const attendanceService = {
     schoolId: string,
     filter?: { classId?: string; sectionId?: string; date?: string; studentId?: string }
   ): Promise<StudentAttendance[]> {
-    try {
-      if (typeof window !== 'undefined') {
-        const queryParams = new URLSearchParams();
-        if (filter?.classId) queryParams.set('classId', filter.classId);
-        if (filter?.sectionId) queryParams.set('sectionId', filter.sectionId);
-        if (filter?.date) queryParams.set('date', filter.date);
-        if (filter?.studentId) queryParams.set('studentId', filter.studentId);
-        const res = await fetch(`/api/attendance/students?${queryParams.toString()}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            return json.data.sort((a: any, b: any) => b.attendance_date.localeCompare(a.attendance_date));
-          }
-        }
-      }
-    } catch {}
-
-    const storedAttendance = storageService.getItem<StudentAttendance[]>(STORAGE_KEYS.ATTENDANCE, []);
-    const allAttendance = storedAttendance.filter((record) => !record.id.startsWith('att-today-'));
-    if (allAttendance.length !== storedAttendance.length) {
-      storageService.setItem(STORAGE_KEYS.ATTENDANCE, allAttendance);
-    }
-    let list = allAttendance.filter((a) => a.school_id === schoolId);
-
-    if (filter?.classId) list = list.filter((a) => a.class_id === filter.classId);
-    if (filter?.sectionId) list = list.filter((a) => a.section_id === filter.sectionId);
-    if (filter?.date) list = list.filter((a) => a.attendance_date === filter.date);
-    if (filter?.studentId) list = list.filter((a) => a.student_id === filter.studentId);
-
-    const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-
-    return list
-      .map((rec) => {
-        const student = students.find((s) => s.id === rec.student_id);
-        const cls = classes.find((c) => c.id === rec.class_id);
-        return {
-          ...rec,
-          student_name: rec.student_name || (student ? `${student.first_name} ${student.last_name}` : undefined),
-          registration_number: rec.registration_number || student?.registration_number,
-          roll_number: rec.roll_number || student?.current_enrollment?.roll_number,
-          class_name: rec.class_name || cls?.name,
-          section_name: rec.section_name || student?.current_enrollment?.section_name,
-        };
-      })
-      .sort((a, b) => b.attendance_date.localeCompare(a.attendance_date));
+    const params = new URLSearchParams();
+    if (filter?.classId) params.set('classId', filter.classId);
+    if (filter?.sectionId) params.set('sectionId', filter.sectionId);
+    if (filter?.date) params.set('date', filter.date);
+    if (filter?.studentId) params.set('studentId', filter.studentId);
+    const response = await fetch(`/api/attendance/students?${params}`, { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Could not load attendance.');
+    return result.data;
   },
 
   async markAttendance(
@@ -5340,33 +5303,11 @@ export const attendanceService = {
       marked_by_name?: string;
     }[]
   ): Promise<void> {
-    let allAttendance = storageService.getItem<StudentAttendance[]>(STORAGE_KEYS.ATTENDANCE, []);
-    const nowIso = new Date().toISOString();
-
-    attendanceRecords.forEach((rec) => {
-      // Remove previous entry for same student & date
-      allAttendance = allAttendance.filter(
-        (a) => !(a.student_id === rec.student_id && a.attendance_date === rec.attendance_date)
-      );
-
-      allAttendance.push({
-        id: `att-${Date.now().toString().slice(-4)}-${Math.random().toString(36).substring(2, 5)}`,
-        school_id: schoolId,
-        student_id: rec.student_id,
-        class_id: rec.class_id,
-        section_id: rec.section_id,
-        attendance_date: rec.attendance_date,
-        status: rec.status,
-        remarks: rec.remarks,
-        marked_at: nowIso,
-        marked_by: rec.marked_by,
-        marked_by_name: rec.marked_by_name,
-        recorded_by: rec.marked_by,
-        created_at: nowIso,
-      });
-    });
-
-    storageService.setItem(STORAGE_KEYS.ATTENDANCE, allAttendance);
+    for (const record of attendanceRecords) {
+      const response = await fetch('/api/attendance/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...record, school_id: schoolId }) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Attendance was not saved. Refresh before retrying.');
+    }
   },
 
   async saveClassAttendance(
@@ -5462,9 +5403,7 @@ export const leaveService = {
     schoolId: string,
     filter?: { studentId?: string; status?: StudentLeave['status']; activeOnDate?: string }
   ): Promise<StudentLeave[]> {
-    let list = storageService.getItem<StudentLeave[]>(STORAGE_KEYS.STUDENT_LEAVES, INITIAL_STUDENT_LEAVES).filter(
-      (l) => l.school_id === schoolId
-    );
+    let list = await schoolApi<StudentLeave[]>('/api/leaves/students');
     if (filter?.studentId) list = list.filter((l) => l.student_id === filter.studentId);
     if (filter?.status) list = list.filter((l) => l.status === filter.status);
     if (filter?.activeOnDate) {
@@ -5477,40 +5416,7 @@ export const leaveService = {
   async applyLeave(
     data: Omit<StudentLeave, 'id' | 'created_at' | 'status'> & { status?: StudentLeave['status'] }
   ): Promise<StudentLeave> {
-    const list = storageService.getItem<StudentLeave[]>(STORAGE_KEYS.STUDENT_LEAVES, INITIAL_STUDENT_LEAVES);
-    const newLeave: StudentLeave = {
-      ...data,
-      id: `lev-${Date.now().toString().slice(-4)}`,
-      status: data.status || 'pending',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    list.unshift(newLeave);
-    storageService.setItem(STORAGE_KEYS.STUDENT_LEAVES, list);
-
-    // If student submitted and parent confirmation is required, create a notification for parents
-    if (data.requested_by_type === 'student' && data.parent_confirmation_required) {
-      try {
-        const links = storageService.getItem<ParentStudentLink[]>(
-          STORAGE_KEYS.PARENT_STUDENT_LINKS,
-          INITIAL_PARENT_STUDENT_LINKS
-        );
-        const parentLinks = links.filter((l) => l.student_id === data.student_id && l.status === 'active');
-        parentLinks.forEach((pl) => {
-          notificationService.createNotification({
-            school_id: data.school_id,
-            recipient_user_id: pl.parent_id,
-            type: 'leave_parent_confirmation_required',
-            title: 'Leave Request Awaiting Parent Confirmation',
-            message: `${data.student_name || 'Your child'} submitted a leave request for ${data.start_date}${data.end_date !== data.start_date ? ` to ${data.end_date}` : ''}. Please confirm or reject.`,
-            entity_type: 'leave',
-            entity_id: newLeave.id,
-          });
-        });
-      } catch {}
-    }
-
-    return newLeave;
+    return schoolApi<StudentLeave>('/api/leaves/students', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async createLeave(
@@ -5541,43 +5447,7 @@ export const leaveService = {
     approverId: string = 'usr-admin-01',
     approverName: string = 'Class Teacher'
   ): Promise<StudentLeave> {
-    const list = storageService.getItem<StudentLeave[]>(STORAGE_KEYS.STUDENT_LEAVES, INITIAL_STUDENT_LEAVES);
-    const index = list.findIndex((l) => l.id === id);
-    if (index === -1) throw new Error('Leave record not found');
-
-    list[index] = {
-      ...list[index],
-      status,
-      approved_by: status === 'approved' ? approverId : undefined,
-      approved_by_name: status === 'approved' ? approverName : undefined,
-      approved_at: status === 'approved' ? new Date().toISOString() : undefined,
-      rejection_reason: status === 'rejected' ? reason : undefined,
-      updated_at: new Date().toISOString(),
-    };
-    storageService.setItem(STORAGE_KEYS.STUDENT_LEAVES, list);
-
-    // Notify parents & student
-    try {
-      const leave = list[index];
-      const links = storageService.getItem<ParentStudentLink[]>(
-        STORAGE_KEYS.PARENT_STUDENT_LINKS,
-        INITIAL_PARENT_STUDENT_LINKS
-      );
-      const parentLinks = links.filter((l) => l.student_id === leave.student_id && l.status === 'active');
-      parentLinks.forEach((pl) => {
-        notificationService.createNotification({
-          school_id: leave.school_id,
-          recipient_user_id: pl.parent_id,
-          type: status === 'approved' ? 'leave_approved' : 'leave_rejected',
-          title: `Leave Request ${status === 'approved' ? 'Approved' : 'Rejected'}`,
-          message: `${leave.student_name || 'Your child'}'s leave for ${leave.start_date} has been ${status}${reason ? `. Reason: ${reason}` : ''}.`,
-          entity_type: 'leave',
-          entity_id: leave.id,
-        });
-      });
-    } catch {}
-
-    return list[index];
+    return schoolApi<StudentLeave>('/api/leaves/students', { method: 'PUT', body: JSON.stringify({ id, status, rejection_reason: reason }) });
   },
 
   async grantDirectLeave(data: {
@@ -5596,45 +5466,7 @@ export const leaveService = {
     class_name?: string;
     section_name?: string;
   }): Promise<StudentLeave> {
-    const list = storageService.getItem<StudentLeave[]>(STORAGE_KEYS.STUDENT_LEAVES, INITIAL_STUDENT_LEAVES);
-    const newLeave: StudentLeave = {
-      ...data,
-      id: `lev-${Date.now().toString().slice(-4)}`,
-      requested_by_type: data.granterRole,
-      requested_by_user_id: data.granterId,
-      requested_by_name: data.granterName,
-      parent_confirmation_required: false,
-      status: 'approved',
-      approved_by: data.granterId,
-      approved_by_name: data.granterName,
-      approved_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    list.unshift(newLeave);
-    storageService.setItem(STORAGE_KEYS.STUDENT_LEAVES, list);
-
-    // Notify linked parents immediately
-    try {
-      const links = storageService.getItem<ParentStudentLink[]>(
-        STORAGE_KEYS.PARENT_STUDENT_LINKS,
-        INITIAL_PARENT_STUDENT_LINKS
-      );
-      const parentLinks = links.filter((l) => l.student_id === data.student_id && l.status === 'active');
-      parentLinks.forEach((pl) => {
-        notificationService.createNotification({
-          school_id: data.school_id,
-          recipient_user_id: pl.parent_id,
-          type: 'leave_created_by_teacher',
-          title: 'Student Leave Granted by School',
-          message: `${data.student_name || 'Your child'} was marked on approved ${data.leave_type === 'partial_day' ? 'partial' : 'full-day'} leave today by ${data.granterName}. Reason: ${data.reason}.`,
-          entity_type: 'leave',
-          entity_id: newLeave.id,
-        });
-      });
-    } catch {}
-
-    return newLeave;
+    return schoolApi<StudentLeave>('/api/leaves/students', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async getActiveLeaveForStudent(studentId: string, date: string): Promise<StudentLeave | null> {
@@ -5649,57 +5481,31 @@ export const leaveService = {
 
 export const teacherWorkforceService = {
   async getAttendance(schoolId: string, filter?: { teacherId?: string; date?: string }): Promise<TeacherAttendance[]> {
-    let list = storageService.getItem<TeacherAttendance[]>(STORAGE_KEYS.TEACHER_ATTENDANCE, []).filter((item) => item.school_id === schoolId);
+    let list = await schoolApi<TeacherAttendance[]>('/api/attendance/teachers');
     if (filter?.teacherId) list = list.filter((item) => item.teacher_id === filter.teacherId);
     if (filter?.date) list = list.filter((item) => item.attendance_date === filter.date);
     return list.sort((a, b) => b.attendance_date.localeCompare(a.attendance_date));
   },
 
   async saveAttendance(schoolId: string, date: string, records: Array<{ teacher: Teacher; status: AttendanceStatus; remarks?: string }>, actor?: UserPersona): Promise<void> {
-    let list = storageService.getItem<TeacherAttendance[]>(STORAGE_KEYS.TEACHER_ATTENDANCE, []);
-    const now = new Date().toISOString();
     for (const record of records) {
-      list = list.filter((item) => !(item.school_id === schoolId && item.teacher_id === record.teacher.id && item.attendance_date === date));
-      list.push({
-        id: `tatt-${Date.now()}-${record.teacher.id}`,
-        school_id: schoolId,
-        teacher_id: record.teacher.id,
-        attendance_date: date,
-        status: record.status,
-        remarks: record.remarks,
-        marked_by: actor?.id,
-        marked_by_name: actor?.name,
-        teacher_name: `${record.teacher.first_name} ${record.teacher.last_name}`,
-        employee_number: record.teacher.employee_number,
-        created_at: now,
-        updated_at: now,
-      });
+      await schoolApi<TeacherAttendance>('/api/attendance/teachers', { method: 'POST', body: JSON.stringify({ school_id: schoolId, teacher_id: record.teacher.id, attendance_date: date, status: record.status, remarks: record.remarks }) });
     }
-    storageService.setItem(STORAGE_KEYS.TEACHER_ATTENDANCE, list);
   },
 
   async getLeaves(schoolId: string, filter?: { teacherId?: string; status?: TeacherLeave['status'] }): Promise<TeacherLeave[]> {
-    let list = storageService.getItem<TeacherLeave[]>(STORAGE_KEYS.TEACHER_LEAVES, []).filter((item) => item.school_id === schoolId);
+    let list = await schoolApi<TeacherLeave[]>('/api/leaves/teachers');
     if (filter?.teacherId) list = list.filter((item) => item.teacher_id === filter.teacherId);
     if (filter?.status) list = list.filter((item) => item.status === filter.status);
     return list.sort((a, b) => b.requested_at.localeCompare(a.requested_at));
   },
 
   async requestLeave(data: Omit<TeacherLeave, 'id' | 'status' | 'requested_at'>): Promise<TeacherLeave> {
-    const list = storageService.getItem<TeacherLeave[]>(STORAGE_KEYS.TEACHER_LEAVES, []);
-    const leave: TeacherLeave = { ...data, id: `tlev-${Date.now()}`, status: 'pending', requested_at: new Date().toISOString() };
-    list.unshift(leave);
-    storageService.setItem(STORAGE_KEYS.TEACHER_LEAVES, list);
-    return leave;
+    return schoolApi<TeacherLeave>('/api/leaves/teachers', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async reviewLeave(id: string, updates: { status: 'approved' | 'rejected'; start_date?: string; end_date?: string; return_date?: string; admin_notes?: string }, actor?: UserPersona): Promise<TeacherLeave> {
-    const list = storageService.getItem<TeacherLeave[]>(STORAGE_KEYS.TEACHER_LEAVES, []);
-    const index = list.findIndex((item) => item.id === id);
-    if (index < 0) throw new Error('Teacher leave request not found');
-    list[index] = { ...list[index], ...updates, reviewed_at: new Date().toISOString(), reviewed_by: actor?.id, reviewed_by_name: actor?.name };
-    storageService.setItem(STORAGE_KEYS.TEACHER_LEAVES, list);
-    return list[index];
+    return schoolApi<TeacherLeave>('/api/leaves/teachers', { method: 'PUT', body: JSON.stringify({ id, school_id: actor?.school_id, ...updates }) });
   },
 };
 
@@ -5784,10 +5590,10 @@ export const STANDARD_INDIAN_HOLIDAYS = [
   { name: 'Christmas & Winter Vacation', start_date: '2026-12-25', end_date: '2027-01-02', reason: 'Winter Vacation Break' },
 ];
 
-async function holidayApi<T>(path: string, init?: RequestInit): Promise<T> {
+async function schoolApi<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.success === false) throw new Error(json.error || 'Holiday request failed');
+  if (!res.ok || json.success === false) throw new Error(json.error || 'School request failed');
   return json.data as T;
 }
 
@@ -5796,7 +5602,7 @@ const byStartDate = (a: SchoolHoliday, b: SchoolHoliday) => a.start_date.localeC
 export const holidayService = {
   async getHolidays(schoolId: string): Promise<SchoolHoliday[]> {
     if (!isDemoEnvironment()) {
-      return (await holidayApi<SchoolHoliday[]>('/api/holidays')).sort(byStartDate);
+      return (await schoolApi<SchoolHoliday[]>('/api/holidays')).sort(byStartDate);
     }
     let all = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     let schoolHols = all.filter((h) => h.school_id === schoolId);
@@ -5823,7 +5629,7 @@ export const holidayService = {
 
   async createHoliday(data: Omit<SchoolHoliday, 'id' | 'created_at'>): Promise<SchoolHoliday> {
     if (!isDemoEnvironment()) {
-      return holidayApi<SchoolHoliday>('/api/holidays', { method: 'POST', body: JSON.stringify(data) });
+      return schoolApi<SchoolHoliday>('/api/holidays', { method: 'POST', body: JSON.stringify(data) });
     }
     const list = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     const newHol: SchoolHoliday = {
@@ -5838,7 +5644,7 @@ export const holidayService = {
 
   async updateHoliday(id: string, data: Partial<SchoolHoliday>): Promise<SchoolHoliday> {
     if (!isDemoEnvironment()) {
-      return holidayApi<SchoolHoliday>(`/api/holidays/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+      return schoolApi<SchoolHoliday>(`/api/holidays/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
     }
     const list = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
     const index = list.findIndex((h) => h.id === id);
@@ -5853,7 +5659,7 @@ export const holidayService = {
     if (!isDemoEnvironment()) {
       const existing = await this.getHolidays(schoolId);
       for (const h of existing) {
-        await holidayApi(`/api/holidays/${encodeURIComponent(h.id)}`, { method: 'DELETE' });
+        await schoolApi(`/api/holidays/${encodeURIComponent(h.id)}`, { method: 'DELETE' });
       }
       const created: SchoolHoliday[] = [];
       for (const std of STANDARD_INDIAN_HOLIDAYS) {
@@ -5890,7 +5696,7 @@ export const holidayService = {
 
   async deleteHoliday(id: string, actorName = 'School Administrator', actorRole: UserRole = 'school_admin'): Promise<void> {
     if (!isDemoEnvironment()) {
-      await holidayApi(`/api/holidays/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await schoolApi(`/api/holidays/${encodeURIComponent(id)}`, { method: 'DELETE' });
       return;
     }
     let list = storageService.getItem<SchoolHoliday[]>(STORAGE_KEYS.HOLIDAYS, INITIAL_HOLIDAYS);
@@ -6742,7 +6548,8 @@ export const examService = {
     schoolId: string,
     filter?: { classId?: string; sectionId?: string; subjectId?: string; teacherId?: string; status?: Exam['status'] }
   ): Promise<Exam[]> {
-    let list = storageService.getItem<Exam[]>(STORAGE_KEYS.EXAMS, INITIAL_EXAMS).filter((e) => e.school_id === schoolId);
+    let list = await schoolApi<Exam[]>('/api/exams');
+    storageService.setItem(STORAGE_KEYS.EXAMS, list);
 
     if (filter?.classId) list = list.filter((e) => e.class_id === filter.classId);
     if (filter?.sectionId) list = list.filter((e) => e.section_id === filter.sectionId);
@@ -6754,25 +6561,16 @@ export const examService = {
   },
 
   async getExamById(id: string): Promise<Exam | null> {
-    const list = storageService.getItem<Exam[]>(STORAGE_KEYS.EXAMS, INITIAL_EXAMS);
+    const list = await schoolApi<Exam[]>('/api/exams');
     return list.find((e) => e.id === id) || null;
   },
 
   async createExam(examData: Omit<Exam, 'id' | 'created_at' | 'status'>): Promise<Exam> {
-    const list = storageService.getItem<Exam[]>(STORAGE_KEYS.EXAMS, INITIAL_EXAMS);
-    const newExam: Exam = {
-      ...examData,
-      id: `ex-${Date.now().toString().slice(-4)}`,
-      status: 'draft',
-      created_at: new Date().toISOString(),
-    };
-    list.push(newExam);
-    storageService.setItem(STORAGE_KEYS.EXAMS, list);
-    return newExam;
+    return schoolApi<Exam>('/api/exams', { method: 'POST', body: JSON.stringify(examData) });
   },
 
   async getExamResults(examId: string): Promise<ExamResult[]> {
-    return storageService.getItem<ExamResult[]>(STORAGE_KEYS.EXAM_RESULTS, INITIAL_EXAM_RESULTS).filter((r) => r.exam_id === examId);
+    return (await schoolApi<ExamResult[]>('/api/exam-results')).filter((r) => r.exam_id === examId);
   },
 
   async getPublishedResultsForStudent(studentId: string): Promise<{ exam: Exam; result: ExamResult }[]> {
@@ -6809,23 +6607,9 @@ export const examService = {
       shouldPublish = !!publishFinal;
     }
 
-    let allResults = storageService.getItem<ExamResult[]>(STORAGE_KEYS.EXAM_RESULTS, INITIAL_EXAM_RESULTS);
-    allResults = allResults.filter((r) => r.exam_id !== examId);
-
-    marks.forEach((m) => {
-      allResults.push({
-        id: `res-${Date.now().toString().slice(-4)}-${Math.random().toString(36).substring(2, 5)}`,
-        school_id: 'sch-001',
-        exam_id: examId,
-        student_id: m.student_id,
-        marks_obtained: m.marks_obtained,
-        absent: m.absent,
-        remarks: m.remarks,
-        created_at: new Date().toISOString(),
-      });
-    });
-
-    storageService.setItem(STORAGE_KEYS.EXAM_RESULTS, allResults);
+    for (const mark of marks) {
+      await schoolApi<ExamResult>('/api/exam-results', { method: 'POST', body: JSON.stringify({ ...mark, exam_id: examId }) });
+    }
 
     if (shouldPublish) {
       await this.publishExam(examId);
@@ -6833,12 +6617,7 @@ export const examService = {
   },
 
   async publishExam(examId: string): Promise<Exam> {
-    const list = storageService.getItem<Exam[]>(STORAGE_KEYS.EXAMS, INITIAL_EXAMS);
-    const index = list.findIndex((e) => e.id === examId);
-    if (index === -1) throw new Error('Exam not found');
-    list[index].status = 'published';
-    storageService.setItem(STORAGE_KEYS.EXAMS, list);
-    return list[index];
+    return schoolApi<Exam>(`/api/exams/${examId}`, { method: 'PUT', body: JSON.stringify({ status: 'published' }) });
   },
 };
 
@@ -6847,7 +6626,7 @@ export const timetableService = {
     schoolId: string,
     filter?: { classId?: string; sectionId?: string; teacherId?: string; dayOfWeek?: number }
   ): Promise<TimetableEntry[]> {
-    let list = storageService.getItem<TimetableEntry[]>(STORAGE_KEYS.TIMETABLE, INITIAL_TIMETABLE).filter((t) => t.school_id === schoolId);
+    let list = await schoolApi<TimetableEntry[]>('/api/timetable');
 
     if (filter?.classId) list = list.filter((t) => t.class_id === filter.classId);
     if (filter?.sectionId) list = list.filter((t) => t.section_id === filter.sectionId);

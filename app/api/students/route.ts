@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverDb } from '@/lib/server/db';
+import { attendanceRoster } from '@/lib/server/student-attendance';
 import { requireSchoolAccess } from '@/lib/server/access';
 
 export async function GET(request: Request) {
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
     const requestedSchoolId = searchParams.get('schoolId') || undefined;
     const access = await requireSchoolAccess(requestedSchoolId, ['school_admin', 'teacher', 'staff', 'driver', 'student', 'parent']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
-    let list = await serverDb.getStudents(access.schoolId);
+    let list = access.role === 'teacher' ? await attendanceRoster(access, true) : await serverDb.getStudents(access.schoolId);
     if (access.role === 'student' || access.role === 'parent') {
       const login = String(access.context.user?.login_id || access.context.user?.email || '').toLowerCase();
       const email = String(access.context.user?.email || '').toLowerCase();

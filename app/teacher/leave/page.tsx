@@ -39,8 +39,10 @@ export default function MyTeacherLeavePage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacher || !form.reason.trim() || form.endDate < form.startDate || form.returnDate <= form.endDate) { error('Enter valid leave dates, return date, and reason'); return; }
+    try {
     await teacherWorkforceService.requestLeave({ school_id: schoolId, teacher_id: teacher.id, leave_type: form.leaveType, start_date: form.startDate, end_date: form.endDate, return_date: form.returnDate, reason: form.reason.trim(), teacher_name: `${teacher.first_name} ${teacher.last_name}`, employee_number: teacher.employee_number });
-    success('Leave request submitted'); setOpen(false); load();
+    success('Leave request submitted'); setOpen(false); await load();
+    } catch (err) { error(err instanceof Error ? err.message : 'Leave request was not saved'); }
   };
   const present = attendance.filter((item) => item.status === 'present').length;
   const absent = attendance.filter((item) => item.status === 'absent').length;
