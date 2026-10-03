@@ -393,12 +393,21 @@ class ApiClient {
     if (includeSession) {
       final prefs = await SharedPreferences.getInstance();
       final session = prefs.getString(_sessionKey);
-      if (session != null) headers['cookie'] = 'school_erp_session=$session';
+      if (session != null) {
+        final user = UserModel.fromJson(Map<String, dynamic>.from(
+            jsonDecode(Uri.decodeComponent(session))));
+        final compact = Uri.encodeComponent(jsonEncode(user.toSessionJson()));
+        if (compact != session) await prefs.setString(_sessionKey, compact);
+        headers['cookie'] = 'school_erp_session=$compact';
+      }
     }
     return headers;
   }
 
   static Map<String, dynamic> _decode(http.Response response) {
+    if (response.statusCode == 431) {
+      throw Exception('The saved login is too large. Please sign in again.');
+    }
     final Map<String, dynamic> json;
     try {
       json = jsonDecode(response.body.isEmpty ? '{}' : response.body)
@@ -408,7 +417,8 @@ class ApiClient {
           'Server API is not ready yet. Please deploy the latest backend to Render, then try again.');
     }
     if (response.statusCode >= 400 || json['success'] == false) {
-      throw Exception(json['error'] ?? 'Request failed.');
+      throw Exception(json['error'] ??
+          'Server request failed (HTTP ${response.statusCode}).');
     }
     return json;
   }
@@ -416,7 +426,7 @@ class ApiClient {
   static Future<void> _saveSession(UserModel user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        _sessionKey, Uri.encodeComponent(jsonEncode(user.toJson())));
+        _sessionKey, Uri.encodeComponent(jsonEncode(user.toSessionJson())));
   }
 
   static Future<void> clearSession() async {

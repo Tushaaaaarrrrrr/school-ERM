@@ -91,7 +91,11 @@ class UserModel {
         'id': id,
         'email': email,
         'name': name,
-        'role': role.name,
+        'role': role == UserRole.schoolAdmin
+            ? 'school_admin'
+            : role == UserRole.superAdmin
+                ? 'super_admin'
+                : role.name,
         'school_id': schoolId,
         'school_name': schoolName,
         'school_code': schoolCode,
@@ -101,6 +105,22 @@ class UserModel {
         'teacher_id': teacherId,
         'staff_id': staffId,
         'parent_id': parentId,
+      };
+
+  // Photos belong in local profile storage, not HTTP headers.
+  Map<String, dynamic> toSessionJson() => {
+        for (final key in [
+          'id',
+          'email',
+          'role',
+          'school_id',
+          'login_id',
+          'student_id',
+          'teacher_id',
+          'staff_id',
+          'parent_id'
+        ])
+          if (toJson()[key] != null) key: toJson()[key],
       };
 
   String toJsonString() => jsonEncode(toJson());
