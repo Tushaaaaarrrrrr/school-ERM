@@ -8,7 +8,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:gi_campus/data/services/auth_service.dart';
-import 'package:gi_campus/viewmodels/teacher_viewmodel.dart';
 import 'package:gi_campus/viewmodels/student_viewmodel.dart';
 import 'package:gi_campus/viewmodels/driver_viewmodel.dart';
 
@@ -20,7 +19,6 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => AuthService()),
-          ChangeNotifierProvider(create: (_) => TeacherViewModel()),
           ChangeNotifierProvider(create: (_) => StudentViewModel()),
           ChangeNotifierProvider(create: (_) => DriverViewModel()),
         ],

@@ -184,9 +184,7 @@ export async function POST(request: Request) {
     const callerAccountIds = new Set(
       callerIds.flatMap((id) => id.startsWith('usr-') ? [id, id.slice(4)] : [id, `usr-${id}`])
     );
-    const callerEmailMatch = Boolean(caller.email && email && caller.email.trim().toLowerCase() === email.trim().toLowerCase());
-    const callerIdMatch = Boolean(caller.id && userId && (caller.id === userId || `usr-${caller.id}` === userId || caller.id === `usr-${userId}`));
-    const isSelf = callerEmailMatch || callerIdMatch || (targetIds.length > 0 && targetIds.every((id) => callerAccountIds.has(id)));
+    const isSelf = targetIds.length === 0 || targetIds.every((id) => callerAccountIds.has(id));
     const callerCanManageTarget = !isSelf && !callerIsSuperAdmin
       ? await canSchoolAdminManageTarget(caller, targetIds)
       : false;
