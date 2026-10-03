@@ -2,10 +2,12 @@
 // Server Database Engine (Supabase PostgreSQL + Central Enterprise Store)
 // ============================================================================
 
+import { resolveTeacherAssignments, resolveEnrollmentClass } from '@/lib/utils/class-assignments';
 import { escapeLikePattern } from '@/lib/utils/security';
 import {
   School,
   Teacher,
+  TeacherAssignment,
   Staff,
   Student,
   Profile,
@@ -1120,7 +1122,11 @@ export const serverDb = {
         }
       }
       const { data, error } = await query;
-      if (!error && data) return (data as Teacher[]).map(withPinFlag);
+      if (error) throw new Error(`Database teachers read failed: ${error.message}`);
+      const assignments = await this.getTeacherAssignments(schoolId);
+      return (data || []).map((teacher: Teacher) => withPinFlag({
+        ...teacher, assignments: assignments.filter((a) => a.teacher_id === teacher.id),
+      }));
     }
     const db = initServerDb();
     let res = (db.teachers || []).filter((item: any) => item.school_id === schoolId);
@@ -1130,6 +1136,23 @@ export const serverDb = {
       }
     }
     return (res as Teacher[]).map(withPinFlag);
+  },
+
+  async getTeacherAssignments(schoolId: string, teacherId?: string): Promise<TeacherAssignment[]> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return [];
+    const results = await Promise.all([
+      supabase.from('teacher_assignments').select('*').eq('school_id', schoolId),
+      supabase.from('classes').select('*').eq('school_id', schoolId),
+      supabase.from('sections').select('*').eq('school_id', schoolId),
+      supabase.from('subjects').select('*').eq('school_id', schoolId),
+      supabase.from('school_rooms').select('*').eq('school_id', schoolId),
+    ]);
+    for (const result of results) {
+      if (result.error) throw new Error(`Database assignments read failed: ${result.error.message}`);
+    }
+    return resolveTeacherAssignments(schoolId, results[0].data || [], results[1].data || [], results[2].data || [], results[3].data || [], results[4].data || [])
+      .filter((a) => !teacherId || a.teacher_id === teacherId);
   },
 
   async createTeacher(data: Teacher): Promise<Teacher> {
@@ -1299,44 +1322,21 @@ export const serverDb = {
       if (filters?.status) query = query.eq('status', filters.status);
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        // Load classes + teachers to join class_teacher_name into current_enrollment
-        const [classResult, teacherResult] = await Promise.all([
-          supabase.from('classes').select('id, class_teacher_id, class_teacher_name, default_room_number').eq('school_id', schoolId),
+        const [classResult, sectionResult, teacherResult, roomResult] = await Promise.all([
+          supabase.from('classes').select('*').eq('school_id', schoolId),
+          supabase.from('sections').select('*').eq('school_id', schoolId),
           supabase.from('teachers').select('id, first_name, last_name').eq('school_id', schoolId),
+          supabase.from('school_rooms').select('*').eq('school_id', schoolId),
         ]);
-        const classMap = new Map<string, any>((classResult.data || []).map((c: any) => [c.id, c]));
-        const teacherMap = new Map<string, any>((teacherResult.data || []).map((t: any) => [t.id, t]));
-
-        const enriched = (data as Student[]).map((st) => {
-          // Enrich from in-memory if no enrollment
-          if (!st.current_enrollment) {
-            const memoryStudent = db.students.find((s) => s.id === st.id || s.registration_number === st.registration_number);
-            if (memoryStudent?.current_enrollment) {
-              st = { ...st, current_enrollment: memoryStudent.current_enrollment };
-            }
-          }
-          const enr = st.current_enrollment;
-          if (enr?.class_id) {
-            const cls = classMap.get(enr.class_id);
-            if (cls) {
-              // Resolve teacher name: prefer stored name, then look up by ID
-              let teacherName = enr.class_teacher_name || cls.class_teacher_name;
-              if (!teacherName && cls.class_teacher_id) {
-                const tch = teacherMap.get(cls.class_teacher_id);
-                if (tch) teacherName = `${tch.first_name} ${tch.last_name}`;
-              }
-              return {
-                ...st,
-                current_enrollment: {
-                  ...enr,
-                  class_teacher_name: teacherName || undefined,
-                  room_number: enr.room_number || cls.default_room_number || undefined,
-                },
-              };
-            }
-          }
-          return st;
-        });
+        for (const result of [classResult, sectionResult, teacherResult, roomResult]) {
+          if (result.error) throw new Error(`Database enrollment read failed: ${result.error.message}`);
+        }
+        const enriched = (data as Student[]).map((st) => ({
+          ...st,
+          current_enrollment: st.current_enrollment
+            ? resolveEnrollmentClass(st.current_enrollment, classResult.data || [], sectionResult.data || [], teacherResult.data || [], roomResult.data || [])
+            : st.current_enrollment,
+        }));
         return enriched;
       }
     }

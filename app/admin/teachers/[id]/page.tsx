@@ -585,23 +585,25 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                         {asg.class_name || '—'}{asg.section_name ? ` (${asg.section_name})` : ''}
                       </span>
                       <span className="text-[10px] font-mono text-slate-400">
-                        {asg.room_number ? `Room ${asg.room_number}` : 'Room 204'}
+                        {asg.room_number ? `Room ${asg.room_number}` : 'Room not assigned'}
                       </span>
                     </div>
                     <p className="text-xs font-semibold text-indigo-700 mt-1">
-                      {asg.subject_name || 'Mathematics'}
+                      {asg.subject_name || 'Subject not assigned'}
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5">Academic Year: 2026-27</p>
                   </div>
 
                   <div className="pt-2 border-t border-slate-200/60 flex justify-end">
-                    <button
+                    {asg.id.startsWith('asg-ct-') ? (
+                      <Link href="/admin/academics/classes" className="text-xs font-bold text-indigo-600 hover:underline">Change Class Teacher</Link>
+                    ) : <button
                       type="button"
                       onClick={() => handleRemoveAssignment(asg.id)}
                       className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline transition-colors"
                     >
                       Remove
-                    </button>
+                    </button>}
                   </div>
                 </div>
               ))}

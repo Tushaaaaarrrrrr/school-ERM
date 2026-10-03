@@ -3993,10 +3993,15 @@ export const teacherService = {
   ): Promise<Teacher[]> {
     try {
       if (typeof window !== 'undefined') {
-        const res = await fetch(`/api/teachers?schoolId=${schoolId}`);
+        const res = await fetch(`/api/teachers?schoolId=${schoolId}`, { cache: 'no-store' });
+        if (!res.ok) {
+          const failure = await res.json().catch(() => ({}));
+          throw new Error(failure.error || 'Could not load teachers from database.');
+        }
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          if (!json.success || !Array.isArray(json.data)) throw new Error(json.error || 'Invalid teachers response.');
+          if (json.success && Array.isArray(json.data)) {
             storageService.setItem(STORAGE_KEYS.TEACHERS, json.data);
             let serverList: Teacher[] = json.data;
             if (filter?.status) serverList = serverList.filter((t) => t.status === filter.status);
@@ -4015,7 +4020,7 @@ export const teacherService = {
         }
       }
     } catch (e) {
-      console.warn('API teachers fetch fallback:', e);
+      throw e instanceof Error ? e : new Error('Could not load teachers from database.');
     }
 
     let list = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS).filter((t) => t.school_id === schoolId);
@@ -4036,6 +4041,13 @@ export const teacherService = {
   },
 
   async getTeacherById(id: string): Promise<Teacher | null> {
+    if (typeof window !== 'undefined') {
+      const res = await fetch('/api/teachers', { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not load teacher.');
+      storageService.setItem(STORAGE_KEYS.TEACHERS, json.data);
+      return json.data.find((t: Teacher) => t.id === id) || null;
+    }
     const list = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
     return list.find((t) => t.id === id) || null;
   },
@@ -4242,34 +4254,13 @@ export const teacherService = {
   },
 
   async getAssignments(schoolId: string, teacherId?: string): Promise<TeacherAssignment[]> {
-    try {
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams({ schoolId });
-        if (teacherId) params.set('teacherId', teacherId);
-        const res = await fetch(`/api/teacher-assignments?${params.toString()}`, { cache: 'no-store' });
-        const json = await res.json();
-        if (res.ok && json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const [classes, sections, subjects] = await Promise.all([
-            academicService.getClasses(schoolId),
-            academicService.getSections(schoolId),
-            subjectService.getSubjects(schoolId),
-          ]);
-          return json.data.map((asg: TeacherAssignment) => {
-            const cls = classes.find((c) => c.id === asg.class_id);
-            const sec = sections.find((s) => s.id === asg.section_id);
-            const sub = subjects.find((s) => s.id === asg.subject_id);
-            return {
-              ...asg,
-              class_name: asg.class_name || cls?.name,
-              section_name: asg.section_name || sec?.name,
-              subject_name: asg.subject_name || sub?.name,
-              room_number: asg.room_number || sec?.room_number,
-            };
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('API teacher assignments fetch fallback:', e);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams({ schoolId });
+      if (teacherId) params.set('teacherId', teacherId);
+      const res = await fetch(`/api/teacher-assignments?${params.toString()}`, { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not load teacher assignments.');
+      return json.data;
     }
 
     const [teachers, classes, sections] = await Promise.all([
@@ -4284,7 +4275,7 @@ export const teacherService = {
       if (t.assignments) {
         t.assignments.forEach((asg) => {
           if (!teacherId || asg.teacher_id === teacherId) {
-            const key = `${asg.class_id}-${asg.section_id || ''}-${asg.subject_id || ''}`;
+            const key = `${asg.teacher_id}-${asg.class_id}-${asg.section_id || ''}-${asg.subject_id || ''}`;
             if (!seenKeys.has(key)) {
               seenKeys.add(key);
               assignments.push(asg);
@@ -4412,6 +4403,7 @@ export const teacherService = {
   },
 
   async removeAssignment(schoolId: string, teacherId: string, assignmentId: string): Promise<void> {
+    if (assignmentId.startsWith('asg-ct-')) throw new Error('Change the Class Teacher in Classes & Sections.');
     const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
     const index = teachers.findIndex((t) => t.id === teacherId);
     if (index === -1) throw new Error('Teacher not found');
@@ -4625,8 +4617,10 @@ export const academicService = {
     if (classId) sections = sections.filter((s) => s.class_id === classId);
 
     const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-    const rooms = storageService.getItem<SchoolRoom[]>(STORAGE_KEYS.ROOMS, INITIAL_ROOMS);
-    const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
+    const [rooms, teachers] = await Promise.all([
+      roomService.getRooms(schoolId),
+      teacherService.getTeachers(schoolId),
+    ]);
 
     return sections.map((s) => {
       const cls = classes.find((c) => c.id === s.class_id);

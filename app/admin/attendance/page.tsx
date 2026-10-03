@@ -525,10 +525,16 @@ export default function AdminAttendancePage() {
                         </div>
                       )}
 
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                        <span>Room: {cls.default_room_number || 'Not assigned'}</span>
+                      {(!cls.sections?.length || cls.default_room_number || cls.class_teacher_name) && <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                        <span>{cls.sections?.length ? 'Whole class · ' : ''}Room: {cls.default_room_number || 'Not assigned'}</span>
                         <span className="font-semibold text-slate-700">Teacher: {cls.class_teacher_name || 'Not assigned'}</span>
-                      </div>
+                      </div>}
+                      {(cls.sections || []).map((section) => (
+                        <div key={section.id} className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
+                          <span>Section {section.name} · Room: {section.room_number || cls.default_room_number || 'Not assigned'}</span>
+                          <span className="font-semibold text-slate-700">Teacher: {section.class_teacher_name || cls.class_teacher_name || 'Not assigned'}</span>
+                        </div>
+                      ))}
                     </div>
 
                     <Button

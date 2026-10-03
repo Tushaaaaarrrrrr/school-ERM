@@ -1,3 +1,4 @@
+import { serverDb } from '@/lib/server/db';
 import { NextResponse } from 'next/server';
 import { requireSchoolAccess } from '@/lib/server/access';
 import { getServiceSupabase } from '@/lib/server/auth';
@@ -8,15 +9,7 @@ export async function GET(request: Request) {
     const access = await requireSchoolAccess(searchParams.get('schoolId') || undefined, ['school_admin', 'teacher']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
 
-    const supabase = getServiceSupabase();
-    if (!supabase) return NextResponse.json({ success: true, data: [] });
-
-    let query = supabase.from('teacher_assignments').select('*').eq('school_id', access.schoolId);
-    const teacherId = searchParams.get('teacherId');
-    if (teacherId) query = query.eq('teacher_id', teacherId);
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) throw error;
+    const data = await serverDb.getTeacherAssignments(access.schoolId, searchParams.get('teacherId') || undefined);
     return NextResponse.json({ success: true, data: data || [] });
   } catch (err: unknown) {
     return NextResponse.json(
