@@ -25,20 +25,21 @@ class _ParentHomeViewState extends State<ParentHomeView> {
     final vm = context.watch<StudentViewModel>();
 
     // Dynamically resolve students linked to the parent
-    final List<StudentModel> children =
-        vm.student.id.isNotEmpty ? [vm.student] : const [];
-    final activeChild = children.isNotEmpty
-        ? (_selectedChildIndex < children.length
-            ? children[_selectedChildIndex]
-            : children.first)
-        : const StudentModel(
-            id: '',
-            fullName: 'Ward',
-            admissionNumber: '',
-            rollNumber: '',
-            className: '',
-            section: '',
-            gender: '');
+    final List<StudentModel> children = vm.children.isNotEmpty
+        ? vm.children
+        : (vm.student.id.isNotEmpty ? [vm.student] : const []);
+    final activeChild = vm.student.id.isNotEmpty
+        ? vm.student
+        : (children.isNotEmpty
+            ? children.first
+            : const StudentModel(
+                id: '',
+                fullName: 'Ward',
+                admissionNumber: '',
+                rollNumber: '',
+                className: '',
+                section: '',
+                gender: ''));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -62,7 +63,9 @@ class _ParentHomeViewState extends State<ParentHomeView> {
               child: Row(
                 children: List.generate(children.length, (index) {
                   final child = children[index];
-                  final isSelected = _selectedChildIndex == index;
+                  final isSelected = vm.student.id.isNotEmpty
+                      ? child.id == vm.student.id
+                      : _selectedChildIndex == index;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
@@ -92,6 +95,7 @@ class _ParentHomeViewState extends State<ParentHomeView> {
                       onSelected: (selected) {
                         if (selected) {
                           setState(() => _selectedChildIndex = index);
+                          vm.selectChild(child);
                         }
                       },
                     ),

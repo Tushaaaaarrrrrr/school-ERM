@@ -75,6 +75,62 @@ class StudentViewModel extends ChangeNotifier {
   Future<void> refresh([UserModel? user]) =>
       loadFor(user ?? _currentUser, force: true);
 
+  List<StudentModel> _children = const [];
+  List<StudentModel> get children => _children;
+
+  Future<void> selectChild(StudentModel child) async {
+    _student = child;
+    notifyListeners();
+    await _loadChildDetails(child.id, _currentUser?.schoolId);
+  }
+
+  Future<void> _loadChildDetails(String studentLookupId, String? schoolId) async {
+    if (studentLookupId.isEmpty) return;
+    try {
+      final invoices =
+          await ApiClient.getFeeInvoices(studentId: studentLookupId);
+      final receipts =
+          await ApiClient.getPaymentReceipts(studentId: studentLookupId);
+      final charges =
+          await ApiClient.getStudentCharges(studentId: studentLookupId);
+      _invoices = invoices;
+      _receipts = receipts;
+      _charges = charges;
+    } catch (error) {
+      _feeError = 'Could not load fees from the school server: $error';
+    }
+    try {
+      _attendance =
+          await ApiClient.getStudentAttendance(studentId: studentLookupId);
+    } catch (_) {}
+    try {
+      _leaves = await ApiClient.getStudentLeaves(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _timetable = await ApiClient.getTimetable(
+        schoolId: schoolId,
+        classId: _student.classId,
+        sectionId: _student.sectionId,
+      );
+    } catch (_) {}
+    try {
+      _results = await ApiClient.getExamResults(studentId: _student.id);
+    } catch (_) {}
+    try {
+      _transportAssignments =
+          await ApiClient.getTransportAssignments(studentId: _student.id);
+      _transportRoutes = await ApiClient.getTransportRoutes();
+      final routeId = _transportAssignments.isNotEmpty
+          ? (_transportAssignments.first['route_id'] as String? ?? '')
+          : '';
+      _transportStops = await ApiClient.getTransportStops(routeId: routeId);
+      _transportEvents =
+          await ApiClient.getTransportEvents(studentId: _student.id);
+    } catch (_) {}
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> loadFor(UserModel? user, {bool force = false}) async {
     if (user == null) return;
     if (_currentUser?.id != user.id ||
@@ -87,6 +143,7 @@ class StudentViewModel extends ChangeNotifier {
           className: '',
           section: '',
           gender: '');
+      _children = const [];
       _invoices = const [];
       _receipts = const [];
       _charges = const [];
@@ -98,13 +155,29 @@ class StudentViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
+      if (user.role == UserRole.parent) {
+        try {
+          final parentKids = await ApiClient.getParentChildren();
+          if (parentKids.isNotEmpty) {
+            _children = parentKids;
+            final existingIndex =
+                _children.indexWhere((c) => c.id == _student.id);
+            _student = existingIndex != -1
+                ? _children[existingIndex]
+                : _children.first;
+          }
+        } catch (_) {}
+      }
       final students = await ApiClient.getStudents(schoolId: user.schoolId);
       if (students.isNotEmpty) {
         final loginId = (user.loginId ?? '').toLowerCase();
         final cleanUserId =
             user.id.replaceFirst(RegExp(r'^usr-'), '').toLowerCase();
         if (user.role == UserRole.parent) {
-          _student = students.first;
+          if (_children.isEmpty) {
+            _children = students;
+            _student = students.first;
+          }
         } else {
           _student = students.firstWhere(
             (s) =>
@@ -134,52 +207,12 @@ class StudentViewModel extends ChangeNotifier {
             : (user.loginId?.isNotEmpty == true
                 ? user.loginId!
                 : user.id.replaceFirst(RegExp(r'^usr-'), ''));
-    try {
-      if (studentLookupId.isEmpty)
-        throw Exception(
-            'Student identity is unavailable. Please sign in again.');
-      final invoices =
-          await ApiClient.getFeeInvoices(studentId: studentLookupId);
-      final receipts =
-          await ApiClient.getPaymentReceipts(studentId: studentLookupId);
-      final charges =
-          await ApiClient.getStudentCharges(studentId: studentLookupId);
-      _invoices = invoices;
-      _receipts = receipts;
-      _charges = charges;
+    if (studentLookupId.isNotEmpty) {
       _loadedFor = user.id;
-    } catch (error) {
-      _feeError = 'Could not load fees from the school server: $error';
+      await _loadChildDetails(studentLookupId, user.schoolId);
+    } else {
+      _isLoading = false;
+      notifyListeners();
     }
-    try {
-      _attendance =
-          await ApiClient.getStudentAttendance(studentId: studentLookupId);
-    } catch (_) {}
-    try {
-      _leaves = await ApiClient.getStudentLeaves(studentId: _student.id);
-    } catch (_) {}
-    try {
-      _timetable = await ApiClient.getTimetable(
-        schoolId: user.schoolId,
-        classId: _student.classId,
-        sectionId: _student.sectionId,
-      );
-    } catch (_) {}
-    try {
-      _results = await ApiClient.getExamResults(studentId: _student.id);
-    } catch (_) {}
-    try {
-      _transportAssignments =
-          await ApiClient.getTransportAssignments(studentId: _student.id);
-      _transportRoutes = await ApiClient.getTransportRoutes();
-      final routeId = _transportAssignments.isNotEmpty
-          ? (_transportAssignments.first['route_id'] as String? ?? '')
-          : '';
-      _transportStops = await ApiClient.getTransportStops(routeId: routeId);
-      _transportEvents =
-          await ApiClient.getTransportEvents(studentId: _student.id);
-    } catch (_) {}
-    _isLoading = false;
-    notifyListeners();
   }
 }

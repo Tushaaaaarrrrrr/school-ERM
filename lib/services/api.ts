@@ -2911,29 +2911,16 @@ export const temporaryAssignmentService = {
     schoolId: string,
     filter?: { absentEmployeeId?: string; replacementEmployeeId?: string; status?: string }
   ): Promise<TemporaryAssignment[]> {
-    let list = storageService.getItem<TemporaryAssignment[]>(
-      STORAGE_KEYS.TEMPORARY_ASSIGNMENTS,
-      INITIAL_TEMPORARY_ASSIGNMENTS
-    ).filter((a) => a.school_id === schoolId);
-
-    if (filter?.absentEmployeeId) {
-      list = list.filter((a) => a.absent_employee_id === filter.absentEmployeeId);
-    }
-    if (filter?.replacementEmployeeId) {
-      list = list.filter((a) => a.replacement_employee_id === filter.replacementEmployeeId);
-    }
-    if (filter?.status) {
-      list = list.filter((a) => a.status === filter.status);
-    }
-
-    return list.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const q = new URLSearchParams({ schoolId });
+    if (filter?.absentEmployeeId) q.set('absentEmployeeId', filter.absentEmployeeId);
+    if (filter?.replacementEmployeeId) q.set('replacementEmployeeId', filter.replacementEmployeeId);
+    if (filter?.status) q.set('status', filter.status);
+    const list = await schoolApi<TemporaryAssignment[]>(`/api/temporary-assignments?${q}`, { cache: 'no-store' });
+    return list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   },
 
   async getAssignmentById(id: string): Promise<TemporaryAssignment | null> {
-    const list = storageService.getItem<TemporaryAssignment[]>(
-      STORAGE_KEYS.TEMPORARY_ASSIGNMENTS,
-      INITIAL_TEMPORARY_ASSIGNMENTS
-    );
+    const list = await schoolApi<TemporaryAssignment[]>('/api/temporary-assignments', { cache: 'no-store' });
     return list.find((a) => a.id === id) || null;
   },
 
@@ -2942,25 +2929,16 @@ export const temporaryAssignmentService = {
     assignment: Omit<TemporaryAssignment, 'id' | 'school_id' | 'created_at' | 'updated_at'>,
     currentUser?: { id?: string; name?: string }
   ): Promise<TemporaryAssignment> {
-    const list = storageService.getItem<TemporaryAssignment[]>(
-      STORAGE_KEYS.TEMPORARY_ASSIGNMENTS,
-      INITIAL_TEMPORARY_ASSIGNMENTS
-    );
-
-    const now = new Date().toISOString();
-    const newAssignment: TemporaryAssignment = {
-      ...assignment,
-      id: `tmp-asg-${Date.now().toString().slice(-4)}`,
-      school_id: schoolId,
-      status: assignment.status || 'active',
-      created_by: currentUser?.id || 'usr-admin-01',
-      created_by_name: currentUser?.name || 'School Administrator',
-      created_at: now,
-      updated_at: now,
-    };
-
-    list.unshift(newAssignment);
-    storageService.setItem(STORAGE_KEYS.TEMPORARY_ASSIGNMENTS, list);
+    const newAssignment = await schoolApi<TemporaryAssignment>('/api/temporary-assignments', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...assignment,
+        school_id: schoolId,
+        status: assignment.status || 'active',
+        created_by: currentUser?.id,
+        created_by_name: currentUser?.name,
+      }),
+    });
 
     authLogService.logEvent({
       school_id: schoolId,
@@ -2985,20 +2963,10 @@ export const temporaryAssignmentService = {
     updates: Partial<TemporaryAssignment>,
     currentUser?: { id?: string; name?: string }
   ): Promise<TemporaryAssignment> {
-    const list = storageService.getItem<TemporaryAssignment[]>(
-      STORAGE_KEYS.TEMPORARY_ASSIGNMENTS,
-      INITIAL_TEMPORARY_ASSIGNMENTS
-    );
-    const index = list.findIndex((a) => a.id === id);
-    if (index === -1) throw new Error('Temporary assignment not found');
-
-    const updated: TemporaryAssignment = {
-      ...list[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
-    list[index] = updated;
-    storageService.setItem(STORAGE_KEYS.TEMPORARY_ASSIGNMENTS, list);
+    const updated = await schoolApi<TemporaryAssignment>(`/api/temporary-assignments/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
 
     authLogService.logEvent({
       school_id: updated.school_id,
@@ -3022,10 +2990,10 @@ export const salaryAdjustmentService = {
     schoolId: string,
     filter?: { employeeId?: string; month?: string; type?: string; assignmentId?: string }
   ): Promise<EmployeeSalaryAdjustment[]> {
-    let list = storageService.getItem<EmployeeSalaryAdjustment[]>(
-      STORAGE_KEYS.EMPLOYEE_SALARY_ADJUSTMENTS,
-      INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS
-    ).filter((a) => a.school_id === schoolId);
+    let list = await schoolApi<EmployeeSalaryAdjustment[]>(
+      `/api/salary-adjustments?schoolId=${encodeURIComponent(schoolId)}`,
+      { cache: 'no-store' }
+    );
 
     if (filter?.employeeId) {
       list = list.filter((a) => a.employee_id === filter.employeeId);
@@ -3048,27 +3016,16 @@ export const salaryAdjustmentService = {
     adjustment: Omit<EmployeeSalaryAdjustment, 'id' | 'school_id' | 'created_at' | 'updated_at'>,
     currentUser?: { id?: string; name?: string }
   ): Promise<EmployeeSalaryAdjustment> {
-    const list = storageService.getItem<EmployeeSalaryAdjustment[]>(
-      STORAGE_KEYS.EMPLOYEE_SALARY_ADJUSTMENTS,
-      INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS
-    );
-
-    const now = new Date().toISOString();
-    const billingMonth = adjustment.billing_month || adjustment.effective_date.slice(0, 7);
-
-    const newAdjustment: EmployeeSalaryAdjustment = {
-      ...adjustment,
-      id: `sal-adj-${Date.now().toString().slice(-4)}`,
-      school_id: schoolId,
-      billing_month: billingMonth,
-      created_by: currentUser?.id || 'usr-admin-01',
-      created_by_name: currentUser?.name || 'School Administrator',
-      created_at: now,
-      updated_at: now,
-    };
-
-    list.unshift(newAdjustment);
-    storageService.setItem(STORAGE_KEYS.EMPLOYEE_SALARY_ADJUSTMENTS, list);
+    const newAdjustment = await schoolApi<EmployeeSalaryAdjustment>('/api/salary-adjustments', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...adjustment,
+        school_id: schoolId,
+        billing_month: adjustment.billing_month || adjustment.effective_date.slice(0, 7),
+        created_by: currentUser?.id,
+        created_by_name: currentUser?.name,
+      }),
+    });
 
     authLogService.logEvent({
       school_id: schoolId,
@@ -3093,24 +3050,14 @@ export const salaryAdjustmentService = {
     id: string,
     currentUser?: { id?: string; name?: string }
   ): Promise<void> {
-    let list = storageService.getItem<EmployeeSalaryAdjustment[]>(
-      STORAGE_KEYS.EMPLOYEE_SALARY_ADJUSTMENTS,
-      INITIAL_EMPLOYEE_SALARY_ADJUSTMENTS
-    );
-    const existing = list.find((a) => a.id === id);
-    list = list.filter((a) => a.id !== id);
-    storageService.setItem(STORAGE_KEYS.EMPLOYEE_SALARY_ADJUSTMENTS, list);
-
-    if (existing) {
-      authLogService.logEvent({
-        school_id: existing.school_id,
-        user_id: currentUser?.id,
-        user_name: currentUser?.name,
-        event_type: 'salary_adjustment_deleted',
-        success: true,
-        details: { id, reason: existing.reason, amount: existing.amount },
-      });
-    }
+    await schoolApi(`/api/salary-adjustments/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    authLogService.logEvent({
+      user_id: currentUser?.id,
+      user_name: currentUser?.name,
+      event_type: 'salary_adjustment_deleted',
+      success: true,
+      details: { id },
+    });
   },
 
   async getEmployeeSalarySummary(
@@ -5146,9 +5093,8 @@ export const teacherPaymentService = {
     schoolId: string,
     filterOrTeacherId?: string | { teacherId?: string; billingMonth?: string }
   ): Promise<TeacherPayment[]> {
-    let list = storageService.getItem<TeacherPayment[]>(STORAGE_KEYS.TEACHER_PAYMENTS, INITIAL_TEACHER_PAYMENTS).filter(
-      (p) => p.school_id === schoolId
-    );
+    let list = (await schoolApi<TeacherPayment[]>('/api/teacher-payments', { cache: 'no-store' }))
+      .filter((p) => p.school_id === schoolId);
     if (typeof filterOrTeacherId === 'string') {
       list = list.filter((p) => p.teacher_id === filterOrTeacherId);
     } else if (filterOrTeacherId) {
@@ -5173,7 +5119,8 @@ export const teacherPaymentService = {
     paidCount: number;
     pendingCount: number;
   }> {
-    const teachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS).filter((t) => t.school_id === schoolId && t.status === 'active');
+    const teachers = (await schoolApi<Teacher[]>(`/api/teachers?schoolId=${encodeURIComponent(schoolId)}`, { cache: 'no-store' }))
+      .filter((t) => t.status === 'active');
     const payments = await this.getPayments(schoolId, { billingMonth });
 
     const totalBudget = teachers.reduce((sum, t) => sum + (t.salary || 0), 0);
@@ -5194,15 +5141,7 @@ export const teacherPaymentService = {
   async recordTeacherPayment(
     payment: Omit<TeacherPayment, 'id' | 'created_at'>
   ): Promise<TeacherPayment> {
-    const list = storageService.getItem<TeacherPayment[]>(STORAGE_KEYS.TEACHER_PAYMENTS, INITIAL_TEACHER_PAYMENTS);
-    const newPayment: TeacherPayment = {
-      ...payment,
-      id: `tch-pmt-${Date.now().toString().slice(-4)}`,
-      created_at: new Date().toISOString(),
-    };
-    list.unshift(newPayment);
-    storageService.setItem(STORAGE_KEYS.TEACHER_PAYMENTS, list);
-    return newPayment;
+    return schoolApi<TeacherPayment>('/api/teacher-payments', { method: 'POST', body: JSON.stringify(payment) });
   },
 
   async recordPayment(
@@ -7285,10 +7224,8 @@ export const enquiryService = {
     schoolId: string,
     filter?: { status?: EnquiryStatus; search?: string }
   ): Promise<AdmissionEnquiry[]> {
-    let list = storageService.getItem<AdmissionEnquiry[]>(
-      STORAGE_KEYS.ADMISSION_ENQUIRIES,
-      INITIAL_ADMISSION_ENQUIRIES
-    ).filter((e) => e.school_id === schoolId);
+    let list = (await schoolApi<AdmissionEnquiry[]>('/api/enquiries', { cache: 'no-store' }))
+      .filter((e) => e.school_id === schoolId);
 
     if (filter?.status) {
       list = list.filter((e) => e.status === filter.status);
@@ -7311,19 +7248,7 @@ export const enquiryService = {
   async createEnquiry(
     data: Omit<AdmissionEnquiry, 'id' | 'created_at' | 'updated_at'>
   ): Promise<AdmissionEnquiry> {
-    const list = storageService.getItem<AdmissionEnquiry[]>(
-      STORAGE_KEYS.ADMISSION_ENQUIRIES,
-      INITIAL_ADMISSION_ENQUIRIES
-    );
-    const newEnq: AdmissionEnquiry = {
-      ...data,
-      id: `enq-${Date.now().toString().slice(-4)}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    list.unshift(newEnq);
-    storageService.setItem(STORAGE_KEYS.ADMISSION_ENQUIRIES, list);
-    return newEnq;
+    return schoolApi<AdmissionEnquiry>('/api/enquiries', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async updateEnquiry(
@@ -7331,21 +7256,10 @@ export const enquiryService = {
     updates: Partial<AdmissionEnquiry>,
     actorName: string = 'Receptionist'
   ): Promise<AdmissionEnquiry> {
-    const list = storageService.getItem<AdmissionEnquiry[]>(
-      STORAGE_KEYS.ADMISSION_ENQUIRIES,
-      INITIAL_ADMISSION_ENQUIRIES
-    );
-    const index = list.findIndex((e) => e.id === id);
-    if (index === -1) throw new Error('Enquiry not found');
-
-    const updated = {
-      ...list[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
-    list[index] = updated;
-    storageService.setItem(STORAGE_KEYS.ADMISSION_ENQUIRIES, list);
-    return updated;
+    return schoolApi<AdmissionEnquiry>(`/api/enquiries/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...updates, updated_at: new Date().toISOString() }),
+    });
   },
 
   async convertEnquiryToStudent(
@@ -7353,14 +7267,8 @@ export const enquiryService = {
     studentData: Partial<Student> & { first_name: string; last_name: string; class_id: string; section_id: string; school_code?: string },
     actorName: string = 'Receptionist / Admin'
   ): Promise<{ student: Student; enquiry: AdmissionEnquiry }> {
-    const list = storageService.getItem<AdmissionEnquiry[]>(
-      STORAGE_KEYS.ADMISSION_ENQUIRIES,
-      INITIAL_ADMISSION_ENQUIRIES
-    );
-    const index = list.findIndex((e) => e.id === enquiryId);
-    if (index === -1) throw new Error('Enquiry not found');
-
-    const enquiry = list[index];
+    const enquiry = (await schoolApi<AdmissionEnquiry[]>('/api/enquiries', { cache: 'no-store' })).find((e) => e.id === enquiryId);
+    if (!enquiry) throw new Error('Enquiry not found');
 
     // Create the student
     const createdStudent = await studentService.createStudent({
@@ -7383,13 +7291,12 @@ export const enquiryService = {
     });
 
     // Update enquiry status to admitted
-    enquiry.status = 'admitted';
-    enquiry.notes = `${enquiry.notes || ''}\n[Admitted] Converted to student ${createdStudent.first_name} ${createdStudent.last_name} (${createdStudent.registration_number}) on ${new Date().toLocaleDateString()}`;
-    enquiry.updated_at = new Date().toISOString();
-    list[index] = enquiry;
-    storageService.setItem(STORAGE_KEYS.ADMISSION_ENQUIRIES, list);
+    const updated = await this.updateEnquiry(enquiryId, {
+      status: 'admitted',
+      notes: `${enquiry.notes || ''}\n[Admitted] Converted to student ${createdStudent.first_name} ${createdStudent.last_name} (${createdStudent.registration_number}) on ${new Date().toLocaleDateString()}`,
+    });
 
-    return { student: createdStudent, enquiry };
+    return { student: createdStudent, enquiry: updated };
   },
 };
 
@@ -7660,54 +7567,29 @@ export const parentService = {
 
 export const notificationService = {
   async getNotifications(recipientUserId: string): Promise<AppNotification[]> {
-    const list = storageService.getItem<AppNotification[]>(
-      STORAGE_KEYS.NOTIFICATIONS,
-      INITIAL_NOTIFICATIONS
-    );
+    const list = await schoolApi<AppNotification[]>('/api/notifications', { cache: 'no-store' });
     return list.filter((n) => n.recipient_user_id === recipientUserId).sort((a, b) => b.created_at.localeCompare(a.created_at));
   },
 
   async markAsRead(notificationId: string): Promise<void> {
-    const list = storageService.getItem<AppNotification[]>(
-      STORAGE_KEYS.NOTIFICATIONS,
-      INITIAL_NOTIFICATIONS
-    );
-    const index = list.findIndex((n) => n.id === notificationId);
-    if (index !== -1) {
-      list[index].read_at = new Date().toISOString();
-      storageService.setItem(STORAGE_KEYS.NOTIFICATIONS, list);
-    }
+    await schoolApi('/api/notifications', {
+      method: 'PUT',
+      body: JSON.stringify({ id: notificationId, read_at: new Date().toISOString() }),
+    });
   },
 
   async markAllAsRead(recipientUserId: string): Promise<void> {
-    const list = storageService.getItem<AppNotification[]>(
-      STORAGE_KEYS.NOTIFICATIONS,
-      INITIAL_NOTIFICATIONS
-    );
-    list.forEach((n) => {
-      if (n.recipient_user_id === recipientUserId && !n.read_at) {
-        n.read_at = new Date().toISOString();
-      }
-    });
-    storageService.setItem(STORAGE_KEYS.NOTIFICATIONS, list);
+    const unread = (await this.getNotifications(recipientUserId)).filter((n) => !n.read_at);
+    await Promise.all(unread.map((n) => this.markAsRead(n.id)));
   },
 
   async createNotification(
     data: Omit<AppNotification, 'id' | 'created_at'>
   ): Promise<AppNotification> {
-    const list = storageService.getItem<AppNotification[]>(
-      STORAGE_KEYS.NOTIFICATIONS,
-      INITIAL_NOTIFICATIONS
-    );
-    const newNotif: AppNotification = {
-      ...data,
-      id: `notif-${Date.now().toString().slice(-4)}`,
-      read_at: null,
-      created_at: new Date().toISOString(),
-    };
-    list.unshift(newNotif);
-    storageService.setItem(STORAGE_KEYS.NOTIFICATIONS, list);
-    return newNotif;
+    return schoolApi<AppNotification>('/api/notifications', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, read_at: null }),
+    });
   },
 };
 
@@ -7997,10 +7879,8 @@ export const bulkChargeService = {
 
 export const followUpService = {
   async getStudentFollowUps(schoolId: string, studentId?: string): Promise<StudentFollowUp[]> {
-    let list = storageService.getItem<StudentFollowUp[]>(
-      STORAGE_KEYS.STUDENT_FOLLOWUPS,
-      INITIAL_STUDENT_FOLLOWUPS
-    ).filter((f) => f.school_id === schoolId);
+    let list = (await schoolApi<StudentFollowUp[]>('/api/followups', { cache: 'no-store' }))
+      .filter((f) => f.school_id === schoolId);
 
     if (studentId) {
       list = list.filter((f) => f.student_id === studentId);
@@ -8011,18 +7891,7 @@ export const followUpService = {
   async createFollowUp(
     data: Omit<StudentFollowUp, 'id' | 'created_at'>
   ): Promise<StudentFollowUp> {
-    const list = storageService.getItem<StudentFollowUp[]>(
-      STORAGE_KEYS.STUDENT_FOLLOWUPS,
-      INITIAL_STUDENT_FOLLOWUPS
-    );
-    const newFollowUp: StudentFollowUp = {
-      ...data,
-      id: `sfu-${Date.now().toString().slice(-4)}`,
-      created_at: new Date().toISOString(),
-    };
-    list.unshift(newFollowUp);
-    storageService.setItem(STORAGE_KEYS.STUDENT_FOLLOWUPS, list);
-    return newFollowUp;
+    return schoolApi<StudentFollowUp>('/api/followups', { method: 'POST', body: JSON.stringify(data) });
   },
 };
 

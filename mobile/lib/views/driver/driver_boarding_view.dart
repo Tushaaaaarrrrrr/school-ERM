@@ -12,7 +12,7 @@ class DriverBoardingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DriverViewModel>();
-    const List<StudentModel> students = [];
+    final List<StudentModel> students = vm.students;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -110,7 +110,7 @@ class DriverBoardingView extends StatelessWidget {
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                             Text(
-                              'Stop: Green Park • Roll #${student.rollNumber}',
+                              'Stop: ${vm.stopNameFor(student.id).isEmpty ? '—' : vm.stopNameFor(student.id)} • Roll #${student.rollNumber}',
                               style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                             ),
                           ],

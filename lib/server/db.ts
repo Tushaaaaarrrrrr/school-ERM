@@ -450,7 +450,7 @@ export const serverDb = {
         supabase.from('school_memberships').select('school_id, role, status'),
       ]);
 
-      if (!schoolsResult.error && schoolsResult.data && schoolsResult.data.length > 0) {
+      if (!schoolsResult.error && schoolsResult.data) {
         const db = initServerDb();
         const memberships = membershipsResult.data || [];
         return schoolsResult.data.map((school: any) => {
@@ -535,13 +535,16 @@ export const serverDb = {
         query = query.neq('id', excludeId);
       }
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        return {
-          available: false,
-          valid: true,
-          error: `School code "${cleanCode}" is already registered.`,
-          existingSchool: { id: data[0].id, name: data[0].name, code: data[0].code },
-        };
+      if (!error && data) {
+        if (data.length > 0) {
+          return {
+            available: false,
+            valid: true,
+            error: `School code "${cleanCode}" is already registered.`,
+            existingSchool: { id: data[0].id, name: data[0].name, code: data[0].code },
+          };
+        }
+        return { available: true, valid: true };
       }
     }
 
@@ -1323,7 +1326,8 @@ export const serverDb = {
       let query = supabase.from('students').select('*').eq('school_id', schoolId);
       if (filters?.status) query = query.eq('status', filters.status);
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
+        if (data.length === 0) return [];
         const [classResult, sectionResult, teacherResult, roomResult] = await Promise.all([
           supabase.from('classes').select('*').eq('school_id', schoolId),
           supabase.from('sections').select('*').eq('school_id', schoolId),
@@ -1722,6 +1726,7 @@ export const serverDb = {
 
   async updateTemporaryAssignment(
     id: string,
+    schoolId: string,
     updates: Partial<TemporaryAssignment>
   ): Promise<TemporaryAssignment> {
     const changes = { ...updates, updated_at: new Date().toISOString() };
@@ -1729,14 +1734,14 @@ export const serverDb = {
     if (supabase) {
       const payload = sanitizeSupabasePayload(changes);
       delete payload.id;
-      const { data, error } = await supabase.from('temporary_assignments').update(payload).eq('id', id).select().maybeSingle();
+      const { data, error } = await supabase.from('temporary_assignments').update(payload).eq('id', id).eq('school_id', schoolId).select().maybeSingle();
       if (error) throw new Error(`Database temporary assignment update failed: ${error.message}`);
       if (!data) throw new Error('Temporary assignment not found');
       return data as TemporaryAssignment;
     }
 
     const db = initServerDb();
-    const idx = db.temporaryAssignments.findIndex((a) => a.id === id);
+    const idx = db.temporaryAssignments.findIndex((a) => a.id === id && a.school_id === schoolId);
     if (idx === -1) throw new Error('Temporary assignment not found');
     db.temporaryAssignments[idx] = { ...db.temporaryAssignments[idx], ...changes };
     return db.temporaryAssignments[idx];
@@ -1762,7 +1767,7 @@ export const serverDb = {
       if (filter?.assignmentId) query = query.eq('temporary_assignment_id', filter.assignmentId);
 
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         return data as EmployeeSalaryAdjustment[];
       }
     }
@@ -1806,14 +1811,14 @@ export const serverDb = {
     return item;
   },
 
-  async deleteSalaryAdjustment(id: string): Promise<void> {
+  async deleteSalaryAdjustment(id: string, schoolId: string): Promise<void> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(id)) {
-      const { error } = await supabase.from('employee_salary_adjustments').delete().eq('id', id);
+      const { error } = await supabase.from('employee_salary_adjustments').delete().eq('id', id).eq('school_id', schoolId);
       if (error) throw new Error(`Database salary adjustment delete failed: ${error.message}`);
     }
     const db = initServerDb();
-    db.salaryAdjustments = db.salaryAdjustments.filter((a) => a.id !== id);
+    db.salaryAdjustments = db.salaryAdjustments.filter((a) => a.id !== id || a.school_id !== schoolId);
   },
 
   async getAcademicYears(schoolId: string): Promise<any[]> {
@@ -3125,12 +3130,13 @@ export const serverDb = {
     return data;
   },
 
-  async updateNotification(id: string, updates: any): Promise<any> {
+  async updateNotification(id: string,
+    schoolId: string, updates: any): Promise<any> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(id)) {
       const payload = sanitizeSupabasePayload(updates);
       delete payload.id;
-      const { data: updated, error } = await supabase.from('app_notifications').update(payload).eq('id', id).select().single();
+      const { data: updated, error } = await supabase.from('app_notifications').update(payload).eq('id', id).eq('school_id', schoolId).select().single();
       if (!error && updated) return updated;
       if (error) throw new Error(`Database updateNotification failed: ${error.message}`);
     }
@@ -3229,12 +3235,13 @@ export const serverDb = {
     return data;
   },
 
-  async updateEnquiry(id: string, updates: any): Promise<any> {
+  async updateEnquiry(id: string,
+    schoolId: string, updates: any): Promise<any> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(id)) {
       const payload = sanitizeSupabasePayload(updates);
       delete payload.id;
-      const { data: updated, error } = await supabase.from('admission_enquiries').update(payload).eq('id', id).select().single();
+      const { data: updated, error } = await supabase.from('admission_enquiries').update(payload).eq('id', id).eq('school_id', schoolId).select().single();
       if (!error && updated) return updated;
       if (error) throw new Error(`Database updateEnquiry failed: ${error.message}`);
     }
@@ -3262,12 +3269,13 @@ export const serverDb = {
     return data;
   },
 
-  async updateFollowUp(id: string, updates: any): Promise<any> {
+  async updateFollowUp(id: string,
+    schoolId: string, updates: any): Promise<any> {
     const supabase = getSupabaseAdmin();
     if (supabase && isUuidString(id)) {
       const payload = sanitizeSupabasePayload(updates);
       delete payload.id;
-      const { data: updated, error } = await supabase.from('student_followups').update(payload).eq('id', id).select().single();
+      const { data: updated, error } = await supabase.from('student_followups').update(payload).eq('id', id).eq('school_id', schoolId).select().single();
       if (!error && updated) return updated;
       if (error) throw new Error(`Database updateFollowUp failed: ${error.message}`);
     }

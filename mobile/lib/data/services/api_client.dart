@@ -178,6 +178,14 @@ class ApiClient {
         .toList();
   }
 
+  static Future<List<StudentModel>> getParentChildren() async {
+    final json = await _get('/api/parents/children');
+    final data = (json['data'] as List? ?? const []);
+    return data
+        .map((e) => StudentModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
   static Future<StudentModel> createStudent({
     required String schoolId,
     required String fullName,
@@ -304,6 +312,29 @@ class ApiClient {
       'event_date': DateTime.now().toIso8601String().split('T').first,
     });
     return _listFromJson(json);
+  }
+
+  static Future<Map<String, dynamic>> getDriverRoster() async {
+    final json = await _get('/api/driver/roster');
+    return Map<String, dynamic>.from(json['data'] ?? const {});
+  }
+
+  static Future<void> recordTransportEvent(Map<String, dynamic> event) async {
+    await _post('/api/transport-events', event);
+  }
+
+  static Future<void> deleteTransportEvent({
+    required String studentId,
+    String? eventType,
+  }) async {
+    final base = await baseUrl;
+    final uri = Uri.parse('$base/api/transport-events').replace(queryParameters: {
+      'student_id': studentId,
+      if (eventType != null) 'event_type': eventType,
+      'event_date': DateTime.now().toIso8601String().split('T').first,
+    });
+    final response = await http.delete(uri, headers: await _headers(true));
+    _decode(response);
   }
 
   static Future<List<Map<String, dynamic>>> getAcademicYears() async {

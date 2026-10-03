@@ -51,7 +51,7 @@ class _TeacherPortalViewState extends State<TeacherPortalView> {
       setState(() => _controller = controller);
       await controller.loadRequest(origin.resolve('/mobile-portal').replace(queryParameters: {'path': widget.path}));
     } catch (_) {
-      if (mounted) setState(() { _error = 'Could not open the teacher portal.'; _loading = false; });
+      if (mounted) setState(() { _error = 'Could not open the school portal.'; _loading = false; });
     }
   }
 

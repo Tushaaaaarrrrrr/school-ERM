@@ -1,7 +1,8 @@
 export async function GET(request: Request) {
   const path = new URL(request.url).searchParams.get('path') || '/teacher';
-  const allowed = ['/teacher', '/teacher/attendance', '/teacher/classes', '/teacher/exams', '/teacher/leave', '/teacher/timetable', '/teacher/payments', '/account/security'];
-  if (!allowed.includes(path)) return new Response('Invalid portal path', { status: 400 });
+  const allowedPrefixes = ['/teacher', '/admin', '/staff', '/student', '/parent', '/super-admin', '/account'];
+  const isAllowed = path.startsWith('/') && !path.startsWith('//') && !path.includes('\\') && allowedPrefixes.some(p => path === p || path.startsWith(`${p}/`));
+  if (!isAllowed) return new Response('Invalid portal path', { status: 400 });
   // Keep web authentication and PIN checks; only discard a different user's cache.
   return new Response(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><script>
     try {

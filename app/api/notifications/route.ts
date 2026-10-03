@@ -36,7 +36,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     if (!body.id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
     delete body.school_id;
-    const data = await serverDb.updateNotification(body.id, body);
+    const data = await serverDb.updateNotification(body.id, access.schoolId, body);
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     return errorResponse(error);

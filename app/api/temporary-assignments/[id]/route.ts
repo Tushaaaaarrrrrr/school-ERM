@@ -14,7 +14,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     }
 
-    const updated = await serverDb.updateTemporaryAssignment(id, body);
+    const updated = await serverDb.updateTemporaryAssignment(id, access.schoolId, body);
     return NextResponse.json({ success: true, data: updated });
   } catch (err: unknown) {
     return NextResponse.json(

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/services/api_client.dart';
 import 'data/services/auth_service.dart';
+import 'data/models/user_model.dart';
 import 'viewmodels/student_viewmodel.dart';
 import 'viewmodels/driver_viewmodel.dart';
 import 'views/auth/login_view.dart';
@@ -25,7 +26,16 @@ Future<void> main() async {
             return model;
           },
         ),
-        ChangeNotifierProvider(create: (_) => DriverViewModel()),
+        ChangeNotifierProxyProvider<AuthService, DriverViewModel>(
+          create: (_) => DriverViewModel(),
+          update: (_, auth, vm) {
+            final model = vm ?? DriverViewModel();
+            if (auth.isAuthenticated && auth.currentUser.role == UserRole.driver) {
+              model.loadFor(auth.currentUser);
+            }
+            return model;
+          },
+        ),
       ],
       child: const SchoolErpApp(),
     ),

@@ -15,7 +15,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     }
 
-    await serverDb.deleteSalaryAdjustment(id);
+    await serverDb.deleteSalaryAdjustment(id, access.schoolId);
     return NextResponse.json({ success: true, message: 'Salary adjustment deleted successfully' });
   } catch (err: unknown) {
     return NextResponse.json(
