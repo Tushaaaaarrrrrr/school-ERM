@@ -3509,54 +3509,7 @@ export const studentService = {
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
             const localStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, []);
             const classes = storageService.getItem<SchoolClass[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES).filter((c) => c.school_id === schoolId);
-            const sections = storageService.getItem<Section[]>(STORAGE_KEYS.SECTIONS, INITIAL_SECTIONS).filter((sec) => sec.school_id === schoolId);
-
-            const merged = (json.data as Student[]).map((srv) => {
-              const student = this.mergeStudentRecord(srv, localStudents);
-              let enr = student.current_enrollment;
-
-              // If enrollment has class_name, ensure class_id and section_id match actual school classes
-              if (enr && enr.class_name) {
-                const cName = enr.class_name.trim().toLowerCase();
-                const sName = (enr.section_name || 'a').toLowerCase();
-                const targetCls = classes.find((c) => c.name.toLowerCase() === cName);
-                if (targetCls) {
-                  const targetSec = sections.find((s) => s.class_id === targetCls.id && (s.name.toLowerCase() === sName)) || sections.find((s) => s.class_id === targetCls.id);
-                  enr = {
-                    ...enr,
-                    class_id: targetCls.id,
-                    section_id: targetSec?.id || enr.section_id,
-                    section_name: targetSec?.name || enr.section_name,
-                  };
-                }
-              } else if (enr && enr.class_id) {
-                // If enrollment lacks class_name, attempt auto-resolution
-                const targetCls = classes.find((c) => c.id === enr?.class_id) || (classes.length === 1 ? classes[0] : undefined);
-                const targetSec = sections.find((s) => s.id === enr?.section_id) || (targetCls ? sections.find((s) => s.class_id === targetCls.id) : undefined);
-                if (targetCls) {
-                  enr = {
-                    id: enr?.id || `enr-${srv.id}`,
-                    school_id: student.school_id,
-                    student_id: student.id,
-                    academic_year_id: enr?.academic_year_id || 'ay-2026',
-                    academic_year_name: enr?.academic_year_name || '2026-27',
-                    class_id: targetCls.id,
-                    class_name: targetCls.name,
-                    section_id: targetSec?.id || '',
-                    section_name: targetSec?.name,
-                    roll_number: enr?.roll_number || '01',
-                    joined_at: enr?.joined_at || student.joining_date,
-                    status: 'active',
-                    created_at: enr?.created_at || student.created_at,
-                  };
-                }
-              }
-
-              return {
-                ...student,
-                current_enrollment: enr,
-              };
-            });
+            const merged = (json.data as Student[]).map((srv) => this.mergeStudentRecord(srv, localStudents));
 
             storageService.setItem(STORAGE_KEYS.STUDENTS, merged);
             let serverList: Student[] = merged;
@@ -3627,7 +3580,7 @@ export const studentService = {
 
     try {
       if (typeof window !== 'undefined') {
-        const directRes = await fetch(`/api/students/${encodeURIComponent(cleanId)}`);
+        const directRes = await fetch(`/api/students/${encodeURIComponent(cleanId)}`, { cache: 'no-store' });
         if (directRes.ok) {
           const directJson = await directRes.json();
           if (directJson.success && directJson.data) {

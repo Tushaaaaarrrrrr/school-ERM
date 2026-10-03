@@ -20,6 +20,20 @@ function assertPartial(actual, expected) {
   const teachers = [{ id: 't1', first_name: 'teacher', last_name: 'one' }, { id: 't2', first_name: 'Tamoghna', last_name: 'Teacher' }];
   assertPartial(resolveEnrollmentClass(enrollment, classes, sections, teachers), { class_teacher_name: 'teacher one', room_number: '101' });
   assertPartial(resolveEnrollmentClass({ ...enrollment, class_id: 'c6', section_id: '' }, classes, sections, teachers), { class_teacher_name: 'Tamoghna Teacher', room_number: '102' });
+  const legacyEnrollment = { ...enrollment, class_id: 'old-class-id', section_id: 'old-section-id', class_name: ' class 7 ', section_name: ' a ' };
+  assertPartial(resolveEnrollmentClass(legacyEnrollment, classes, sections, teachers), {
+    class_id: 'c7', section_id: 's7', class_teacher_name: 'teacher one', room_number: '101',
+  });
+  assertPartial(resolveEnrollmentClass({ ...legacyEnrollment, section_name: undefined }, classes, sections, teachers), {
+    class_teacher_name: undefined, room_number: undefined,
+  });
+  assertPartial(resolveEnrollmentClass(legacyEnrollment, [...classes, { ...classes[1], id: 'duplicate' }], sections, teachers), {
+    class_teacher_name: undefined, room_number: undefined,
+  });
+  assertPartial(resolveEnrollmentClass(legacyEnrollment, classes, [...sections, { ...sections[1], id: 'duplicate-section' }], teachers), {
+    class_teacher_name: undefined, room_number: undefined,
+  });
+  assert.equal(resolveEnrollmentClass({ ...enrollment, class_name: 'Class 6', section_name: 'wrong' }, classes, sections, teachers).class_id, 'c7');
   const rooms = [{ id: 'r1', room_number: '303' }];
   sections[1].room_id = 'r1';
   assert.equal(resolveEnrollmentClass(enrollment, classes, sections, teachers, rooms).room_number, '303');
