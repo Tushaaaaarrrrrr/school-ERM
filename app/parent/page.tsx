@@ -12,6 +12,7 @@ import {
   studentService,
   attendanceService,
   feeService,
+  chargeService,
   receiptService,
   examService,
   leaveService,
@@ -25,6 +26,7 @@ import {
   Student,
   ParentProfile,
   StudentFeeInvoice,
+  StudentCharge,
   PaymentReceipt,
   ExamResult,
   Exam,
@@ -108,6 +110,7 @@ export default function ParentPortalPage() {
 
   // Selected Child Domain Data
   const [childInvoices, setChildInvoices] = useState<StudentFeeInvoice[]>([]);
+  const [childCharges, setChildCharges] = useState<StudentCharge[]>([]);
   const [childReceipts, setChildReceipts] = useState<PaymentReceipt[]>([]);
   const [childLeaves, setChildLeaves] = useState<StudentLeave[]>([]);
   const [childAttendance, setChildAttendance] = useState<StudentAttendance[]>([]);
@@ -174,7 +177,7 @@ export default function ParentPortalPage() {
     if (!selectedChild) return;
     setIsLoadingData(true);
     try {
-      const [invList, rcpList, levList, attendanceList, resList, notList, holList, notifList, transStatus] = await Promise.all([
+      const [invList, rcpList, levList, attendanceList, resList, notList, holList, notifList, transStatus, chargeList] = await Promise.all([
         feeService.getInvoices(schoolId, { studentId: selectedChild.id }),
         receiptService.getReceipts(schoolId, { studentId: selectedChild.id }),
         leaveService.getLeaves(schoolId, { studentId: selectedChild.id }),
@@ -184,9 +187,11 @@ export default function ParentPortalPage() {
         holidayService.getHolidays(schoolId),
         notificationService.getNotifications(currentUser?.id || parentId),
         transportService.getStudentTodayTransportStatus(selectedChild.id, schoolId),
+        chargeService.getStudentCharges(schoolId, { studentId: selectedChild.id }),
       ]);
 
       setChildInvoices(invList);
+      setChildCharges(chargeList);
       setChildReceipts(rcpList);
       setChildLeaves(levList);
       setChildAttendance(attendanceList);
@@ -300,7 +305,8 @@ export default function ParentPortalPage() {
   const totalBalanceDue = childInvoices.reduce(
     (sum, inv) => sum + Math.max(0, inv.final_amount - inv.paid_amount),
     0
-  );
+  ) + childCharges.filter((c) => c.status !== 'waived' && c.status !== 'cancelled')
+    .reduce((sum, c) => sum + c.remaining_amount, 0);
 
   const schoolContactPhone = currentSchool?.school_contact_phone || currentSchool?.phone;
   const schoolContactHref = schoolContactPhone ? `tel:${schoolContactPhone}` : currentSchool?.email ? `mailto:${currentSchool.email}` : undefined;
@@ -934,6 +940,30 @@ export default function ParentPortalPage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <h3 className="p-4 border-b border-slate-100 text-xs font-bold uppercase text-slate-500">Extra Charges &amp; Fines</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr><th className="p-3">Charge</th><th className="p-3">Due Date</th><th className="p-3 text-right">Amount</th><th className="p-3 text-right">Paid</th><th className="p-3 text-right">Remaining</th><th className="p-3">Status</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {childCharges.map((charge) => (
+                      <tr key={charge.id}>
+                        <td className="p-3 font-semibold">{charge.charge_name}</td>
+                        <td className="p-3">{charge.due_date ? formatDate(charge.due_date) : 'Not specified'}</td>
+                        <td className="p-3 text-right">{formatCurrency(charge.amount)}</td>
+                        <td className="p-3 text-right text-emerald-600">{formatCurrency(charge.paid_amount)}</td>
+                        <td className="p-3 text-right font-bold">{formatCurrency(charge.remaining_amount)}</td>
+                        <td className="p-3 uppercase">{charge.status}</td>
+                      </tr>
+                    ))}
+                    {childCharges.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-slate-500">No extra charges for this student.</td></tr>}
                   </tbody>
                 </table>
               </div>

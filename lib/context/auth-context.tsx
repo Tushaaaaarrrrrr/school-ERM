@@ -71,6 +71,8 @@ function clearStoredAuthSession() {
 export function syncAuthSessionCookie(user: UserPersona | null) {
   if (typeof document === 'undefined') return;
   if (user) {
+    const isSecure = window.location.protocol === 'https:';
+    // Strictly exclude photo_url (which can be a 100KB+ base64 string) so cookie never exceeds 4KB limit
     const data = encodeURIComponent(
       JSON.stringify({
         id: user.id,
@@ -79,16 +81,23 @@ export function syncAuthSessionCookie(user: UserPersona | null) {
         email: user.email,
         school_id: user.school_id,
         login_id: user.login_id,
-        photo_url: user.photo_url,
         student_id: user.student_id,
         teacher_id: user.teacher_id,
         staff_id: user.staff_id,
         parent_id: user.parent_id,
       })
     );
-    document.cookie = `school_erp_session=${data}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `school_erp_session=${data}; path=/; max-age=604800; SameSite=Lax${isSecure ? '; Secure' : ''}`;
+
+    // Also sync server-side cookie via API response header
+    fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user }),
+    }).catch(() => {});
   } else {
     document.cookie = 'school_erp_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
   }
 }
 
@@ -394,6 +403,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(res.user);
       setAccessState(res.user.role === 'super_admin' ? 'SUPER_ADMIN' : 'ACTIVE_SCHOOL_USER');
       syncAuthSessionCookie(res.user);
+      try {
+        await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: res.user }),
+        });
+      } catch {}
       const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
       setIsPinUnlocked(!pinStatus.hasPin);
       storageService.setItem(AUTH_STORAGE_KEY, res.user);
@@ -415,6 +431,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(res.user);
       setAccessState('ACTIVE_SCHOOL_USER');
       syncAuthSessionCookie(res.user);
+      try {
+        await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: res.user }),
+        });
+      } catch {}
       const pinStatus = await pinSecurityService.getUserPinStatus(res.user);
       setIsPinUnlocked(!pinStatus.hasPin);
       storageService.setItem(AUTH_STORAGE_KEY, res.user);

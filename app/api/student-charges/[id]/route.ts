@@ -16,7 +16,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     delete body.school_id;
-    const data = await serverDb.updateStudentCharge(id, body);
+    const data = await serverDb.updateStudentCharge(id, body, access.schoolId);
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     return errorResponse(error);

@@ -1,3 +1,4 @@
+import { reconcileChargePayments } from '@/lib/utils/charge-payments';
 // ============================================================================
 // Server Database Engine (Supabase PostgreSQL + Central Enterprise Store)
 // ============================================================================
@@ -398,7 +399,7 @@ export function sanitizeSupabasePayload(data: any): any {
   const uuidFields = [
     'id', 'school_id', 'driver_id', 'vehicle_id', 'assigned_vehicle_id',
     'route_id', 'stop_id', 'student_id', 'teacher_id', 'staff_id',
-    'class_id', 'section_id', 'subject_id', 'academic_year_id', 'room_id',
+    'class_id', 'section_id', 'subject_id', 'academic_year_id', 'room_id', 'item_reference_id',
     'class_teacher_id', 'parent_id', 'receipt_id', 'fee_structure_id',
     'exam_id', 'batch_id', 'bulk_charge_batch_id', 'enrollment_id',
     'auth_user_id', 'marked_by', 'reviewed_by', 'created_by', 'assigned_to',
@@ -2796,12 +2797,13 @@ export const serverDb = {
   async getStudentCharges(schoolId: string): Promise<any[]> {
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
+    let charges = db.studentCharges.filter((c) => c.school_id === schoolId);
     if (supabase) {
       const { data, error } = await supabase.from('student_charges').select('*').eq('school_id', schoolId);
-      if (!error && data && data.length > 0) return data;
-      if (error) console.warn('Supabase getStudentCharges fallback to serverDb:', error.message);
+      if (error) throw new Error(`Database charges read failed: ${error.message}`);
+      charges = data?.length ? data : charges;
     }
-    return db.studentCharges.filter((c) => c.school_id === schoolId);
+    return reconcileChargePayments(charges, await this.getPaymentReceipts(schoolId));
   },
 
   async createStudentCharge(data: any): Promise<any> {
@@ -2811,10 +2813,12 @@ export const serverDb = {
     if (supabase) {
       try {
         const payload = sanitizeSupabasePayload(data);
+        if (payload.status === 'pending') payload.status = 'unpaid';
         const { data: created, error } = await supabase.from('student_charges').insert(payload).select().single();
-        if (!error && created) createdItem = created;
+        if (error) throw new Error(`Database charge insert failed: ${error.message}`);
+        if (created) createdItem = { ...created, status: created.status === 'unpaid' ? 'pending' : created.status };
       } catch (e) {
-        console.warn('Supabase createStudentCharge fallback to serverDb:', e);
+        throw e;
       }
     }
     const idx = db.studentCharges.findIndex((c) => c.id === createdItem.id);
@@ -2827,7 +2831,7 @@ export const serverDb = {
     return createdItem;
   },
 
-  async updateStudentCharge(id: string, updates: any): Promise<any> {
+  async updateStudentCharge(id: string, updates: any, schoolId?: string): Promise<any> {
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
     let updatedItem = { id, ...updates };
@@ -2835,13 +2839,16 @@ export const serverDb = {
       try {
         const payload = sanitizeSupabasePayload(updates);
         delete payload.id;
-        const { data: updated, error } = await supabase.from('student_charges').update(payload).eq('id', id).select().single();
+        let query = supabase.from('student_charges').update(payload).eq('id', id);
+        if (schoolId) query = query.eq('school_id', schoolId);
+        const { data: updated, error } = await query.select().single();
+        if (error) throw new Error(`Database charge update failed: ${error.message}`);
         if (!error && updated) updatedItem = updated;
       } catch (e) {
-        console.warn('Supabase updateStudentCharge fallback to serverDb:', e);
+        throw e;
       }
     }
-    const idx = db.studentCharges.findIndex((c) => c.id === id);
+    const idx = db.studentCharges.findIndex((c) => c.id === id && (!schoolId || c.school_id === schoolId));
     if (idx !== -1) {
       db.studentCharges[idx] = { ...db.studentCharges[idx], ...updates, id };
       updatedItem = db.studentCharges[idx];
@@ -2856,24 +2863,49 @@ export const serverDb = {
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase.from('payment_receipts').select('*').eq('school_id', schoolId);
-      if (!error && data && data.length > 0) return data;
-      if (error) console.warn('Supabase getPaymentReceipts fallback to serverDb:', error.message);
+      const { data, error } = await supabase.from('payment_receipts').select('*, items:payment_receipt_items(*)').eq('school_id', schoolId);
+      if (error) throw new Error(`Database receipts read failed: ${error.message}`);
+      const stored = db.paymentReceipts.filter((r) => r.school_id === schoolId);
+      const receipts = (data || []).map((receipt) => {
+        const legacy = stored.find((r) => r.id === receipt.id || r.receipt_number === receipt.receipt_number);
+        return { ...receipt, items: receipt.items?.length ? receipt.items : legacy?.items || [] };
+      });
+      return [...receipts, ...stored.filter((r) => !receipts.some((d) => d.id === r.id || d.receipt_number === r.receipt_number))];
     }
     return db.paymentReceipts.filter((r) => r.school_id === schoolId);
   },
 
   async createPaymentReceipt(data: any): Promise<any> {
+    if (!Number.isFinite(data.amount_paid) || data.amount_paid <= 0 || !Number.isFinite(data.total_amount) || data.amount_paid > data.total_amount || !Array.isArray(data.items) || !data.items.length) {
+      throw new Error('Invalid payment amount or receipt items.');
+    }
+    for (const item of data.items) {
+      if (!Number.isFinite(item.amount) || (item.item_type !== 'discount' && item.amount < 0)) throw new Error('Invalid receipt item amount.');
+    }
     const db = initServerDb();
     const supabase = getSupabaseAdmin();
     let createdItem = data;
     if (supabase) {
       try {
         const payload = sanitizeSupabasePayload(data);
+        delete payload.items;
         const { data: created, error } = await supabase.from('payment_receipts').insert(payload).select().single();
-        if (!error && created) createdItem = created;
+        if (error) throw new Error(`Database receipt insert failed: ${error.message}`);
+        const items = (data.items || []).map((item: any, index: number) => {
+          const row = sanitizeSupabasePayload(item);
+          delete row.id;
+          return { ...row, receipt_id: created.id, created_at: new Date(new Date(created.created_at).getTime() + index).toISOString() };
+        });
+        const { data: savedItems, error: itemError } = items.length
+          ? await supabase.from('payment_receipt_items').insert(items).select()
+          : { data: [], error: null };
+        if (itemError) {
+          await supabase.from('payment_receipts').delete().eq('id', created.id);
+          throw new Error(`Database receipt items insert failed: ${itemError.message}`);
+        }
+        createdItem = { ...created, items: savedItems || [] };
       } catch (e) {
-        console.warn('Supabase createPaymentReceipt fallback to serverDb:', e);
+        throw e;
       }
     }
     const idx = db.paymentReceipts.findIndex((r) => r.id === createdItem.id || (r.receipt_number && r.receipt_number === createdItem.receipt_number));

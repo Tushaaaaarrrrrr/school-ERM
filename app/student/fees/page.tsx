@@ -28,10 +28,12 @@ export default function StudentFeesPage() {
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<StudentFeeInvoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     async function loadStudentFeeData() {
       setIsLoading(true);
+      setLoadError('');
       try {
         const [invList, chgList, rcpList] = schoolId && studentId
           ? await Promise.all([
@@ -44,7 +46,7 @@ export default function StudentFeesPage() {
         setCharges(chgList);
         setReceipts(rcpList);
       } catch (err) {
-        console.error('Failed to load student fees', err);
+        setLoadError('Could not load your current fee balance. Please refresh or contact the school.');
       } finally {
         setIsLoading(false);
       }
@@ -68,7 +70,7 @@ export default function StudentFeesPage() {
         </h1>
       </div>
 
-      {isLoading ? (
+      {loadError ? <p role="alert" className="p-4 bg-rose-50 text-rose-700 rounded-xl">{loadError}</p> : isLoading ? (
         <div className="bg-white p-6 rounded-2xl border border-slate-200">
           <TableSkeleton rows={4} cols={5} />
         </div>

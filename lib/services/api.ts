@@ -6351,12 +6351,16 @@ export const feeService = {
       .map((cId) => charges.find((c) => c.id === cId))
       .filter((c): c is StudentCharge => !!c);
 
+    if (!Number.isFinite(params.amountPaid) || params.amountPaid <= 0) throw new Error('Payment amount must be greater than zero.');
+    if (params.invoiceId && (!targetInvoice || targetInvoice.student_id !== params.studentId || targetInvoice.school_id !== params.schoolId)) throw new Error('Invoice not found for this student.');
+    if (selectedCharges.length !== (params.chargeIds || []).length || selectedCharges.some((c) => c.student_id !== params.studentId || c.school_id !== params.schoolId || c.status === 'waived' || c.status === 'cancelled')) throw new Error('Invalid charge selection.');
+
     // Build receipt item breakdown
     const receiptItems: Omit<PaymentReceiptItem, 'id' | 'receipt_id' | 'created_at'>[] = [];
     let calculatedSubtotal = 0;
 
     if (targetInvoice) {
-      const tuitionAmt = targetInvoice.remaining_amount || targetInvoice.final_amount;
+      const tuitionAmt = Math.max(0, targetInvoice.remaining_amount ?? (targetInvoice.final_amount - targetInvoice.paid_amount));
       calculatedSubtotal += tuitionAmt;
       receiptItems.push({
         item_type: 'tuition',
@@ -6390,6 +6394,7 @@ export const feeService = {
     }
 
     const netTotal = Math.max(0, calculatedSubtotal - discount);
+    if (params.amountPaid > netTotal) throw new Error('Payment exceeds the selected outstanding balance.');
     const paymentDateStr = params.paymentDate || new Date().toISOString().split('T')[0];
     const nowTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const paymentId = `pmt-${Date.now().toString().slice(-4)}`;
@@ -6402,14 +6407,14 @@ export const feeService = {
       student_id: params.studentId,
       payment_id: paymentId,
       student_name_snapshot: student ? `${student.first_name} ${student.last_name}` : 'Student',
-      registration_number_snapshot: student?.registration_number || '2026-00000',
+      registration_number_snapshot: student?.registration_number || '',
       class_snapshot: student?.current_enrollment?.class_name || '—',
       section_snapshot: student?.current_enrollment?.section_name || '—',
-      roll_number_snapshot: student?.current_enrollment?.roll_number || '01',
-      academic_year_snapshot: student?.current_enrollment?.academic_year_name || '2026-27',
+      roll_number_snapshot: student?.current_enrollment?.roll_number || '',
+      academic_year_snapshot: student?.current_enrollment?.academic_year_name || '',
       school_name_snapshot: school?.name || 'School ERP',
-      school_address_snapshot: school?.address || 'Patna, Bihar - 800001',
-      school_phone_snapshot: school?.phone || '+91 98765 43210',
+      school_address_snapshot: school?.address || '',
+      school_phone_snapshot: school?.phone || '',
       school_email_snapshot: school?.receipt_email || undefined,
       school_logo_url_snapshot: school?.logo_url,
       subtotal: calculatedSubtotal,
@@ -6447,7 +6452,7 @@ export const feeService = {
     let remPay = params.amountPaid;
 
     if (targetInvoice && remPay > 0) {
-      const invDue = targetInvoice.remaining_amount || targetInvoice.final_amount;
+      const invDue = Math.max(0, targetInvoice.remaining_amount ?? (targetInvoice.final_amount - targetInvoice.paid_amount));
       const alloc = Math.min(remPay, invDue);
       targetInvoice.paid_amount += alloc;
       targetInvoice.remaining_amount = Math.max(0, targetInvoice.final_amount - targetInvoice.paid_amount);
@@ -6464,20 +6469,15 @@ export const feeService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(targetInvoice),
           });
-          if (!res.ok) {
-            await fetch('/api/fee-invoices', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(targetInvoice),
-            });
-          }
+          const result = await res.json();
+          if (!res.ok || !result.success) throw new Error(result.error || 'Receipt issued, but invoice synchronization failed. Refresh before recording another payment.');
         } catch (e) {
-          console.warn('Could not sync updated invoice to server:', e);
+          throw e;
         }
       }
     }
 
-    selectedCharges.forEach((chg) => {
+    for (const chg of selectedCharges) {
       if (remPay > 0) {
         const alloc = Math.min(remPay, chg.remaining_amount);
         chg.paid_amount += alloc;
@@ -6486,14 +6486,16 @@ export const feeService = {
         chg.updated_at = new Date().toISOString();
         remPay -= alloc;
         if (typeof window !== 'undefined') {
-          fetch(`/api/student-charges/${chg.id}`, {
+          const response = await fetch(`/api/student-charges/${chg.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chg),
-          }).catch(() => {});
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.error || 'Receipt issued, but charge synchronization failed. Refresh before recording another payment.');
         }
       }
-    });
+    }
     storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, charges);
 
     return { invoice: targetInvoice, receipt, payment: newPayment };
@@ -6513,25 +6515,20 @@ export const chargeService = {
       try {
         const queryParams = new URLSearchParams();
         if (filter?.studentId) queryParams.set('studentId', filter.studentId);
-        const res = await fetch(`/api/student-charges?${queryParams.toString()}`);
+        const res = await fetch(`/api/student-charges?${queryParams.toString()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Could not load charge balances.');
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
             const serverCharges = json.data as StudentCharge[];
-            const localCharges = storageService.getItem<StudentCharge[]>(STORAGE_KEYS.STUDENT_CHARGES, INITIAL_STUDENT_CHARGES);
-            serverCharges.forEach((sChg) => {
-              const idx = localCharges.findIndex((l) => l.id === sChg.id);
-              if (idx !== -1) {
-                localCharges[idx] = sChg;
-              } else {
-                localCharges.unshift(sChg);
-              }
-            });
-            storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, localCharges);
+            storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, serverCharges);
+            return serverCharges.filter((charge) => charge.school_id === schoolId && (!filter?.studentId || charge.student_id.toLowerCase() === filter.studentId.toLowerCase().replace(/^usr-/, '')) && (!filter?.status || charge.status === filter.status))
+              .sort((a, b) => b.created_at.localeCompare(a.created_at));
+
           }
         }
       } catch (e) {
-        console.warn('API student-charges sync fallback to local cache:', e);
+        throw e;
       }
     }
 
@@ -6570,7 +6567,7 @@ export const chargeService = {
     const students = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
     const student = students.find((s) => s.id === data.student_id);
 
-    const newCharge: StudentCharge = {
+    let newCharge: StudentCharge = {
       id: `chg-${Date.now().toString().slice(-4)}`,
       school_id: data.school_id,
       student_id: data.student_id,
@@ -6591,20 +6588,18 @@ export const chargeService = {
       updated_at: new Date().toISOString(),
     };
 
-    list.unshift(newCharge);
-    storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, list);
-
     if (typeof window !== 'undefined') {
-      try {
-        await fetch('/api/student-charges', {
+      const response = await fetch('/api/student-charges', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newCharge),
         });
-      } catch (e) {
-        console.warn('Could not sync charge to server:', e);
-      }
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.data) throw new Error(result.error || 'Charge was not saved.');
+      newCharge = result.data;
     }
+    list.unshift(newCharge);
+    storageService.setItem(STORAGE_KEYS.STUDENT_CHARGES, list);
 
     try {
       authLogService.logEvent({
@@ -6727,34 +6722,17 @@ export const receiptService = {
       try {
         const queryParams = new URLSearchParams();
         if (filter?.studentId) queryParams.set('studentId', filter.studentId);
-        const res = await fetch(`/api/payment-receipts?${queryParams.toString()}`);
+        const res = await fetch(`/api/payment-receipts?${queryParams.toString()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Could not load payment receipts.');
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
             const serverReceipts = json.data as PaymentReceipt[];
-            const localReceipts = storageService.getItem<PaymentReceipt[]>(STORAGE_KEYS.PAYMENT_RECEIPTS, INITIAL_PAYMENT_RECEIPTS);
-            serverReceipts.forEach((sRcp) => {
-              const idx = localReceipts.findIndex((l) => l.id === sRcp.id || l.receipt_number === sRcp.receipt_number);
-              if (idx !== -1) {
-                localReceipts[idx] = sRcp;
-              } else {
-                localReceipts.unshift(sRcp);
-              }
-            });
-            localReceipts.forEach((lRcp) => {
-              if (lRcp.school_id === schoolId && !serverReceipts.some((s) => s.id === lRcp.id || s.receipt_number === lRcp.receipt_number)) {
-                fetch('/api/payment-receipts', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(lRcp),
-                }).catch(() => {});
-              }
-            });
-            storageService.setItem(STORAGE_KEYS.PAYMENT_RECEIPTS, localReceipts);
+            storageService.setItem(STORAGE_KEYS.PAYMENT_RECEIPTS, serverReceipts);
           }
         }
       } catch (e) {
-        console.warn('API payment-receipts sync fallback to local cache:', e);
+        throw e;
       }
     }
 
@@ -6791,7 +6769,7 @@ export const receiptService = {
     const receiptNumber = this.getNextReceiptNumber(data.school_id);
     const receiptId = `rcp-${Date.now().toString().slice(-4)}`;
 
-    const newReceipt: PaymentReceipt = {
+    let newReceipt: PaymentReceipt = {
       ...data,
       id: receiptId,
       receipt_number: receiptNumber,
@@ -6804,20 +6782,18 @@ export const receiptService = {
       created_at: new Date().toISOString(),
     };
 
-    list.unshift(newReceipt);
-    storageService.setItem(STORAGE_KEYS.PAYMENT_RECEIPTS, list);
-
     if (typeof window !== 'undefined') {
-      try {
-        await fetch('/api/payment-receipts', {
+      const response = await fetch('/api/payment-receipts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newReceipt),
         });
-      } catch (e) {
-        console.warn('Could not sync receipt to server:', e);
-      }
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.data) throw new Error(result.error || 'Receipt was not saved.');
+      newReceipt = result.data;
     }
+    list.unshift(newReceipt);
+    storageService.setItem(STORAGE_KEYS.PAYMENT_RECEIPTS, list);
 
     try {
       authLogService.logEvent({
