@@ -76,6 +76,13 @@ export default function LoginPage() {
     if (authLoading) return;
     if (typeof window === 'undefined') return;
 
+    // Do NOT auto-redirect if redirected here with next or error parameter
+    // (prevents infinite refresh/redirect bounce loops between login and protected portals)
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('next') || searchParams.get('error')) {
+      return;
+    }
+
     if (currentUser) {
       let targetPath = '/admin';
       switch (currentUser.role) {
@@ -103,9 +110,9 @@ export default function LoginPage() {
           targetPath = '/admin';
           break;
       }
-      const searchParams = new URLSearchParams(window.location.search);
-      const nextParam = searchParams.get('next');
-      const destination = (nextParam && nextParam.startsWith(targetPath)) ? nextParam : targetPath;
+      const destination = (searchParams.get('next') && searchParams.get('next')?.startsWith(targetPath))
+        ? (searchParams.get('next') as string)
+        : targetPath;
       window.location.href = destination;
     }
   }, [currentUser, authLoading]);

@@ -183,16 +183,16 @@ export default function AdminPayrollPage() {
     <FeatureGuard feature="payroll">
       <div className="space-y-6 text-left w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Receipt className="w-6 h-6 text-indigo-600" /> Employee Compensation & Payroll
+            <Receipt className="w-6 h-6 text-indigo-600" /> Employee Payroll
           </h1>
         </div>
 
         {/* Month Picker & Quick Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs shrink-0">
             <Calendar className="w-4 h-4 text-slate-400" />
             <select
               value={billingMonth}
@@ -215,7 +215,7 @@ export default function AdminPayrollPage() {
               setSelectedEmployeeForAdjustment(null);
               setIsAdjustmentModalOpen(true);
             }}
-            className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs font-semibold"
+            className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs font-semibold shrink-0 whitespace-nowrap"
             leftIcon={<PlusCircle className="w-3.5 h-3.5 text-emerald-600" />}
           >
             + Record Salary Adjustment
@@ -226,6 +226,7 @@ export default function AdminPayrollPage() {
             size="sm"
             onClick={handleGeneratePayroll}
             isLoading={isGenerating}
+            className="shrink-0 whitespace-nowrap"
             leftIcon={<Users className="w-3.5 h-3.5 text-indigo-600" />}
           >
             ⚡ Sync / Generate Payroll
@@ -237,6 +238,7 @@ export default function AdminPayrollPage() {
               size="sm"
               onClick={handleBulkDisburseAll}
               isLoading={isBulkDisbursing}
+              className="shrink-0 whitespace-nowrap"
               leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
             >
               Disburse All ({formatCurrency(summary.pendingAmount)})

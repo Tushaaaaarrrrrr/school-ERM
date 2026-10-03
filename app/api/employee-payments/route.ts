@@ -8,7 +8,7 @@ function errorResponse(error: any) {
 
 export async function GET() {
   try {
-    const access = await requireSchoolAccess(null, ['school_admin', 'accountant']);
+    const access = await requireSchoolAccess(null, ['school_admin', 'accountant', 'teacher', 'staff']);
     if (!access.ok || !access.schoolId) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: access.status || 403 });
     const data = await serverDb.getEmployeePayments(access.schoolId);
     return NextResponse.json({ success: true, data });

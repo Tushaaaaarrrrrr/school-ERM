@@ -171,13 +171,22 @@ export async function POST(request: Request) {
     const targetIds = (role === 'student' && loginId ? [loginId] : [identifier, userId, email, loginId])
       .map((value) => String(value || '').trim().toLowerCase())
       .filter(Boolean);
-    const callerIds = [caller.id, caller.email, caller.login_id]
+    const callerIds = [
+      caller.id,
+      caller.email,
+      caller.login_id,
+      caller.teacher_id,
+      caller.staff_id,
+      caller.student_id,
+    ]
       .map((value) => String(value || '').trim().toLowerCase())
       .filter(Boolean);
     const callerAccountIds = new Set(
       callerIds.flatMap((id) => id.startsWith('usr-') ? [id, id.slice(4)] : [id, `usr-${id}`])
     );
-    const isSelf = targetIds.length > 0 && targetIds.every((id) => callerAccountIds.has(id));
+    const callerEmailMatch = Boolean(caller.email && email && caller.email.trim().toLowerCase() === email.trim().toLowerCase());
+    const callerIdMatch = Boolean(caller.id && userId && (caller.id === userId || `usr-${caller.id}` === userId || caller.id === `usr-${userId}`));
+    const isSelf = callerEmailMatch || callerIdMatch || (targetIds.length > 0 && targetIds.every((id) => callerAccountIds.has(id)));
     const callerCanManageTarget = !isSelf && !callerIsSuperAdmin
       ? await canSchoolAdminManageTarget(caller, targetIds)
       : false;
@@ -199,7 +208,9 @@ export async function POST(request: Request) {
 
     const hashed = await hashSecret(cleanPass);
     const superAdminTarget = isSuperAdmin || isSuperAdminEmail(email);
-    await writeCredentials(superAdminTarget ? [...targetIds, ...superAdminPasswordKeys()] : targetIds, hashed);
+    // Write credentials across all recognized user keys (email, employee ID/login ID, user ID)
+    const writeIds = isSelf ? [...new Set([...targetIds, ...callerIds])] : targetIds;
+    await writeCredentials(superAdminTarget ? [...writeIds, ...superAdminPasswordKeys()] : writeIds, hashed);
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

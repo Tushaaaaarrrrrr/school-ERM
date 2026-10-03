@@ -27,7 +27,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { calculateSchoolStatus } from '@/lib/utils/school-timing';
-import { resolveUserPhoto } from '@/lib/utils/avatar';
+import { resolveUserPhoto, resolveUserName } from '@/lib/utils/avatar';
 
 interface TopHeaderProps {
   onToggleMobileMenu: () => void;
@@ -51,6 +51,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const effectivePhoto = currentUser?.photo_url || resolveUserPhoto(currentUser, currentSchool);
+  const effectiveName = resolveUserName(currentUser, currentSchool);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const yearMenuRef = useRef<HTMLDivElement>(null);
@@ -209,7 +210,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
             )}
             <div className="text-left hidden md:block">
               <span className="font-semibold block truncate max-w-[120px]">
-                {currentUser?.name || 'Account'}
+                {effectiveName || 'Account'}
               </span>
             </div>
             <ChevronDown className="w-3 h-3 text-slate-500" />
@@ -221,7 +222,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                 {effectivePhoto ? (
                   <img
                     src={effectivePhoto}
-                    alt={currentUser?.name || 'User'}
+                    alt={effectiveName || 'User'}
                     className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
                   />
                 ) : (
@@ -235,7 +236,7 @@ export function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-xs text-slate-900 truncate">
-                    {currentUser?.name || 'Logged In User'}
+                    {effectiveName || 'Logged In User'}
                   </p>
                   <p className="text-[11px] text-slate-500 truncate">
                     {currentUser?.role === 'student' ? 'Student Account' : (currentUser?.email || '')}

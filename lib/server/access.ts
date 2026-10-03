@@ -212,41 +212,61 @@ export async function resolveAccessContext(supabase: any, user: any) {
       try {
         if (userRole === 'teacher') {
           const teachers = await serverDb.getTeachers(membership.school_id);
-          const t = teachers.find((tch: any) => tch.email?.trim().toLowerCase() === userEmail);
+          const t = teachers.find(
+            (tch: any) =>
+              (tch.email && tch.email.trim().toLowerCase() === userEmail) ||
+              (userPersona.teacher_id && tch.id === userPersona.teacher_id) ||
+              (tch.auth_user_id && tch.auth_user_id === profile.id)
+          );
           if (t) {
             userPersona.photo_url = userPersona.photo_url || t.photo_url;
             userPersona.teacher_id = t.id;
             if (!userPersona.login_id) userPersona.login_id = t.employee_number;
+            const regName = `${t.first_name || ''} ${t.last_name || ''}`.trim();
+            if (regName) userPersona.name = regName;
           }
         } else if (userRole === 'student') {
           const students = await serverDb.getStudents(membership.school_id);
           const s = students.find((std: any) =>
             std.auth_user_id === profile.id ||
             std.id === profile.id ||
-            std.guardian?.email?.trim().toLowerCase() === userEmail
+            std.guardian?.email?.trim().toLowerCase() === userEmail ||
+            (std.email && std.email.trim().toLowerCase() === userEmail)
           );
           if (s) {
             userPersona.photo_url = userPersona.photo_url || s.photo_url;
             userPersona.student_id = s.id;
             if (!userPersona.login_id) userPersona.login_id = s.registration_number;
+            const regName = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+            if (regName) userPersona.name = regName;
           }
         } else if (userRole === 'staff' || userRole === 'driver' || userRole === 'accountant') {
           const staff = await serverDb.getStaff(membership.school_id);
-          const st = staff.find((m: any) => m.email?.trim().toLowerCase() === userEmail);
+          const st = staff.find(
+            (m: any) =>
+              (m.email && m.email.trim().toLowerCase() === userEmail) ||
+              (userPersona.staff_id && m.id === userPersona.staff_id) ||
+              (m.auth_user_id && m.auth_user_id === profile.id)
+          );
           if (st) {
             userPersona.photo_url = userPersona.photo_url || st.photo_url;
             userPersona.staff_id = st.id;
             if (userRole === 'driver') userPersona.driver_id = st.id;
             if (!userPersona.login_id) userPersona.login_id = st.employee_number;
+            const regName = `${st.first_name || ''} ${st.last_name || ''}`.trim();
+            if (regName) userPersona.name = regName;
           }
         } else if (userRole === 'school_admin') {
           userPersona.photo_url = userPersona.photo_url || school?.logo_url;
+          if (school?.admin_name) userPersona.name = school.admin_name;
         } else if (userRole === 'parent') {
           const parents = await serverDb.getParents(membership.school_id);
           const p = parents.find((par: any) => par.email?.trim().toLowerCase() === userEmail || par.auth_user_id === profile.id);
           if (p) {
             userPersona.photo_url = userPersona.photo_url || p.photo_url;
             userPersona.parent_id = p.id;
+            const regName = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.name;
+            if (regName) userPersona.name = regName;
           }
         }
       } catch (enrichErr) {

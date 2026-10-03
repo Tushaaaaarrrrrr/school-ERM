@@ -85,3 +85,78 @@ export function resolveUserPhoto(
 
   return null;
 }
+
+/**
+ * Universal helper to resolve official registered name for ANY role:
+ * If a user logged in with an external email / OAuth account (e.g. Google "Alpha IITIAN"),
+ * this resolves their official registered entity name (e.g. "teacher one") from the school records.
+ */
+export function resolveUserName(
+  user: UserPersona | null | undefined,
+  school?: School | null
+): string {
+  if (!user) return 'User';
+  if (user.role === 'super_admin') return user.name || 'Super Admin';
+  if (typeof localStorage === 'undefined') return user.name || 'User';
+
+  try {
+    const role = user.role;
+    const userId = user.id?.replace(/^usr-/, '') || '';
+    const email = (user.email || '').trim().toLowerCase();
+    const loginId = (user.login_id || '').trim().toLowerCase();
+
+    if (role === 'teacher') {
+      const teacherId = user.teacher_id || userId;
+      const raw = localStorage.getItem('school_erp_teachers');
+      if (raw) {
+        const teachers = JSON.parse(raw);
+        const t = teachers.find(
+          (tch: any) =>
+            (teacherId && tch.id === teacherId) ||
+            (email && tch.email?.trim().toLowerCase() === email) ||
+            (loginId && tch.employee_number?.trim().toLowerCase() === loginId)
+        );
+        if (t) {
+          const regName = `${t.first_name || ''} ${t.last_name || ''}`.trim();
+          if (regName) return regName;
+        }
+      }
+    } else if (role === 'student') {
+      const studentId = user.student_id || userId;
+      const raw = localStorage.getItem('school_erp_students');
+      if (raw) {
+        const students = JSON.parse(raw);
+        const s = students.find(
+          (std: any) =>
+            (studentId && std.id === studentId) ||
+            (loginId && std.registration_number?.trim().toLowerCase() === loginId) ||
+            std.auth_user_id === user.id
+        );
+        if (s) {
+          const regName = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+          if (regName) return regName;
+        }
+      }
+    } else if (role === 'staff' || role === 'driver' || role === 'accountant') {
+      const staffId = user.staff_id || user.driver_id || userId;
+      const raw = localStorage.getItem('school_erp_staff');
+      if (raw) {
+        const staffList = JSON.parse(raw);
+        const st = staffList.find(
+          (member: any) =>
+            (staffId && member.id === staffId) ||
+            (email && member.email?.trim().toLowerCase() === email) ||
+            (loginId && member.employee_number?.trim().toLowerCase() === loginId)
+        );
+        if (st) {
+          const regName = `${st.first_name || ''} ${st.last_name || ''}`.trim();
+          if (regName) return regName;
+        }
+      }
+    } else if (role === 'school_admin' && school?.admin_name) {
+      return school.admin_name;
+    }
+  } catch {}
+
+  return user.name || 'User';
+}

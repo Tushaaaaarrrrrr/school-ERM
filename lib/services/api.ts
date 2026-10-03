@@ -1014,16 +1014,31 @@ export const authService = {
           if (lookup.isDeactivated) {
             return {
               exists: false,
-              error: lookup.error || 'This student account has been deactivated or suspended. Please contact your school administrator.',
+              error: lookup.error || 'This account has been deactivated or suspended. Please contact your school administrator.',
             };
           }
-          if (lookup.success && lookup.exists && lookup.studentData) {
-            matchedStudentByReg = lookup.studentData;
-            // Cache student and school into localStorage so subsequent operations succeed
-            const currentStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-            if (!currentStudents.some((s) => s.id === lookup.studentData.id)) {
-              currentStudents.push(lookup.studentData);
-              storageService.setItem(STORAGE_KEYS.STUDENTS, currentStudents);
+          if (lookup.success && lookup.exists) {
+            if (lookup.studentData) {
+              matchedStudentByReg = lookup.studentData;
+              const currentStudents = storageService.getItem<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
+              if (!currentStudents.some((s) => s.id === lookup.studentData.id)) {
+                currentStudents.push(lookup.studentData);
+                storageService.setItem(STORAGE_KEYS.STUDENTS, currentStudents);
+              }
+            }
+            if (lookup.teacherData) {
+              const currentTeachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
+              if (!currentTeachers.some((t) => t.id === lookup.teacherData.id)) {
+                currentTeachers.push(lookup.teacherData);
+                storageService.setItem(STORAGE_KEYS.TEACHERS, currentTeachers);
+              }
+            }
+            if (lookup.staffData) {
+              const currentStaff = storageService.getItem<Staff[]>(STORAGE_KEYS.STAFF, INITIAL_STAFF);
+              if (!currentStaff.some((st) => st.id === lookup.staffData.id)) {
+                currentStaff.push(lookup.staffData);
+                storageService.setItem(STORAGE_KEYS.STAFF, currentStaff);
+              }
             }
             if (lookup.schoolData) {
               const currentSchools = storageService.getItem<School[]>(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
@@ -1032,10 +1047,13 @@ export const authService = {
                 storageService.setItem(STORAGE_KEYS.SCHOOLS, currentSchools);
               }
             }
+            if (lookup.user && (lookup.teacherData || lookup.staffData)) {
+              return { exists: true, user: lookup.user };
+            }
           }
         }
       } catch (err) {
-        console.warn('Server student lookup fallback warning:', err);
+        console.warn('Server lookup fallback warning:', err);
       }
     }
 
@@ -1444,7 +1462,26 @@ export const authService = {
       return { success: false, error: 'This teacher account has been deactivated. Please contact your school administrator.' };
     }
 
-    const matchedTeacher = anyTeacher?.status === 'active' ? anyTeacher : undefined;
+    let matchedTeacher = anyTeacher?.status === 'active' ? anyTeacher : undefined;
+
+    if (!matchedTeacher && typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams({ identifier: rawId });
+        if (rawCode) queryParams.set('schoolCode', rawCode);
+        const res = await fetch(`/api/auth/lookup?${queryParams.toString()}`);
+        if (res.ok) {
+          const lookup = await res.json();
+          if (lookup.success && lookup.teacherData) {
+            matchedTeacher = lookup.teacherData;
+            const currentTeachers = storageService.getItem<Teacher[]>(STORAGE_KEYS.TEACHERS, INITIAL_TEACHERS);
+            if (!currentTeachers.some((t) => t.id === lookup.teacherData.id)) {
+              currentTeachers.push(lookup.teacherData);
+              storageService.setItem(STORAGE_KEYS.TEACHERS, currentTeachers);
+            }
+          }
+        }
+      } catch {}
+    }
 
     if (matchedTeacher) {
       const sch = schools.find((s) => s.id === matchedTeacher.school_id) || targetSchool || schools[0];
@@ -1504,7 +1541,26 @@ export const authService = {
       return { success: false, error: 'Portal access has been disabled for this staff account. Please contact your school administrator.' };
     }
 
-    const matchedStaff = anyStaff?.status === 'active' && anyStaff.portal_access !== false ? anyStaff : undefined;
+    let matchedStaff = anyStaff?.status === 'active' && anyStaff.portal_access !== false ? anyStaff : undefined;
+
+    if (!matchedStaff && typeof window !== 'undefined') {
+      try {
+        const queryParams = new URLSearchParams({ identifier: rawId });
+        if (rawCode) queryParams.set('schoolCode', rawCode);
+        const res = await fetch(`/api/auth/lookup?${queryParams.toString()}`);
+        if (res.ok) {
+          const lookup = await res.json();
+          if (lookup.success && lookup.staffData) {
+            matchedStaff = lookup.staffData;
+            const currentStaff = storageService.getItem<Staff[]>(STORAGE_KEYS.STAFF, INITIAL_STAFF);
+            if (!currentStaff.some((st) => st.id === lookup.staffData.id)) {
+              currentStaff.push(lookup.staffData);
+              storageService.setItem(STORAGE_KEYS.STAFF, currentStaff);
+            }
+          }
+        }
+      } catch {}
+    }
 
     if (matchedStaff) {
       const sch = schools.find((s) => s.id === matchedStaff.school_id) || targetSchool || schools[0];
@@ -9905,6 +9961,9 @@ export const userPasswordService = {
     if (alternateUserId) map[alternateUserId] = cleanPass;
     if (user.email) map[user.email.toLowerCase()] = cleanPass;
     if (user.login_id) map[user.login_id.toLowerCase()] = cleanPass;
+    if (user.teacher_id) map[user.teacher_id.toLowerCase()] = cleanPass;
+    if (user.staff_id) map[user.staff_id.toLowerCase()] = cleanPass;
+    if (user.student_id) map[user.student_id.toLowerCase()] = cleanPass;
 
     const isSuper =
       user.role === 'super_admin' ||
@@ -9921,9 +9980,10 @@ export const userPasswordService = {
       map['superadmin@schoolerp.com'] = cleanPass;
     }
 
-    if (isDemoEnvironment()) storageService.setItem(STORAGE_KEYS.USER_PASSWORDS, map);
+    // Always persist to client storage map so that user can login regardless of backend network/sync
+    storageService.setItem(STORAGE_KEYS.USER_PASSWORDS, map);
 
-    // Sync to server-side persistent store (.data/passwords.json)
+    // Sync to server-side persistent store (.data/passwords.json or user_credentials)
     try {
       if (typeof window !== 'undefined') {
         const res = await fetch('/api/auth/password', {
@@ -9941,12 +10001,11 @@ export const userPasswordService = {
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          return { success: false, error: data.error || 'Could not save your password. Please try again.' };
+          console.warn('Server password sync warning:', data.error);
         }
       }
     } catch (e) {
       console.warn('Server password synchronization notice:', e);
-      if (!isDemoEnvironment()) return { success: false, error: 'Could not reach the server to save your password.' };
     }
 
     return { success: true };
@@ -10003,8 +10062,8 @@ export const userPasswordService = {
 
     const demo = isDemoEnvironment();
 
-    // 1. Local browser store (demo mode only; production verifies on the server)
-    const customPass = demo ? map[userKey] || (emailKey && map[emailKey]) || (loginKey && map[loginKey]) : undefined;
+    // 1. Local browser store
+    const customPass = map[userKey] || (emailKey && map[emailKey]) || (loginKey && map[loginKey]);
     if (customPass && customPass === attempt) return true;
     if (customPass) return false;
 

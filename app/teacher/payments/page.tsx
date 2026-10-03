@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
-import { teacherPaymentService, teacherService } from '@/lib/services/api';
+import { payrollService, teacherPaymentService, teacherService } from '@/lib/services/api';
 import { TeacherPayment, Teacher } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { IndianRupee, Receipt, CheckCircle2, Clock } from 'lucide-react';
@@ -26,13 +26,46 @@ export default function TeacherPaymentsPage() {
       try {
         const resolvedTeacher = await teacherService.getTeacherForUser(currentUser, schoolId);
         const teacherId = resolvedTeacher?.id || '';
-        const [tch, pList] = await Promise.all([
+        const employeeNumber = resolvedTeacher?.employee_number || '';
+        const teacherFullName = resolvedTeacher ? `${resolvedTeacher.first_name} ${resolvedTeacher.last_name}`.trim().toLowerCase() : '';
+
+        const [tch, empPayments, legacyPayments] = await Promise.all([
           Promise.resolve(resolvedTeacher),
+          payrollService.getEmployeePayments(schoolId, { employeeType: 'teacher' }),
           teacherPaymentService.getPayments(schoolId, { teacherId }),
         ]);
 
+        const matchedPayroll = empPayments.filter((p) => {
+          if (teacherId && p.employee_id === teacherId) return true;
+          if (employeeNumber && p.employee_number === employeeNumber) return true;
+          if (teacherFullName && p.employee_name?.trim().toLowerCase() === teacherFullName) return true;
+          return false;
+        });
+
+        const payrollAsTeacherPayments: TeacherPayment[] = matchedPayroll.map((p) => ({
+          id: p.id,
+          school_id: p.school_id,
+          teacher_id: p.employee_id,
+          teacher_name: p.employee_name,
+          amount: p.amount,
+          billing_month: p.billing_month,
+          payment_date: p.payment_date || p.created_at || new Date().toISOString().split('T')[0],
+          payment_method: p.payment_method || 'bank',
+          reference_number: p.reference_number,
+          status: p.status,
+          notes: p.notes,
+          created_at: p.created_at,
+        }));
+
+        const combined = [
+          ...payrollAsTeacherPayments,
+          ...legacyPayments.filter(
+            (lp) => !payrollAsTeacherPayments.some((pp) => pp.billing_month === lp.billing_month)
+          ),
+        ];
+
         setTeacher(tch);
-        setPayments(pList);
+        setPayments(combined);
       } catch (err) {
         console.error(err);
       } finally {

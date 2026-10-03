@@ -43,7 +43,7 @@ import {
 
 import { isFeatureEnabled } from '@/lib/utils/features';
 import { SchoolFeatureKey } from '@/lib/types';
-import { resolveUserPhoto } from '@/lib/utils/avatar';
+import { resolveUserPhoto, resolveUserName } from '@/lib/utils/avatar';
 
 interface NavItem {
   label: string;
@@ -80,6 +80,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const role = getEffectiveRole();
   const effectivePhoto = currentUser?.photo_url || resolveUserPhoto(currentUser, currentSchool);
+  const effectiveName = resolveUserName(currentUser, currentSchool);
 
   const [studentSubtitle, setStudentSubtitle] = React.useState<string | null>(null);
 
@@ -415,7 +416,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {effectivePhoto ? (
               <img
                 src={effectivePhoto}
-                alt={currentUser?.name || 'User'}
+                alt={effectiveName || 'User'}
                 className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0"
               />
             ) : (
@@ -428,7 +429,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </div>
             )}
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'User'}</p>
+              <p className="text-xs font-semibold text-white truncate">{effectiveName || 'User'}</p>
               <p className="text-[10px] text-slate-400 truncate font-mono">
                 {role === 'student'
                   ? (studentSubtitle || (currentUser?.login_id ? `Reg: ${currentUser.login_id}` : 'Student Account'))

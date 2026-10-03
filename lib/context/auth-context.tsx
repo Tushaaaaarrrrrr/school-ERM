@@ -9,7 +9,7 @@ import { UserPersona, School, AcademicYear } from '@/lib/types';
 import { INITIAL_SCHOOLS, INITIAL_ACADEMIC_YEARS } from '@/lib/services/mock-data';
 import { schoolService, academicYearService, authService, storageService, pinSecurityService, passkeyService, STORAGE_KEYS } from '@/lib/services/api';
 import { createClient } from '@/lib/supabase/client';
-import { resolveUserPhoto } from '@/lib/utils/avatar';
+import { resolveUserPhoto, resolveUserName } from '@/lib/utils/avatar';
 
 interface AuthContextType {
   currentUser: UserPersona | null;
@@ -159,6 +159,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      if (personaUser) {
+        const resolvedName = resolveUserName(personaUser, activeSchool);
+        if (resolvedName && resolvedName !== 'User') {
+          personaUser = { ...personaUser, name: resolvedName };
+        }
+      }
+
       setCurrentUser(personaUser);
       if (personaUser && typeof window !== 'undefined') {
         storageService.setItem(AUTH_STORAGE_KEY, personaUser);
@@ -244,13 +251,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             schools.find((s) => s.id === activeUser?.school_id) || schools[0] || INITIAL_SCHOOLS[0];
           setCurrentSchool(activeSchool);
 
-          if (!activeUser.photo_url && typeof window !== 'undefined') {
+          if (typeof window !== 'undefined') {
             try {
-              const resolved = resolveUserPhoto(activeUser, activeSchool);
-              if (resolved) {
-                activeUser = { ...activeUser, photo_url: resolved };
-                storageService.setItem(AUTH_STORAGE_KEY, activeUser);
+              if (!activeUser.photo_url) {
+                const resolved = resolveUserPhoto(activeUser, activeSchool);
+                if (resolved) activeUser = { ...activeUser, photo_url: resolved };
               }
+              const resolvedName = resolveUserName(activeUser, activeSchool);
+              if (resolvedName && resolvedName !== 'User' && resolvedName !== activeUser.name) {
+                activeUser = { ...activeUser, name: resolvedName };
+              }
+              storageService.setItem(AUTH_STORAGE_KEY, activeUser);
             } catch {}
           }
 
